@@ -1,0 +1,293 @@
+@model GoldManagementSystem.Models.ViewModels.ProductFormViewModel
+@using System
+@using System.Linq
+@{
+    var isEditMode = string.Equals(ViewData["ProductFormMode"] as string, "edit", StringComparison.OrdinalIgnoreCase);
+    var titleVi = isEditMode ? "Cập nhật sản phẩm" : "Thêm sản phẩm";
+    var titleEn = isEditMode ? "Update product" : "Add product";
+    var isDiamondProduct = Model.IncludesDiamondLine;
+    var backUrl = ViewBag.ProductAdminBackUrl as string ?? "/Products/AdminGold";
+    var duplicateProducts = ViewBag.DuplicateProducts as IEnumerable<GoldManagementSystem.Models.Product> ?? Enumerable.Empty<GoldManagementSystem.Models.Product>();
+    var hasDuplicateProducts = !isEditMode && duplicateProducts.Any();
+}
+
+<div class="admin-product-card">
+    <div class="admin-product-card__head">
+        <div>
+            <p class="section-heading__eyebrow" data-i18n data-i18n-vi="Quản lý sản phẩm" data-i18n-en="Product management">Quản lý sản phẩm</p>
+            <h1 data-i18n data-i18n-vi="@titleVi" data-i18n-en="@titleEn">@ViewData["Title"]</h1>
+        </div>
+        <a href="@backUrl" class="btn-solid" data-i18n data-i18n-vi="Quay lại danh sách" data-i18n-en="Back to list">Quay lại danh sách</a>
+    </div>
+
+    <div asp-validation-summary="ModelOnly" class="admin-product-form__alert"></div>
+
+    @if (hasDuplicateProducts)
+    {
+        <div class="admin-alert admin-alert--danger duplicate-product-alert">
+            <strong>Tìm thấy sản phẩm trùng tên. Hệ thống chưa tạo sản phẩm mới.</strong>
+            <p>Chọn <strong>Tạo sản phẩm mới</strong> để giữ nguyên bản ghi đang nhập, hoặc chọn một sản phẩm bên dưới để mở form cập nhật sản phẩm trùng.</p>
+            <div class="admin-action-group">
+                <button type="submit"
+                        class="admin-button admin-button--primary"
+                        name="DuplicateAction"
+                        value="CreateNew">
+                    Tạo sản phẩm mới
+                </button>
+            </div>
+            <div class="duplicate-product-alert__list">
+                @foreach (var duplicate in duplicateProducts)
+                {
+                    var duplicateBranch = duplicate.Branch?.BranchName ?? "Trụ sở chính";
+                    <div class="duplicate-product-alert__item">
+                        <div class="data-table__stack">
+                            <strong>@duplicate.Name</strong>
+                            <span>@duplicate.Category · @duplicate.GoldType · @duplicateBranch</span>
+                            <span>Mã: #@duplicate.Id · Trạng thái: @duplicate.Status</span>
+                        </div>
+                        <button type="submit"
+                                class="admin-button admin-button--secondary"
+                                name="DuplicateAction"
+                                value="UpdateExisting:@duplicate.Id">
+                            Cập nhật sản phẩm #@duplicate.Id
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="admin-product-form__grid">
+        <div class="collection-toolbar__field">
+            <label asp-for="ProductLine"></label>
+            <select asp-for="ProductLine" asp-items="ViewBag.ProductLines" data-product-line-select></select>
+            <span asp-validation-for="ProductLine" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="CatalogMode"></label>
+            <select asp-for="CatalogMode" asp-items="ViewBag.ProductCatalogModes" data-catalog-mode-select></select>
+            <span asp-validation-for="CatalogMode" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field admin-product-form__field--wide admin-product-form__line-picker"
+             data-multi-line-picker
+             @(string.Equals(Model.CatalogMode, GoldManagementSystem.Models.ProductCatalogModeOptions.Multi, StringComparison.OrdinalIgnoreCase) ? string.Empty : "hidden")>
+            <label class="admin-product-form__line-picker-label">Chọn đúng 2 thể loại hiển thị</label>
+            <div class="admin-product-form__line-picker-options">
+                @foreach (var item in ViewBag.ProductAssignedLines as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>())
+                {
+                    <label class="admin-check">
+                        <input type="checkbox"
+                               name="AssignedProductLines"
+                               value="@item.Value"
+                               @(item.Selected ? "checked" : null)
+                               data-line-assignment
+                               data-line-value="@item.Value" />
+                        <span>@item.Text</span>
+                    </label>
+                }
+            </div>
+            <span asp-validation-for="AssignedProductLines" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="Name"></label>
+            <input asp-for="Name" />
+            <span asp-validation-for="Name" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="BranchId"></label>
+            <select asp-for="BranchId" asp-items="ViewBag.ProductBranches"></select>
+            <span asp-validation-for="BranchId" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="Category"></label>
+            <select asp-for="Category" asp-items="ViewBag.ProductCategories"></select>
+            <span asp-validation-for="Category" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="GoldType"></label>
+            <select asp-for="GoldType" asp-items="ViewBag.ProductGoldTypes"></select>
+            <span asp-validation-for="GoldType" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="Weight"></label>
+            <input asp-for="Weight" type="number" min="0" step="0.1" />
+            <span asp-validation-for="Weight" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="Status"></label>
+            <select asp-for="Status" asp-items="ViewBag.ProductStatuses"></select>
+            <span asp-validation-for="Status" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="SellPrice"></label>
+            <input asp-for="SellPrice" type="number" min="0" step="1000" />
+            <span asp-validation-for="SellPrice" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="BuyPrice"></label>
+            <input asp-for="BuyPrice" type="number" min="0" step="1000" />
+            <span asp-validation-for="BuyPrice" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field admin-product-form__field--wide">
+            <label asp-for="ProcessingFee"></label>
+            <input asp-for="ProcessingFee" type="number" min="0" step="1000" />
+            <span asp-validation-for="ProcessingFee" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field admin-product-form__field--wide">
+            <label asp-for="Description"></label>
+            <textarea asp-for="Description" rows="4"></textarea>
+            <span asp-validation-for="Description" class="admin-product-form__validation"></span>
+        </div>
+    </div>
+
+    <div class="admin-product-form__images" data-diamond-fields @(isDiamondProduct ? string.Empty : "hidden")>
+        <div class="admin-product-form__images-head">
+            <div>
+                <h2 data-i18n data-i18n-vi="Thông tin kim cương" data-i18n-en="Diamond details">Thông tin kim cương</h2>
+                <p data-i18n data-i18n-vi="Bổ sung dữ liệu 4C và các thông số hiển thị trên trang kim cương." data-i18n-en="Add 4C attributes and the details shown on the diamond catalog page.">Bổ sung dữ liệu 4C và các thông số hiển thị trên trang kim cương.</p>
+            </div>
+        </div>
+
+        <div class="admin-product-form__images-grid">
+            <div class="collection-toolbar__field">
+                <label asp-for="DiamondShape"></label>
+                <select asp-for="DiamondShape" asp-items="ViewBag.ProductDiamondShapes"></select>
+                <span asp-validation-for="DiamondShape" class="admin-product-form__validation"></span>
+            </div>
+            <div class="collection-toolbar__field">
+                <label asp-for="DiamondCut"></label>
+                <select asp-for="DiamondCut" asp-items="ViewBag.ProductDiamondCuts"></select>
+            </div>
+            <div class="collection-toolbar__field">
+                <label asp-for="DiamondColor"></label>
+                <select asp-for="DiamondColor" asp-items="ViewBag.ProductDiamondColors"></select>
+            </div>
+            <div class="collection-toolbar__field">
+                <label asp-for="DiamondClarity"></label>
+                <select asp-for="DiamondClarity" asp-items="ViewBag.ProductDiamondClarities"></select>
+            </div>
+            <div class="collection-toolbar__field">
+                <label asp-for="DiamondCarat"></label>
+                <input asp-for="DiamondCarat" type="number" min="0" step="0.01" />
+                <span asp-validation-for="DiamondCarat" class="admin-product-form__validation"></span>
+            </div>
+            <div class="collection-toolbar__field">
+                <label asp-for="DiamondSize"></label>
+                <input asp-for="DiamondSize" type="number" min="0" step="0.1" />
+            </div>
+            <div class="collection-toolbar__field admin-product-form__field--wide">
+                <label asp-for="DiamondCertificate"></label>
+                <select asp-for="DiamondCertificate" asp-items="ViewBag.ProductDiamondCertificates"></select>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-product-form__images">
+        <div class="admin-product-form__images-head">
+            <div>
+                <h2 data-i18n data-i18n-vi="Ảnh sản phẩm" data-i18n-en="Product images">Ảnh sản phẩm</h2>
+                <p data-i18n data-i18n-vi="Điền từ 1 đến 3 ảnh. Card sản phẩm ngoài trang khách sẽ tự xoay lần lượt các ảnh này." data-i18n-en="Add 1 to 3 images. Customer-facing product cards will rotate through them automatically.">Điền từ 1 đến 3 ảnh. Card sản phẩm ngoài trang khách sẽ tự xoay lần lượt các ảnh này.</p>
+            </div>
+        </div>
+
+        <div class="admin-product-form__images-grid">
+            <div class="collection-toolbar__field">
+                <label asp-for="ImageUrl1"></label>
+                <input asp-for="ImageUrl1" placeholder="https://..." />
+                <span asp-validation-for="ImageUrl1" class="admin-product-form__validation"></span>
+            </div>
+
+            <div class="collection-toolbar__field">
+                <label asp-for="ImageUrl2"></label>
+                <input asp-for="ImageUrl2" placeholder="https://..." />
+                <span asp-validation-for="ImageUrl2" class="admin-product-form__validation"></span>
+            </div>
+
+            <div class="collection-toolbar__field">
+                <label asp-for="ImageUrl3"></label>
+                <input asp-for="ImageUrl3" placeholder="https://..." />
+                <span asp-validation-for="ImageUrl3" class="admin-product-form__validation"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-product-form__actions">
+        <button type="submit" class="btn-solid" data-i18n data-i18n-vi="Lưu sản phẩm" data-i18n-en="Save product">Lưu sản phẩm</button>
+        <a href="@backUrl" class="btn-solid" data-i18n data-i18n-vi="Hủy" data-i18n-en="Cancel">Hủy</a>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var lineSelect = document.querySelector('[data-product-line-select]');
+        var modeSelect = document.querySelector('[data-catalog-mode-select]');
+        var diamondSection = document.querySelector('[data-diamond-fields]');
+        var linePicker = document.querySelector('[data-multi-line-picker]');
+        var lineAssignments = Array.prototype.slice.call(document.querySelectorAll('[data-line-assignment]'));
+        if (!lineSelect || !diamondSection || !modeSelect || !linePicker) return;
+
+        var sync = function () {
+            var isMultiMode = modeSelect.value === 'Multi';
+            var selectedLines = lineAssignments.filter(function (checkbox) { return checkbox.checked; }).map(function (checkbox) { return checkbox.value; });
+            var isDiamond = lineSelect.value === 'Diamond' || selectedLines.indexOf('Diamond') >= 0;
+
+            linePicker.hidden = !isMultiMode;
+            diamondSection.hidden = !isDiamond;
+        };
+
+        lineSelect.addEventListener('change', function () {
+            if (modeSelect.value !== 'Multi') {
+                lineAssignments.forEach(function (checkbox) {
+                    checkbox.checked = checkbox.value === lineSelect.value;
+                });
+            }
+            sync();
+        });
+
+        modeSelect.addEventListener('change', function () {
+            if (modeSelect.value !== 'Multi') {
+                lineAssignments.forEach(function (checkbox) {
+                    checkbox.checked = checkbox.value === lineSelect.value;
+                });
+            } else {
+                var primaryCheckbox = lineAssignments.find(function (checkbox) { return checkbox.value === lineSelect.value; });
+                if (primaryCheckbox) {
+                    primaryCheckbox.checked = true;
+                }
+            }
+            sync();
+        });
+
+        lineAssignments.forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                if (modeSelect.value !== 'Multi') {
+                    lineAssignments.forEach(function (item) {
+                        item.checked = item === checkbox;
+                    });
+                } else {
+                    var selectedCount = lineAssignments.filter(function (item) { return item.checked; }).length;
+                    if (selectedCount > 2) {
+                        checkbox.checked = false;
+                        window.alert('Mỗi sản phẩm chỉ được chọn tối đa 2 thể loại.');
+                    }
+                }
+
+                sync();
+            });
+        });
+
+        sync();
+    })();
+</script>
