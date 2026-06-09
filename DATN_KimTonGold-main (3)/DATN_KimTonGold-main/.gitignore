@@ -1,0 +1,46 @@
+# Visual Studio and C# specific files
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+.vs/
+.vscode/
+*.csproj.user
+*.csproj.nuget.*
+project.assets.json
+
+# IDEs
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Flutter specific
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+
+# Node modules (if used)
+node_modules/
+npm-debug.log
+
+# OS specific
+.DS_Store
+Thumbs.db
+*.lnk
+desktop.ini
+
+# Log files
+*.log
+run-*.txt
+runerr.txt
+
+# Temp files
+*.tmp
