@@ -1,0 +1,88 @@
+@model IEnumerable<GoldManagementSystem.Models.Order>
+@{
+    ViewData["Title"] = "Đơn Hàng Của Tôi";
+
+    (string Vi, string En, string Modifier) GetStatusMeta(string status)
+    {
+        return status switch
+        {
+            "Hoàn thành" => ("Hoàn thành", "Completed", "success"),
+            "Đã hủy" => ("Đã hủy", "Cancelled", "danger"),
+            "Vận chuyển" => ("Vận chuyển", "Shipping", "info"),
+            "Đang xử lý" => ("Đang xử lý", "Processing", "warning"),
+            _ => (status, status, "neutral")
+        };
+    }
+}
+
+<div class="dashboard-card profile-shell">
+    <section class="profile-shell__hero">
+        <div>
+            <p class="profile-shell__eyebrow" data-i18n data-i18n-vi="Đơn hàng của tôi" data-i18n-en="My orders">Đơn hàng của tôi</p>
+            <h1 data-i18n data-i18n-vi="Lịch sử mua hàng" data-i18n-en="Order history">Lịch sử mua hàng</h1>
+            <p data-i18n data-i18n-vi="Xem lại các giao dịch gần đây, tình trạng xử lý và tổng giá trị đơn hàng đã đặt." data-i18n-en="Review your recent purchases, processing status, and total order value.">Xem lại các giao dịch gần đây, tình trạng xử lý và tổng giá trị đơn hàng đã đặt.</p>
+        </div>
+    </section>
+
+    @if (!Model.Any())
+    {
+        <div class="empty-state-card">
+            <h3 data-i18n data-i18n-vi="Bạn chưa có đơn hàng nào" data-i18n-en="You do not have any orders yet">Bạn chưa có đơn hàng nào</h3>
+            <p data-i18n data-i18n-vi="Khám phá thêm sản phẩm để tạo đơn đầu tiên của bạn." data-i18n-en="Explore more products to place your first order.">Khám phá thêm sản phẩm để tạo đơn đầu tiên của bạn.</p>
+            <a href="/Products" class="admin-button admin-button--primary" data-i18n data-i18n-vi="Mua sắm ngay" data-i18n-en="Shop now">Mua sắm ngay</a>
+        </div>
+    }
+    else
+    {
+        <div class="order-history">
+            @foreach (var order in Model)
+            {
+                var status = GetStatusMeta(order.Status);
+                <article class="order-card">
+                    <header class="order-card__header">
+                        <div>
+                            <strong>#@order.OrderNumber</strong>
+                            <span>@order.OrderDate.ToString("dd/MM/yyyy HH:mm")</span>
+                        </div>
+                        <span class="status-chip status-chip--@status.Modifier"
+                              data-i18n
+                              data-i18n-vi="@status.Vi"
+                              data-i18n-en="@status.En">
+                            @status.Vi
+                        </span>
+                    </header>
+
+                    <div class="order-card__items">
+                        @foreach (var item in order.OrderDetails)
+                        {
+                            <div class="order-card__item">
+                                <div class="order-card__product">
+                                    @if (!string.IsNullOrEmpty(item.Product?.ImagesUrl))
+                                    {
+                                        <img src="@item.Product.ImagesUrl.Split(';').First()" alt="@item.Product?.Name" />
+                                    }
+                                    else
+                                    {
+                                        <div class="order-card__image-placeholder">No image</div>
+                                    }
+
+                                    <div>
+                                        <a href="/Products/Details/@item.ProductId">@item.Product?.Name</a>
+                                        <span data-i18n data-i18n-vi="Số lượng: @item.Quantity" data-i18n-en="Qty: @item.Quantity">Số lượng: @item.Quantity</span>
+                                    </div>
+                                </div>
+
+                                <strong>@item.UnitPrice.ToString("N0") ₫</strong>
+                            </div>
+                        }
+                    </div>
+
+                    <footer class="order-card__footer">
+                        <span data-i18n data-i18n-vi="Tổng cộng" data-i18n-en="Total">Tổng cộng</span>
+                        <strong>@order.TotalAmount.ToString("N0") ₫</strong>
+                    </footer>
+                </article>
+            }
+        </div>
+    }
+</div>
