@@ -38,7 +38,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         [HttpGet]
-        public IActionResult Login()
+        public IActionResult Login(string returnUrl = null)
         {
             if (Request.Query.TryGetValue("accountLocked", out var lockedFlag)
                 && string.Equals(lockedFlag, "1", StringComparison.Ordinal))
@@ -48,7 +48,8 @@ namespace GoldManagementSystem.Controllers
 
             return View(new LoginViewModel
             {
-                VerificationChannel = VerificationChannelOptions.Phone
+                VerificationChannel = VerificationChannelOptions.Phone,
+                ReturnUrl = returnUrl
             });
         }
 
@@ -94,6 +95,11 @@ namespace GoldManagementSystem.Controllers
                 var userRoles = await _userManager.GetRolesAsync(user);
                 var usePersistentCookie = model.RememberMe || RoleCatalog.IsPrivilegedPersistentRole(userRoles);
                 await _signInManager.SignInAsync(user, usePersistentCookie);
+
+                if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+                {
+                    return Redirect(model.ReturnUrl);
+                }
                 return RedirectToAction("Index", "Home");
             }
 
@@ -398,6 +404,10 @@ namespace GoldManagementSystem.Controllers
             await _notificationService.SendLoginNotificationAsync(verification.Destination, user.FullName);
             _pendingVerificationService.RemoveLoginVerification(model.VerificationFlowId);
 
+            if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+            {
+                return Redirect(model.ReturnUrl);
+            }
             return RedirectToAction("Index", "Home");
         }
 
@@ -591,7 +601,8 @@ namespace GoldManagementSystem.Controllers
                 VerificationCode = source?.VerificationCode,
                 VerificationChannel = verification?.VerificationChannel ?? source?.VerificationChannel,
                 VerificationDestinationDisplay = MaskDestination(destination, verification?.VerificationChannel ?? source?.VerificationChannel),
-                VerificationExpiresAt = verification?.ExpiresAt
+                VerificationExpiresAt = verification?.ExpiresAt,
+                ReturnUrl = source?.ReturnUrl
             };
         }
 

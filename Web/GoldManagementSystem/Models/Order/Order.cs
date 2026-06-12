@@ -7,6 +7,18 @@ namespace GoldManagementSystem.Models
 {
     public class Order
     {
+        public const string StatusAwaitingDepositPayment = "Chờ thanh toán cọc";
+        public const string StatusUnpaidDeposit = "Chưa thanh toán cọc";
+        public const string StatusPendingConfirmation = "Chờ xác nhận";
+        public const string StatusConfirmed = "Đã xác nhận";
+        public const string StatusProcessing = "Đang xử lý";
+        public const string StatusShipping = "Vận chuyển";
+        public const string StatusCompleted = "Hoàn thành";
+        public const string StatusCancelled = "Đã hủy";
+
+        public const string PaymentMethodOnlineDeposit = "OnlineDeposit";
+        public const string PaymentMethodCashDeposit = "CashDeposit";
+
         [Key]
         public int Id { get; set; }
 
@@ -28,10 +40,28 @@ namespace GoldManagementSystem.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DepositAmount { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal DepositRate { get; set; } = 10m;
+
+        [StringLength(30)]
+        public string PaymentMethod { get; set; } = PaymentMethodOnlineDeposit;
+
         [StringLength(50)]
-        public string Status { get; set; } = "Hoàn thành"; // Hoàn thành, Hủy
+        public string Status { get; set; } = StatusPendingConfirmation;
 
         public DateTime OrderDate { get; set; } = DateTime.UtcNow;
+
+        public DateTime? DepositDueAt { get; set; }
+
+        public DateTime? DepositPaidAt { get; set; }
+
+        public DateTime? ConfirmedAt { get; set; }
+
+        [StringLength(500)]
+        public string CancelReason { get; set; }
 
         public virtual ICollection<OrderDetail> OrderDetails { get; set; }
     }

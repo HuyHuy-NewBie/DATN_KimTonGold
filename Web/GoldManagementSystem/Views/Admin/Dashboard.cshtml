@@ -9,10 +9,14 @@
     {
         return status switch
         {
-            "Hoàn thành" => ("Hoàn thành", "Completed", "success"),
-            "Đã hủy" => ("Đã hủy", "Cancelled", "danger"),
-            "Vận chuyển" => ("Vận chuyển", "Shipping", "info"),
-            "Đang xử lý" => ("Đang xử lý", "Processing", "warning"),
+            Order.StatusAwaitingDepositPayment => ("Chờ thanh toán cọc", "Awaiting deposit", "warning"),
+            Order.StatusUnpaidDeposit => ("Chưa thanh toán cọc", "Deposit unpaid", "neutral"),
+            Order.StatusPendingConfirmation => ("Chờ xác nhận", "Pending confirmation", "info"),
+            Order.StatusConfirmed => ("Đã xác nhận", "Confirmed", "success"),
+            Order.StatusCompleted => ("Hoàn thành", "Completed", "success"),
+            Order.StatusCancelled => ("Đã hủy", "Cancelled", "danger"),
+            Order.StatusShipping => ("Vận chuyển", "Shipping", "info"),
+            Order.StatusProcessing => ("Đang xử lý", "Processing", "warning"),
             _ => (status, status, "neutral")
         };
     }

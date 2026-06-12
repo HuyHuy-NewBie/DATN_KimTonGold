@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Net;
 using System.Net.Mail;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
+using GoldManagementSystem.Hubs;
 
 namespace GoldManagementSystem.Services
 {
@@ -16,15 +18,18 @@ namespace GoldManagementSystem.Services
         private readonly NotificationOptions _options;
         private readonly ILogger<AuthNotificationService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
         public AuthNotificationService(
             IOptions<NotificationOptions> options,
             ILogger<AuthNotificationService> logger,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            IHubContext<NotificationHub> hubContext)
         {
             _options = options.Value ?? new NotificationOptions();
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _hubContext = hubContext;
         }
 
         public async Task SendLoginNotificationAsync(string emailOrPhone, string userFullName)
@@ -97,6 +102,95 @@ namespace GoldManagementSystem.Services
         {
             string message = $"{userFullName}, số điện thoại này đã được liên kết thành công với tài khoản GoldSys.";
             await SendNotificationAsync("[XÁC NHẬN SỐ ĐIỆN THOẠI MỚI]", "So dien thoai moi da duoc xac nhan", ConsoleColor.DarkGreen, newPhoneNumber, message);
+        }
+
+        public async Task SendOrderPendingConfirmationNotificationAsync(string emailOrPhone, string userFullName, GoldManagementSystem.Models.Order order)
+        {
+            string message = $"Kính chào {userFullName}, đơn hàng #{order.OrderNumber} của khách hàng {order.CustomerName} đang chờ xác nhận (Tổng tiền: {order.TotalAmount:N0} ₫). Vui lòng kiểm tra và phê duyệt.";
+            await SendNotificationAsync("[XÁC NHẬN ĐƠN HÀNG MỚI]", "Don hang cho xac nhan GoldSys", ConsoleColor.DarkYellow, emailOrPhone, message);
+
+            // SignalR push for staff/admin
+            try
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveOrderNotification", new
+                {
+                    orderId = order.Id,
+                    orderNumber = order.OrderNumber,
+                    customerName = order.CustomerName,
+                    totalAmount = order.TotalAmount,
+                    time = DateTime.UtcNow.ToLocalTime().ToString("HH:mm dd/MM/yyyy")
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra khi truyền phát SignalR Real-time Notification.");
+            }
+        }
+
+        public async Task SendOrderConfirmedNotificationAsync(string emailOrPhone, string customerName, string orderNumber)
+        {
+            string message = $"Kính chào {customerName}, đơn hàng #{orderNumber} của bạn đã được xác nhận thành công. Chúng tôi sẽ sớm liên hệ để giao hàng/xử lý.";
+            await SendNotificationAsync("[ĐƠN HÀNG ĐÃ XÁC NHẬN]", "Don hang da xac nhan GoldSys", ConsoleColor.Green, emailOrPhone, message);
+
+            // SignalR push for customer
+            try
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveOrderConfirmedNotification", new
+                {
+                    orderNumber = orderNumber,
+                    customerName = customerName,
+                    message = message,
+                    time = DateTime.UtcNow.ToLocalTime().ToString("HH:mm dd/MM/yyyy")
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra khi truyền phát SignalR Confirm Notification.");
+            }
+        }
+
+        public async Task SendOrderCancelledDueToNoDepositNotificationAsync(string emailOrPhone, string customerName, string orderNumber)
+        {
+            string message = $"Kính chào {customerName}, đơn hàng #{orderNumber} của bạn đã bị hủy tự động do chưa nhận được thanh toán cọc trong thời gian quy định (1 giờ 30 phút).";
+            await SendNotificationAsync("[ĐƠN HÀNG BỊ HỦY]", "Don hang bi huy GoldSys", ConsoleColor.Red, emailOrPhone, message);
+
+            // SignalR push for customer
+            try
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveOrderCancelledNotification", new
+                {
+                    orderNumber = orderNumber,
+                    customerName = customerName,
+                    message = message,
+                    time = DateTime.UtcNow.ToLocalTime().ToString("HH:mm dd/MM/yyyy")
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra khi truyền phát SignalR Cancel Notification.");
+            }
+        }
+
+        public async Task SendOrderRejectedNotificationAsync(string emailOrPhone, string customerName, string orderNumber, string reason)
+        {
+            string message = $"Kính chào {customerName}, đơn hàng #{orderNumber} của bạn đã bị từ chối/hủy bỏ. Lý do: {reason ?? "Không đạt yêu cầu xác thực cọc"}.";
+            await SendNotificationAsync("[ĐƠN HÀNG BỊ TỪ CHỐI]", "Don hang bi tu choi GoldSys", ConsoleColor.Red, emailOrPhone, message);
+
+            // SignalR push for customer
+            try
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveOrderRejectedNotification", new
+                {
+                    orderNumber = orderNumber,
+                    customerName = customerName,
+                    message = message,
+                    time = DateTime.UtcNow.ToLocalTime().ToString("HH:mm dd/MM/yyyy")
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra khi truyền phát SignalR Reject Notification.");
+            }
         }
 
         private async Task SendNotificationAsync(string title, string subject, ConsoleColor backgroundColor, string destination, string message)

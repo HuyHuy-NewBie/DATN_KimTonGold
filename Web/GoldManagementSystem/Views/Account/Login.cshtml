@@ -67,6 +67,7 @@
 
                 <form asp-action="VerifyLogin" method="post">
                     <input asp-for="VerificationFlowId" type="hidden" />
+                    <input asp-for="ReturnUrl" type="hidden" />
                     <div class="space-y-4">
                         <div>
                             <label asp-for="VerificationCode" class="block text-sm font-medium text-slate-700 mb-1">Mã xác nhận</label>
@@ -106,6 +107,7 @@
             {
                 <form asp-action="Login" method="post">
                     <input asp-for="VerificationChannel" type="hidden" value="phone" />
+                    <input asp-for="ReturnUrl" type="hidden" />
                     <div class="space-y-5">
                         <div>
                             <label asp-for="Identifier" class="block text-sm font-medium text-slate-700 mb-1" data-i18n data-i18n-vi="Gmail hoặc Số Điện Thoại" data-i18n-en="Email or phone number">Gmail hoặc Số Điện Thoại</label>

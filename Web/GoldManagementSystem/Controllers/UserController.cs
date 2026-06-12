@@ -486,6 +486,8 @@ namespace GoldManagementSystem.Controllers
         // 2. Đơn hàng của tôi
         public async Task<IActionResult> Orders()
         {
+            await CancelExpiredDepositOrdersAsync();
+
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
 
@@ -566,6 +568,373 @@ namespace GoldManagementSystem.Controllers
                 TempData["SuccessMessage"] = "Đã thêm sản phẩm vào danh sách yêu thích.";
                 return redirectResult;
             }
+        }
+
+        // 4. Đặt hàng (Checkout)
+        [HttpGet]
+        public async Task<IActionResult> Checkout(int id)
+        {
+            await CancelExpiredDepositOrdersAsync();
+
+            var product = await _context.Products
+                .Include(p => p.Branch)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            if (product.Status == "Hết hàng" || product.Status == "Đã bán")
+            {
+                TempData["ErrorMessage"] = "Sản phẩm này hiện tại không khả dụng để đặt hàng.";
+                return RedirectToAction("Details", "Products", new { id = id });
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            var hasUnpaidDepositOrder = await _context.Orders.AnyAsync(o =>
+                o.UserId == user.Id &&
+                (o.Status == Order.StatusAwaitingDepositPayment || o.Status == Order.StatusUnpaidDeposit));
+
+            if (hasUnpaidDepositOrder)
+            {
+                TempData["ErrorMessage"] = "Bạn không thể đặt đơn hàng mới khi có đơn hàng trước đó chưa thanh toán cọc.";
+                return RedirectToAction(nameof(Orders));
+            }
+
+            await PopulateCheckoutLookupsAsync(product, user);
+            ViewBag.CustomerName = user.FullName;
+            ViewBag.CustomerPhone = user.PhoneNumber;
+            ViewBag.MainQuantity = 1;
+            ViewBag.PaymentMethod = null;
+
+            return View(product);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PlaceOrder(
+            int productId,
+            string customerName,
+            string customerPhone,
+            int branchId,
+            int mainQuantity,
+            int[] extraProductIds,
+            string paymentMethod)
+        {
+            await CancelExpiredDepositOrdersAsync();
+
+            var product = await _context.Products
+                .Include(p => p.Branch)
+                .FirstOrDefaultAsync(p => p.Id == productId);
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            if (product.Status == "Hết hàng" || product.Status == "Đã bán")
+            {
+                TempData["ErrorMessage"] = "Sản phẩm này đã được bán hoặc không còn hàng.";
+                return RedirectToAction("Details", "Products", new { id = productId });
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            var hasUnpaidDepositOrder = await _context.Orders.AnyAsync(o =>
+                o.UserId == user.Id &&
+                (o.Status == Order.StatusAwaitingDepositPayment || o.Status == Order.StatusUnpaidDeposit));
+
+            if (hasUnpaidDepositOrder)
+            {
+                TempData["ErrorMessage"] = "Bạn không thể tạo đơn hàng mới khi có đơn hàng trước đó chưa thanh toán cọc.";
+                return RedirectToAction(nameof(Orders));
+            }
+
+            if (string.IsNullOrWhiteSpace(customerName))
+            {
+                ModelState.AddModelError(nameof(customerName), "Vui lòng nhập tên người nhận.");
+            }
+            if (string.IsNullOrWhiteSpace(customerPhone))
+            {
+                ModelState.AddModelError(nameof(customerPhone), "Vui lòng nhập số điện thoại người nhận.");
+            }
+            if (mainQuantity <= 0)
+            {
+                ModelState.AddModelError(nameof(mainQuantity), "Số lượng sản phẩm chính phải lớn hơn 0.");
+            }
+            if (!string.Equals(paymentMethod, Order.PaymentMethodOnlineDeposit, StringComparison.Ordinal)
+                && !string.Equals(paymentMethod, Order.PaymentMethodCashDeposit, StringComparison.Ordinal))
+            {
+                ModelState.AddModelError(nameof(paymentMethod), "Vui lòng chọn hình thức thanh toán cọc.");
+            }
+
+            var selectedExtraProductIds = (extraProductIds ?? Array.Empty<int>())
+                .Where(id => id != productId)
+                .Distinct()
+                .ToList();
+
+            var extraProducts = selectedExtraProductIds.Count == 0
+                ? new List<Product>()
+                : await _context.Products
+                    .Where(item => selectedExtraProductIds.Contains(item.Id))
+                    .ToListAsync();
+
+            if (extraProducts.Count != selectedExtraProductIds.Count)
+            {
+                ModelState.AddModelError(nameof(extraProductIds), "Một số sản phẩm chọn thêm không còn tồn tại.");
+            }
+
+            foreach (var extraProduct in extraProducts)
+            {
+                if (extraProduct.Status == "Hết hàng" || extraProduct.Status == "Đã bán")
+                {
+                    ModelState.AddModelError(nameof(extraProductIds), $"Sản phẩm {extraProduct.Name} không còn khả dụng để đặt hàng.");
+                }
+            }
+
+            var branch = await _context.Branches.FirstOrDefaultAsync(item => item.Id == branchId && item.IsActive);
+            if (branch == null)
+            {
+                ModelState.AddModelError(nameof(branchId), "Vui lòng chọn chi nhánh đang hoạt động.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                await PopulateCheckoutLookupsAsync(product, user, selectedExtraProductIds);
+                ViewBag.CustomerName = customerName;
+                ViewBag.CustomerPhone = customerPhone;
+                ViewBag.MainQuantity = mainQuantity <= 0 ? 1 : mainQuantity;
+                ViewBag.PaymentMethod = paymentMethod;
+                return View("Checkout", product);
+            }
+
+            var depositRate = 10m;
+            var orderProducts = new List<(Product Product, int Quantity)>
+            {
+                (product, mainQuantity)
+            };
+            orderProducts.AddRange(extraProducts.Select(item => (item, 1)));
+            var totalAmount = orderProducts.Sum(item => item.Product.SellPrice * item.Quantity);
+            var depositAmount = Math.Round(totalAmount * depositRate / 100m, 0);
+            var now = DateTime.UtcNow;
+
+            var order = new Order
+            {
+                UserId = user.Id,
+                BranchId = branchId,
+                CustomerName = customerName.Trim(),
+                CustomerPhone = customerPhone.Trim(),
+                TotalAmount = totalAmount,
+                DepositAmount = depositAmount,
+                DepositRate = depositRate,
+                PaymentMethod = paymentMethod,
+                Status = string.Equals(paymentMethod, Order.PaymentMethodOnlineDeposit, StringComparison.Ordinal)
+                    ? Order.StatusAwaitingDepositPayment
+                    : Order.StatusUnpaidDeposit,
+                OrderDate = now,
+                DepositDueAt = now.AddMinutes(90)
+            };
+
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+
+            foreach (var item in orderProducts)
+            {
+                _context.OrderDetails.Add(new OrderDetail
+                {
+                    OrderId = order.Id,
+                    ProductId = item.Product.Id,
+                    UnitPrice = item.Product.SellPrice,
+                    Quantity = item.Quantity
+                });
+                item.Product.Status = "Đã bán";
+                _context.Products.Update(item.Product);
+            }
+
+            await _context.SaveChangesAsync();
+
+            if (string.Equals(paymentMethod, Order.PaymentMethodCashDeposit, StringComparison.Ordinal))
+            {
+                TempData["SuccessMessage"] = $"Đã tạo đơn #{order.OrderNumber}. Vui lòng liên hệ trực tiếp chi nhánh {branch.BranchName} gần nhất để đặt cọc tiền mặt trong 1 giờ 30 phút.";
+                return RedirectToAction(nameof(Orders));
+            }
+
+            TempData["SuccessMessage"] = $"Đã tạo đơn #{order.OrderNumber}. Vui lòng thanh toán cọc {depositAmount:N0} ₫ trong 1 giờ 30 phút để đơn chuyển sang chờ xác nhận.";
+            return RedirectToAction(nameof(DepositPayment), new { id = order.Id });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> DepositPayment(int id)
+        {
+            await CancelExpiredDepositOrdersAsync();
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            var order = await _context.Orders
+                .Include(item => item.Branch)
+                .Include(item => item.OrderDetails)
+                    .ThenInclude(detail => detail.Product)
+                .FirstOrDefaultAsync(item => item.Id == id && item.UserId == user.Id);
+
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            return View(order);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ConfirmDepositPayment(int orderId)
+        {
+            await CancelExpiredDepositOrdersAsync();
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            var order = await _context.Orders.FirstOrDefaultAsync(item => item.Id == orderId && item.UserId == user.Id);
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            if (order.Status != Order.StatusAwaitingDepositPayment)
+            {
+                TempData["ErrorMessage"] = "Đơn hàng này không còn ở trạng thái chờ thanh toán cọc online.";
+                return RedirectToAction(nameof(Orders));
+            }
+
+            order.Status = Order.StatusPendingConfirmation;
+            order.DepositPaidAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            // Notify authorized roles
+            await NotifyAuthorizedStaffForPendingOrderAsync(order);
+
+            TempData["SuccessMessage"] = $"Đã ghi nhận thanh toán cọc cho đơn #{order.OrderNumber}. Đơn hàng đang chờ nhân sự có thẩm quyền xác nhận.";
+            return RedirectToAction(nameof(Orders));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CancelOrder(int id)
+        {
+            await CancelExpiredDepositOrdersAsync();
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            var order = await _context.Orders
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Product)
+                .FirstOrDefaultAsync(o => o.Id == id && o.UserId == user.Id);
+
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            if (order.Status != Order.StatusAwaitingDepositPayment && order.Status != Order.StatusUnpaidDeposit)
+            {
+                TempData["ErrorMessage"] = "Đơn hàng này không thể hủy vì đã hoàn tất hoặc đang xử lý đặt cọc.";
+                return RedirectToAction(nameof(Orders));
+            }
+
+            order.Status = Order.StatusCancelled;
+            order.CancelReason = "Khách hàng chủ động hủy đơn hàng.";
+
+            foreach (var detail in order.OrderDetails ?? Enumerable.Empty<OrderDetail>())
+            {
+                if (detail.Product != null && detail.Product.Status == "Đã bán")
+                {
+                    detail.Product.Status = "Còn hàng";
+                    _context.Products.Update(detail.Product);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Đã hủy đơn hàng #{order.OrderNumber} thành công.";
+            return RedirectToAction(nameof(Orders));
+        }
+
+        private async Task PopulateCheckoutLookupsAsync(Product product, AppUser user, IEnumerable<int> selectedExtraProductIds = null)
+        {
+            ViewBag.ActiveBranches = await _context.Branches
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.BranchName)
+                .ToListAsync();
+
+            var selectedIds = new HashSet<int>(selectedExtraProductIds ?? Array.Empty<int>());
+            ViewBag.SelectedExtraProductIds = selectedIds;
+            ViewBag.AddOnProducts = await _context.Products
+                .Where(item => item.Id != product.Id
+                    && item.BranchId == product.BranchId
+                    && item.Status != "Hết hàng"
+                    && item.Status != "Đã bán")
+                .OrderBy(item => item.Name)
+                .Take(12)
+                .ToListAsync();
+        }
+
+        private async Task CancelExpiredDepositOrdersAsync()
+        {
+            var now = DateTime.UtcNow;
+            var expiredOrders = await _context.Orders
+                .Include(order => order.OrderDetails)
+                    .ThenInclude(detail => detail.Product)
+                .Where(order =>
+                    (order.Status == Order.StatusAwaitingDepositPayment || order.Status == Order.StatusUnpaidDeposit)
+                    && order.DepositDueAt.HasValue
+                    && order.DepositDueAt.Value <= now)
+                .ToListAsync();
+
+            if (expiredOrders.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var order in expiredOrders)
+            {
+                order.Status = Order.StatusCancelled;
+                order.CancelReason = "Đơn hàng tự hủy vì khách chưa thanh toán cọc trong 1 giờ 30 phút.";
+
+                foreach (var detail in order.OrderDetails ?? Enumerable.Empty<OrderDetail>())
+                {
+                    if (detail.Product != null && detail.Product.Status == "Đã bán")
+                    {
+                        detail.Product.Status = "Còn hàng";
+                    }
+                }
+
+                // Notify customer of auto-cancellation
+                try
+                {
+                    var customer = await _userManager.FindByIdAsync(order.UserId);
+                    var destination = customer != null && !string.IsNullOrWhiteSpace(customer.Email)
+                        ? customer.Email
+                        : order.CustomerPhone;
+
+                    if (!string.IsNullOrWhiteSpace(destination))
+                    {
+                        await _notificationService.SendOrderCancelledDueToNoDepositNotificationAsync(
+                            destination,
+                            order.CustomerName ?? customer?.FullName ?? "Quý khách",
+                            order.OrderNumber);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ignore exceptions to avoid breaking background loops
+                }
+            }
+
+            await _context.SaveChangesAsync();
         }
 
         private async Task<UserProfileViewModel> BuildProfileViewModelAsync(AppUser user, UserProfileViewModel sourceModel = null)
@@ -748,6 +1117,41 @@ namespace GoldManagementSystem.Controllers
             public bool IsLockedOut { get; set; }
             public int RemainingAttempts { get; set; }
             public DateTimeOffset LockedUntil { get; set; }
+        }
+
+        private async Task NotifyAuthorizedStaffForPendingOrderAsync(Order order)
+        {
+            try
+            {
+                var admins = await _userManager.GetUsersInRoleAsync(RoleCatalog.Admin);
+                var owners = await _userManager.GetUsersInRoleAsync(RoleCatalog.BranchOwner);
+                var managers = await _userManager.GetUsersInRoleAsync(RoleCatalog.Manager);
+                var staff = await _userManager.GetUsersInRoleAsync(RoleCatalog.Staff);
+
+                var targetUsers = new List<AppUser>();
+                targetUsers.AddRange(admins);
+                targetUsers.AddRange(owners.Where(u => u.BranchId == order.BranchId));
+                targetUsers.AddRange(managers.Where(u => u.BranchId == order.BranchId));
+                if (order.TotalAmount <= 50_000_000m)
+                {
+                    targetUsers.AddRange(staff.Where(u => u.BranchId == order.BranchId));
+                }
+
+                var uniqueUsers = targetUsers.GroupBy(u => u.Id).Select(g => g.First()).ToList();
+
+                foreach (var u in uniqueUsers)
+                {
+                    var destination = !string.IsNullOrWhiteSpace(u.Email) ? u.Email : u.PhoneNumber;
+                    if (!string.IsNullOrWhiteSpace(destination))
+                    {
+                        await _notificationService.SendOrderPendingConfirmationNotificationAsync(destination, u.FullName, order);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Ignore errors to prevent request failures
+            }
         }
     }
 }

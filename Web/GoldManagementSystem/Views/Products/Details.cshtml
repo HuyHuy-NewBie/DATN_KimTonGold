@@ -18,13 +18,21 @@
     var branchName = Model.Branch?.BranchName ?? "Trụ sở chính";
     var branchNameEn = Model.Branch?.BranchName ?? "Head office";
     var orderNowLink = User.Identity?.IsAuthenticated == true
-        ? $"/User/Orders"
-        : "/Account/Login";
+        ? $"/User/Checkout/{Model.Id}"
+        : $"/Account/Login?returnUrl=/User/Checkout/{Model.Id}";
     var isDiamond = Model.IsDiamondProduct || (!string.IsNullOrWhiteSpace(Model.DiamondShape) && Model.DiamondCarat.HasValue);
 }
 
 <section class="details-shell">
     <div class="details-shell__inner">
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--danger" style="margin-bottom: 1.5rem;">@TempData["ErrorMessage"]</div>
+        }
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--success" style="margin-bottom: 1.5rem;">@TempData["SuccessMessage"]</div>
+        }
         <div class="details-grid">
             <div class="details-gallery">
                 <div class="details-gallery__main">
@@ -89,13 +97,29 @@
                             Đăng nhập để lưu
                         </a>
                     }
-                    <a href="@orderNowLink"
-                       class="btn-solid details-main__action-item"
-                       data-i18n
-                       data-i18n-vi="Đặt ngay"
-                       data-i18n-en="Order now">
-                        Đặt ngay
-                    </a>
+                    @if (Model.Status == "Hết hàng" || Model.Status == "Đã bán")
+                    {
+                        <button class="btn-solid details-main__action-item" style="background: var(--brand-muted, #777); cursor: not-allowed; opacity: 0.65; pointer-events: none;" disabled>
+                            @if (Model.Status == "Hết hàng")
+                            {
+                                <span data-i18n data-i18n-vi="Hết hàng" data-i18n-en="Out of stock">Hết hàng</span>
+                            }
+                            else
+                            {
+                                <span data-i18n data-i18n-vi="Đã bán" data-i18n-en="Sold">Đã bán</span>
+                            }
+                        </button>
+                    }
+                    else
+                    {
+                        <a href="@orderNowLink"
+                           class="btn-solid details-main__action-item"
+                           data-i18n
+                           data-i18n-vi="Đặt ngay"
+                           data-i18n-en="Order now">
+                            Đặt ngay
+                        </a>
+                    }
                 </div>
 
                 <div class="details-specs">

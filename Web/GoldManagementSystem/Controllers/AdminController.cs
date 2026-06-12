@@ -14,21 +14,24 @@ using System.Threading.Tasks;
 
 namespace GoldManagementSystem.Controllers
 {
-    [Authorize(Roles = "Admin,Manager,Branch Owner")]
+    [Authorize(Roles = "Admin,Manager,Branch Owner,Staff")]
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<AppUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly AuthNotificationService _notificationService;
 
-        public AdminController(ApplicationDbContext context, UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager)
+        public AdminController(ApplicationDbContext context, UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager, AuthNotificationService notificationService)
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
+            _notificationService = notificationService;
         }
 
         // 1. Dashboard Quản lý
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> Dashboard()
         {
             var totalOrders = await _context.Orders.CountAsync();
@@ -54,6 +57,7 @@ namespace GoldManagementSystem.Controllers
             return View();
         }
 
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> BranchManagement()
         {
             return View(await BuildBranchManagementViewModelAsync());
@@ -61,6 +65,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> CreateBranch(BranchManagementViewModel model)
         {
             model.BranchName = NormalizeOrEmpty(model.BranchName);
@@ -110,6 +115,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> ToggleBranchStatus(int branchId)
         {
             var branch = await _context.Branches.FindAsync(branchId);
@@ -128,6 +134,7 @@ namespace GoldManagementSystem.Controllers
             return RedirectToAction(nameof(BranchManagement));
         }
 
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> BranchTeam(int branchId)
         {
             var actor = await GetCurrentActorAsync();
@@ -148,6 +155,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> AddExistingMember(int branchId, BranchTeamViewModel model)
         {
             var actor = await GetCurrentActorAsync();
@@ -198,6 +206,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> CreateBranchMember(int branchId, BranchTeamViewModel model)
         {
             model.NewMemberFullName = NormalizeOrEmpty(model.NewMemberFullName);
@@ -268,6 +277,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> RemoveBranchMember(int branchId, string userId)
         {
             var actor = await GetCurrentActorAsync();
@@ -319,29 +329,152 @@ namespace GoldManagementSystem.Controllers
         // 2. Quản lý Đơn hàng
         public async Task<IActionResult> OrderManagement()
         {
+            await CancelExpiredDepositOrdersAsync();
+            var actor = await GetCurrentActorAsync();
             var orders = await _context.Orders
                 .Include(o => o.User)
                 .Include(o => o.Branch)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Product)
                 .OrderByDescending(o => o.OrderDate)
                 .ToListAsync();
 
+            ViewBag.PendingConfirmationCount = orders.Count(order =>
+                order.Status == Order.StatusPendingConfirmation && CanConfirmOrder(actor, order));
+            ViewBag.ActorRoles = actor.Roles;
             return View(orders);
         }
 
         [HttpPost]
-        public async Task<IActionResult> UpdateOrderStatus(int orderId, string newStatus)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateOrderStatus(int orderId, string newStatus, string cancelReason = null)
         {
-            var order = await _context.Orders.FindAsync(orderId);
+            await CancelExpiredDepositOrdersAsync();
+
+            var order = await _context.Orders
+                .Include(item => item.OrderDetails)
+                    .ThenInclude(detail => detail.Product)
+                .FirstOrDefaultAsync(item => item.Id == orderId);
             if (order == null) return NotFound();
 
+            var actor = await GetCurrentActorAsync();
+            var allowedStatuses = new[]
+            {
+                Order.StatusPendingConfirmation, // Allow manual cash deposit confirmation
+                Order.StatusConfirmed,
+                Order.StatusProcessing,
+                Order.StatusShipping,
+                Order.StatusCompleted,
+                Order.StatusCancelled
+            };
+
+            if (!allowedStatuses.Contains(newStatus))
+            {
+                TempData["ErrorMessage"] = "Trạng thái đơn hàng không hợp lệ.";
+                return RedirectToAction(nameof(OrderManagement));
+            }
+
+            if (newStatus == Order.StatusPendingConfirmation)
+            {
+                if (order.Status != Order.StatusUnpaidDeposit && order.Status != Order.StatusAwaitingDepositPayment)
+                {
+                    TempData["ErrorMessage"] = "Chỉ đơn hàng chưa thanh toán cọc mới có thể xác nhận đã nhận cọc.";
+                    return RedirectToAction(nameof(OrderManagement));
+                }
+            }
+
+            if (newStatus == Order.StatusConfirmed && !CanConfirmOrder(actor, order))
+            {
+                TempData["ErrorMessage"] = order.TotalAmount > 50_000_000m
+                    ? "Đơn trên 50 triệu chỉ quản lí hoặc admin được xác nhận."
+                    : "Bạn không có quyền xác nhận đơn hàng này.";
+                return RedirectToAction(nameof(OrderManagement));
+            }
+
+            if (newStatus == Order.StatusConfirmed && order.Status != Order.StatusPendingConfirmation)
+            {
+                TempData["ErrorMessage"] = "Chỉ đơn đã thanh toán cọc và đang chờ xác nhận mới được xác nhận.";
+                return RedirectToAction(nameof(OrderManagement));
+            }
+
             order.Status = newStatus;
+            if (newStatus == Order.StatusPendingConfirmation)
+            {
+                order.DepositPaidAt = DateTime.UtcNow;
+            }
+
+            if (newStatus == Order.StatusConfirmed)
+            {
+                order.ConfirmedAt = DateTime.UtcNow;
+            }
+
+            if (newStatus == Order.StatusCancelled)
+            {
+                order.CancelReason = !string.IsNullOrWhiteSpace(cancelReason) 
+                    ? cancelReason.Trim() 
+                    : "Đơn hàng bị hủy bởi nhân sự xử lý.";
+                RestoreProductsForCancelledOrder(order);
+            }
+
             await _context.SaveChangesAsync();
+
+            // Trigger notifications
+            if (newStatus == Order.StatusPendingConfirmation)
+            {
+                await NotifyAuthorizedStaffForPendingOrderAsync(order);
+            }
+            else if (newStatus == Order.StatusConfirmed)
+            {
+                try
+                {
+                    var customer = await _userManager.FindByIdAsync(order.UserId);
+                    var destination = customer != null && !string.IsNullOrWhiteSpace(customer.Email)
+                        ? customer.Email
+                        : order.CustomerPhone;
+
+                    if (!string.IsNullOrWhiteSpace(destination))
+                    {
+                        await _notificationService.SendOrderConfirmedNotificationAsync(
+                            destination,
+                            order.CustomerName ?? customer?.FullName ?? "Quý khách",
+                            order.OrderNumber);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ignore exceptions for safety
+                }
+            }
+            else if (newStatus == Order.StatusCancelled)
+            {
+                try
+                {
+                    var customer = await _userManager.FindByIdAsync(order.UserId);
+                    var destination = customer != null && !string.IsNullOrWhiteSpace(customer.Email)
+                        ? customer.Email
+                        : order.CustomerPhone;
+
+                    if (!string.IsNullOrWhiteSpace(destination))
+                    {
+                        await _notificationService.SendOrderRejectedNotificationAsync(
+                            destination,
+                            order.CustomerName ?? customer?.FullName ?? "Quý khách",
+                            order.OrderNumber,
+                            order.CancelReason);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ignore exceptions for safety
+                }
+            }
 
             TempData["SuccessMessage"] = $"Đã cập nhật trạng thái đơn hàng #{order.OrderNumber} thành {newStatus}.";
             return RedirectToAction(nameof(OrderManagement));
         }
 
         // 3. Quản lý Người dùng
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> UserManagement()
         {
             var users = await _userManager.Users.ToListAsync();
@@ -368,6 +501,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> ToggleUserStatus(string userId)
         {
             var targetUser = await _userManager.FindByIdAsync(userId);
@@ -415,6 +549,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> UpdateUserRole(string userId, string newRole)
         {
             var targetUser = await _userManager.FindByIdAsync(userId);
@@ -454,6 +589,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> CreateUser(string FullName, string Email, string Password, string Role)
         {
             FullName = NormalizeOrEmpty(FullName);
@@ -777,6 +913,80 @@ namespace GoldManagementSystem.Controllers
             return false;
         }
 
+        private static bool CanConfirmOrder(ActorContext actor, Order order)
+        {
+            if (order.Status != Order.StatusPendingConfirmation)
+            {
+                return false;
+            }
+
+            if (actor.IsAdmin || actor.IsManager || actor.IsBranchOwner)
+            {
+                return true;
+            }
+
+            return actor.IsStaff && order.TotalAmount <= 50_000_000m;
+        }
+
+        private async Task CancelExpiredDepositOrdersAsync()
+        {
+            var now = DateTime.UtcNow;
+            var expiredOrders = await _context.Orders
+                .Include(order => order.OrderDetails)
+                    .ThenInclude(detail => detail.Product)
+                .Where(order =>
+                    (order.Status == Order.StatusAwaitingDepositPayment || order.Status == Order.StatusUnpaidDeposit)
+                    && order.DepositDueAt.HasValue
+                    && order.DepositDueAt.Value <= now)
+                .ToListAsync();
+
+            if (expiredOrders.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var order in expiredOrders)
+            {
+                order.Status = Order.StatusCancelled;
+                order.CancelReason = "Đơn hàng tự hủy vì khách chưa thanh toán cọc trong 1 giờ 30 phút.";
+                RestoreProductsForCancelledOrder(order);
+
+                // Notify customer of auto-cancellation
+                try
+                {
+                    var customer = await _userManager.FindByIdAsync(order.UserId);
+                    var destination = customer != null && !string.IsNullOrWhiteSpace(customer.Email)
+                        ? customer.Email
+                        : order.CustomerPhone;
+
+                    if (!string.IsNullOrWhiteSpace(destination))
+                    {
+                        await _notificationService.SendOrderCancelledDueToNoDepositNotificationAsync(
+                            destination,
+                            order.CustomerName ?? customer?.FullName ?? "Quý khách",
+                            order.OrderNumber);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ignore exceptions to avoid breaking background loops
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        private static void RestoreProductsForCancelledOrder(Order order)
+        {
+            foreach (var detail in order.OrderDetails ?? Enumerable.Empty<OrderDetail>())
+            {
+                if (detail.Product != null && detail.Product.Status == "Đã bán")
+                {
+                    detail.Product.Status = "Còn hàng";
+                }
+            }
+        }
+
         private static string BuildBranchRoleSummary(
             IEnumerable<AppUser> members,
             IReadOnlyDictionary<string, IList<string>> roleLookup,
@@ -816,6 +1026,42 @@ namespace GoldManagementSystem.Controllers
             public bool IsAdmin => Roles.Contains(RoleCatalog.Admin);
             public bool IsBranchOwner => Roles.Contains(RoleCatalog.BranchOwner);
             public bool IsManager => Roles.Contains(RoleCatalog.Manager);
+            public bool IsStaff => Roles.Contains(RoleCatalog.Staff);
+        }
+
+        private async Task NotifyAuthorizedStaffForPendingOrderAsync(Order order)
+        {
+            try
+            {
+                var admins = await _userManager.GetUsersInRoleAsync(RoleCatalog.Admin);
+                var owners = await _userManager.GetUsersInRoleAsync(RoleCatalog.BranchOwner);
+                var managers = await _userManager.GetUsersInRoleAsync(RoleCatalog.Manager);
+                var staff = await _userManager.GetUsersInRoleAsync(RoleCatalog.Staff);
+
+                var targetUsers = new List<AppUser>();
+                targetUsers.AddRange(admins);
+                targetUsers.AddRange(owners.Where(u => u.BranchId == order.BranchId));
+                targetUsers.AddRange(managers.Where(u => u.BranchId == order.BranchId));
+                if (order.TotalAmount <= 50_000_000m)
+                {
+                    targetUsers.AddRange(staff.Where(u => u.BranchId == order.BranchId));
+                }
+
+                var uniqueUsers = targetUsers.GroupBy(u => u.Id).Select(g => g.First()).ToList();
+
+                foreach (var u in uniqueUsers)
+                {
+                    var destination = !string.IsNullOrWhiteSpace(u.Email) ? u.Email : u.PhoneNumber;
+                    if (!string.IsNullOrWhiteSpace(destination))
+                    {
+                        await _notificationService.SendOrderPendingConfirmationNotificationAsync(destination, u.FullName, order);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Ignore errors
+            }
         }
     }
 }

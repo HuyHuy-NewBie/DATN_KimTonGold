@@ -1,0 +1,89 @@
+@model GoldManagementSystem.Models.Order
+@{
+    ViewData["Title"] = "Thanh toán cọc";
+    var isExpired = Model.DepositDueAt.HasValue && Model.DepositDueAt.Value <= DateTime.UtcNow;
+}
+
+<div class="dashboard-card profile-shell">
+    <section class="profile-shell__hero">
+        <div>
+            <p class="profile-shell__eyebrow" data-i18n data-i18n-vi="Thanh toán cọc" data-i18n-en="Deposit payment">Thanh toán cọc</p>
+            <h1>#@Model.OrderNumber</h1>
+            <p data-i18n data-i18n-vi="Hoàn tất thanh toán cọc để đơn hàng được chuyển sang hàng chờ xác nhận." data-i18n-en="Complete the deposit payment to move this order into the confirmation queue.">Hoàn tất thanh toán cọc để đơn hàng được chuyển sang hàng chờ xác nhận.</p>
+        </div>
+    </section>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="admin-alert admin-alert--success">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="admin-alert admin-alert--danger">@TempData["ErrorMessage"]</div>
+    }
+
+    <div class="deposit-payment">
+        <section class="deposit-payment__summary">
+            <h2 data-i18n data-i18n-vi="Thông tin cọc" data-i18n-en="Deposit details">Thông tin cọc</h2>
+            <div class="checkout-summary-lines">
+                <div>
+                    <span data-i18n data-i18n-vi="Tổng đơn" data-i18n-en="Order total">Tổng đơn</span>
+                    <strong>@Model.TotalAmount.ToString("N0") ₫</strong>
+                </div>
+                <div>
+                    <span data-i18n data-i18n-vi="Tỉ lệ cọc" data-i18n-en="Deposit rate">Tỉ lệ cọc</span>
+                    <strong>@Model.DepositRate.ToString("0.##")%</strong>
+                </div>
+                <div class="checkout-summary-lines__deposit">
+                    <span data-i18n data-i18n-vi="Cần thanh toán" data-i18n-en="Amount due">Cần thanh toán</span>
+                    <strong>@Model.DepositAmount.ToString("N0") ₫</strong>
+                </div>
+                <div>
+                    <span data-i18n data-i18n-vi="Hạn thanh toán" data-i18n-en="Payment deadline">Hạn thanh toán</span>
+                    <strong>@(Model.DepositDueAt?.ToLocalTime().ToString("HH:mm dd/MM/yyyy") ?? "--")</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="deposit-payment__products">
+            <h2 data-i18n data-i18n-vi="Sản phẩm trong đơn" data-i18n-en="Order products">Sản phẩm trong đơn</h2>
+            <div class="order-card__items">
+                @foreach (var item in Model.OrderDetails)
+                {
+                    <div class="order-card__item">
+                        <div class="order-card__product">
+                            @if (item.Product?.GalleryImages.Any() == true)
+                            {
+                                <img src="@item.Product.GalleryImages.First()" alt="@item.Product.Name" />
+                            }
+                            else
+                            {
+                                <div class="order-card__image-placeholder">No image</div>
+                            }
+                            <div>
+                                <a href="/Products/Details/@item.ProductId">@item.Product?.Name</a>
+                                <span>SL: @item.Quantity</span>
+                            </div>
+                        </div>
+                        <strong>@(item.UnitPrice * item.Quantity).ToString("N0") ₫</strong>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="deposit-payment__action">
+            @if (Model.Status == GoldManagementSystem.Models.Order.StatusAwaitingDepositPayment && !isExpired)
+            {
+                <form asp-action="ConfirmDepositPayment" method="post">
+                    <input type="hidden" name="orderId" value="@Model.Id" />
+                    <button type="submit" class="admin-button admin-button--primary" data-i18n data-i18n-vi="Tôi đã thanh toán cọc" data-i18n-en="I paid the deposit">Tôi đã thanh toán cọc</button>
+                </form>
+            }
+            else
+            {
+                <span class="status-chip status-chip--neutral">@Model.Status</span>
+            }
+            <a href="/User/Orders" class="admin-button admin-button--ghost" data-i18n data-i18n-vi="Xem đơn hàng của tôi" data-i18n-en="View my orders">Xem đơn hàng của tôi</a>
+        </section>
+    </div>
+</div>

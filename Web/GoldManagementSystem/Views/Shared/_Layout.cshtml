@@ -28,6 +28,129 @@
         html.lang-loading option {
             opacity: 0 !important;
         }
+
+        /* Notification Bell Styles */
+        .notification-bell {
+            position: relative;
+            display: inline-block;
+        }
+        .notification-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 330px;
+            background: #fff;
+            border: 1px solid rgba(39, 37, 31, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 12px 36px rgba(17, 17, 17, 0.15);
+            display: none;
+            z-index: 1000;
+            margin-top: 0.75rem;
+            overflow: hidden;
+        }
+        .notification-dropdown.is-active {
+            display: block;
+        }
+        .notification-dropdown__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.85rem 1.1rem;
+            border-bottom: 1px solid rgba(39, 37, 31, 0.06);
+            background: #fff8fa;
+        }
+        .notification-dropdown__header span {
+            font-weight: 700;
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--brand-ink, #111);
+        }
+        .notification-dropdown__header button {
+            background: none;
+            border: none;
+            color: #cb3a6a;
+            font-size: 0.74rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .notification-dropdown__list {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .notification-item {
+            padding: 0.95rem 1.1rem;
+            border-bottom: 1px solid rgba(39, 37, 31, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            text-decoration: none;
+            color: #111;
+            transition: background 0.2s ease;
+        }
+        .notification-item:hover {
+            background: #fff8fa;
+        }
+        .notification-item.is-unread {
+            background: #fff3f6;
+        }
+        .notification-item__title {
+            font-weight: 700;
+            font-size: 0.82rem;
+            color: #111;
+        }
+        .notification-item__body {
+            font-size: 0.78rem;
+            color: var(--brand-muted, #555);
+            line-height: 1.4;
+        }
+        .notification-item__time {
+            font-size: 0.7rem;
+            color: #999;
+            align-self: flex-end;
+            margin-top: 0.1rem;
+        }
+        .notification-dropdown__empty {
+            padding: 2.5rem 1.1rem;
+            text-align: center;
+            color: #999;
+            font-size: 0.82rem;
+        }
+        /* Toast notification at corner */
+        .toast-notification {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #fff;
+            border-left: 4px solid #ef7a9d;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            padding: 1rem 1.25rem;
+            z-index: 9999;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .toast-notification.is-visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast-notification__title {
+            font-weight: 700;
+            font-size: 0.84rem;
+            color: #ef7a9d;
+        }
+        .toast-notification__body {
+            font-size: 0.8rem;
+            color: #333;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body class="pandora-shell">
@@ -131,6 +254,25 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m12 20.2-.9-.82C5.2 14.03 2 11.11 2 7.53 2 4.61 4.28 2.4 7.2 2.4c1.65 0 3.24.76 4.3 1.96A5.83 5.83 0 0 1 15.8 2.4C18.72 2.4 21 4.61 21 7.53c0 3.58-3.2 6.5-9.1 11.84l-.9.83Z" />
                             </svg>
                         </a>
+
+                        <!-- Notification Bell Dropdown -->
+                        <div class="notification-bell" id="notificationBellContainer">
+                            <button type="button" class="header-icon" id="notificationBellTrigger" aria-label="Thông báo">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9a6 6 0 00-6-9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                                </svg>
+                                <span class="header-badge" id="notificationBadge" style="display: none; background: #b42318;">0</span>
+                            </button>
+                            <div class="notification-dropdown" id="notificationDropdown">
+                                <div class="notification-dropdown__header">
+                                    <span data-i18n data-i18n-vi="Thông báo" data-i18n-en="Notifications">Thông báo</span>
+                                    <button type="button" id="clearNotifications" data-i18n data-i18n-vi="Xóa tất cả" data-i18n-en="Clear all">Xóa tất cả</button>
+                                </div>
+                                <div class="notification-dropdown__list" id="notificationList">
+                                    <div class="notification-dropdown__empty" data-i18n data-i18n-vi="Chưa có thông báo nào" data-i18n-en="No notifications yet">Chưa có thông báo nào</div>
+                                </div>
+                            </div>
+                        </div>
                     }
 
                     <a href="@(User.Identity?.IsAuthenticated == true ? "/User/Orders" : "/Account/Login")"
@@ -423,7 +565,178 @@
         </div>
     </footer>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const trigger = document.getElementById("notificationBellTrigger");
+                const dropdown = document.getElementById("notificationDropdown");
+                const badge = document.getElementById("notificationBadge");
+                const list = document.getElementById("notificationList");
+                const clearBtn = document.getElementById("clearNotifications");
+
+                // Check authorization role to see if user is staff/admin
+                const isStaff = @(isStaffArea ? "true" : "false");
+
+                // Initialize local notifications from localStorage
+                let notifications = JSON.parse(localStorage.getItem("notifications_v1") || "[]");
+
+                function saveNotifications() {
+                    localStorage.setItem("notifications_v1", JSON.stringify(notifications));
+                }
+
+                function renderNotifications() {
+                    if (!list) return;
+                    if (notifications.length === 0) {
+                        list.innerHTML = '<div class="notification-dropdown__empty">Chưa có thông báo nào</div>';
+                        badge.style.display = "none";
+                        return;
+                    }
+
+                    const unreadCount = notifications.filter(n => !n.isRead).length;
+                    if (unreadCount > 0) {
+                        badge.textContent = unreadCount;
+                        badge.style.display = "inline-flex";
+                    } else {
+                        badge.style.display = "none";
+                    }
+
+                    list.innerHTML = notifications.map(n => `
+                        <a href="${n.link}" class="notification-item ${n.isRead ? '' : 'is-unread'}" data-id="${n.id}">
+                            <span class="notification-item__title">${n.title}</span>
+                            <span class="notification-item__body">${n.body}</span>
+                            <span class="notification-item__time">${n.time}</span>
+                        </a>
+                    `).join('');
+
+                    // Add click handlers to mark as read
+                    document.querySelectorAll(".notification-item").forEach(item => {
+                        item.addEventListener("click", function (e) {
+                            const id = this.getAttribute("data-id");
+                            const index = notifications.findIndex(n => n.id === id);
+                            if (index !== -1) {
+                                notifications[index].isRead = true;
+                                saveNotifications();
+                            }
+                        });
+                    });
+                }
+
+                if (trigger && dropdown) {
+                    trigger.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        dropdown.classList.toggle("is-active");
+                    });
+                    document.addEventListener("click", function () {
+                        dropdown.classList.remove("is-active");
+                    });
+                    dropdown.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                    });
+                }
+
+                if (clearBtn) {
+                    clearBtn.addEventListener("click", function () {
+                        notifications = [];
+                        saveNotifications();
+                        renderNotifications();
+                    });
+                }
+
+                // Show visual toast notification in bottom right corner
+                function showToast(title, body) {
+                    const toast = document.createElement("div");
+                    toast.className = "toast-notification";
+                    toast.innerHTML = `
+                        <div class="toast-notification__title">${title}</div>
+                        <div class="toast-notification__body">${body}</div>
+                    `;
+                    document.body.appendChild(toast);
+                    
+                    setTimeout(() => {
+                        toast.classList.add("is-visible");
+                    }, 100);
+
+                    // Auto hide after 5 seconds
+                    setTimeout(() => {
+                        toast.classList.remove("is-visible");
+                        setTimeout(() => {
+                            toast.remove();
+                        }, 500);
+                    }, 5000);
+                }
+
+                function addNotification(title, body, link, time) {
+                    const newNotif = {
+                        id: Date.now().toString(),
+                        title: title,
+                        body: body,
+                        link: link || "#",
+                        time: time || new Date().toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'}),
+                        isRead: false
+                    };
+                    notifications.unshift(newNotif);
+                    // limit to 30 notifications max
+                    if (notifications.length > 30) notifications.pop();
+                    saveNotifications();
+                    renderNotifications();
+                    showToast(title, body);
+                }
+
+                renderNotifications();
+
+                // Setup SignalR connection
+                if (typeof signalR !== "undefined") {
+                    const connection = new signalR.HubConnectionBuilder()
+                        .withUrl("/notificationHub")
+                        .withAutomaticReconnect()
+                        .build();
+
+                    // 1. Staff/Admin: new pending confirmation order
+                    connection.on("ReceiveOrderNotification", function (data) {
+                        if (isStaff) {
+                            const title = "🔔 Đơn Hàng Chờ Xác Nhận Mới";
+                            const body = `Mã đơn: #${data.orderNumber} | Khách: ${data.customerName} | Tổng: ${data.totalAmount.toLocaleString('vi-VN')} ₫`;
+                            const link = `/Admin/OrderManagement?orderId=${data.orderId}`;
+                            addNotification(title, body, link, data.time);
+                        }
+                    });
+
+                    // 2. Customer: order confirmed
+                    connection.on("ReceiveOrderConfirmedNotification", function (data) {
+                        const title = "✅ Đơn Hàng Đã Xác Nhận";
+                        const body = `Chúc mừng! Đơn hàng #${data.orderNumber} của bạn đã được duyệt thành công.`;
+                        const link = `/User/Orders`;
+                        addNotification(title, body, link, data.time);
+                    });
+
+                    // 3. Customer: order cancelled due to no deposit
+                    connection.on("ReceiveOrderCancelledNotification", function (data) {
+                        const title = "❌ Đơn Hàng Đã Bị Hủy";
+                        const body = `Đơn hàng #${data.orderNumber} đã bị tự động hủy do chưa nhận được thanh toán cọc.`;
+                        const link = `/User/Orders`;
+                        addNotification(title, body, link, data.time);
+                    });
+
+                    // 4. Customer: order rejected/cancelled by staff
+                    connection.on("ReceiveOrderRejectedNotification", function (data) {
+                        const title = "❌ Đơn Hàng Bị Từ Chối";
+                        const body = `Đơn hàng #${data.orderNumber} đã bị từ chối/hủy. Lý do: ${data.message.indexOf("Lý do: ") !== -1 ? data.message.split("Lý do: ")[1] : "Không xác định"}`;
+                        const link = `/User/Orders`;
+                        addNotification(title, body, link, data.time);
+                    });
+
+                    connection.start().then(function () {
+                        console.log("SignalR Connected to /notificationHub");
+                    }).catch(function (err) {
+                        console.error("SignalR Connection Error: ", err.toString());
+                    });
+                }
+            });
+        </script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

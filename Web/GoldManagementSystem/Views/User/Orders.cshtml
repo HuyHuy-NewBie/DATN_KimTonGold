@@ -6,10 +6,14 @@
     {
         return status switch
         {
-            "Hoàn thành" => ("Hoàn thành", "Completed", "success"),
-            "Đã hủy" => ("Đã hủy", "Cancelled", "danger"),
-            "Vận chuyển" => ("Vận chuyển", "Shipping", "info"),
-            "Đang xử lý" => ("Đang xử lý", "Processing", "warning"),
+            GoldManagementSystem.Models.Order.StatusAwaitingDepositPayment => ("Chờ thanh toán cọc", "Awaiting deposit", "warning"),
+            GoldManagementSystem.Models.Order.StatusUnpaidDeposit => ("Chưa thanh toán cọc", "Deposit unpaid", "neutral"),
+            GoldManagementSystem.Models.Order.StatusPendingConfirmation => ("Chờ xác nhận", "Pending confirmation", "info"),
+            GoldManagementSystem.Models.Order.StatusConfirmed => ("Đã xác nhận", "Confirmed", "success"),
+            GoldManagementSystem.Models.Order.StatusCompleted => ("Hoàn thành", "Completed", "success"),
+            GoldManagementSystem.Models.Order.StatusCancelled => ("Đã hủy", "Cancelled", "danger"),
+            GoldManagementSystem.Models.Order.StatusShipping => ("Vận chuyển", "Shipping", "info"),
+            GoldManagementSystem.Models.Order.StatusProcessing => ("Đang xử lý", "Processing", "warning"),
             _ => (status, status, "neutral")
         };
     }
@@ -23,6 +27,15 @@
             <p data-i18n data-i18n-vi="Xem lại các giao dịch gần đây, tình trạng xử lý và tổng giá trị đơn hàng đã đặt." data-i18n-en="Review your recent purchases, processing status, and total order value.">Xem lại các giao dịch gần đây, tình trạng xử lý và tổng giá trị đơn hàng đã đặt.</p>
         </div>
     </section>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="admin-alert admin-alert--success">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="admin-alert admin-alert--danger">@TempData["ErrorMessage"]</div>
+    }
 
     @if (!Model.Any())
     {
@@ -78,8 +91,42 @@
                     </div>
 
                     <footer class="order-card__footer">
-                        <span data-i18n data-i18n-vi="Tổng cộng" data-i18n-en="Total">Tổng cộng</span>
-                        <strong>@order.TotalAmount.ToString("N0") ₫</strong>
+                        <div>
+                            <span data-i18n data-i18n-vi="Cọc 10%" data-i18n-en="10% deposit">Cọc 10%</span>
+                            <strong>@order.DepositAmount.ToString("N0") ₫</strong>
+                            @if (!order.DepositPaidAt.HasValue && order.DepositDueAt.HasValue)
+                            {
+                                <small>Hạn: @order.DepositDueAt.Value.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</small>
+                            }
+                             @if (!string.IsNullOrWhiteSpace(order.CancelReason))
+                            {
+                                <small>@order.CancelReason</small>
+                            }
+                            @if (order.Status == GoldManagementSystem.Models.Order.StatusUnpaidDeposit)
+                            {
+                                <div style="margin-top: 0.5rem; color: #b97a00; font-size: 0.82rem; font-weight: 600;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 1rem; height: 1rem; display: inline-block; vertical-align: middle; margin-right: 0.25rem;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    Vui lòng liên hệ trực tiếp chi nhánh gần nhất để đặt cọc tiền mặt và mua hàng.
+                                </div>
+                            }
+                        </div>
+                        <div class="order-card__footer-actions">
+                            @if (order.Status == GoldManagementSystem.Models.Order.StatusAwaitingDepositPayment)
+                            {
+                                <a href="/User/DepositPayment/@order.Id" class="admin-button admin-button--primary admin-button--small">Thanh toán cọc</a>
+                            }
+                            @if (order.Status == GoldManagementSystem.Models.Order.StatusAwaitingDepositPayment || order.Status == GoldManagementSystem.Models.Order.StatusUnpaidDeposit)
+                            {
+                                <form asp-action="CancelOrder" method="post" style="display: inline;" onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?');">
+                                    <input type="hidden" name="id" value="@order.Id" />
+                                    <button type="submit" class="admin-button admin-button--danger admin-button--small" data-i18n data-i18n-vi="Hủy đơn" data-i18n-en="Cancel order">Hủy đơn</button>
+                                </form>
+                            }
+                            <span data-i18n data-i18n-vi="Tổng cộng" data-i18n-en="Total">Tổng cộng</span>
+                            <strong>@order.TotalAmount.ToString("N0") ₫</strong>
+                        </div>
                     </footer>
                 </article>
             }

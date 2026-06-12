@@ -79,5 +79,6 @@ namespace GoldManagementSystem.Models.ViewModels
         public string VerificationFlowId { get; set; }
         public string VerificationDestinationDisplay { get; set; }
         public DateTimeOffset? VerificationExpiresAt { get; set; }
+        public string ReturnUrl { get; set; }
     }
 }

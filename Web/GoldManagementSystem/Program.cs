@@ -46,6 +46,8 @@ builder.Services.Configure<AuthVerificationOptions>(builder.Configuration.GetSec
 builder.Services.AddScoped<AuthNotificationService>();
 builder.Services.AddSingleton<PendingAccountVerificationService>();
 builder.Services.AddMemoryCache();
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<OrderCleanupWorker>();
 builder.Services.AddHttpClient("PreciousMetals", client =>
 {
     client.BaseAddress = new Uri("https://data.silv.app/");
@@ -95,6 +97,8 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseAuthorization();
+
+app.MapHub<GoldManagementSystem.Hubs.NotificationHub>("/notificationHub");
 
 app.MapControllerRoute(
     name: "default",
