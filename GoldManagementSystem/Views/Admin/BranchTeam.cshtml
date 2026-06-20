@@ -1,0 +1,175 @@
+@model GoldManagementSystem.Models.ViewModels.BranchTeamViewModel
+@using GoldManagementSystem.Services
+@{
+    ViewData["Title"] = "Nhân Sự Chi Nhánh";
+
+    string GetRoleLabelEn(string role) => RoleCatalog.GetEnglishLabel(role);
+}
+
+<div class="dashboard-card dashboard-card--flush admin-panel">
+    <section class="admin-hero admin-hero--split">
+        <div>
+            <p class="admin-hero__eyebrow" data-i18n data-i18n-vi="Nhân sự chi nhánh" data-i18n-en="Branch team">Nhân sự chi nhánh</p>
+            <h1>@Model.BranchName</h1>
+            <p class="admin-hero__text" data-i18n data-i18n-vi="Quản lí chủ chi nhánh, quản lí và nhân viên của điểm bán này. Quyền thêm hoặc gỡ nhân sự phụ thuộc vào vai trò hiện tại của bạn." data-i18n-en="Manage the branch owner, manager, and staff assigned to this location. Your current role determines who you can add or remove.">Quản lí chủ chi nhánh, quản lí và nhân viên của điểm bán này. Quyền thêm hoặc gỡ nhân sự phụ thuộc vào vai trò hiện tại của bạn.</p>
+        </div>
+        <div class="admin-hero__actions">
+            <a href="/Admin/BranchManagement" class="admin-button admin-button--secondary" data-i18n data-i18n-vi="Quay lại chi nhánh" data-i18n-en="Back to branches">Quay lại chi nhánh</a>
+        </div>
+    </section>
+
+    <div class="admin-panel__body">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--success">@TempData["SuccessMessage"]</div>
+        }
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--danger">@TempData["ErrorMessage"]</div>
+        }
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Tổng quan" data-i18n-en="Overview">Tổng quan</p>
+                    <h2 data-i18n data-i18n-vi="Thông tin chi nhánh" data-i18n-en="Branch details">Thông tin chi nhánh</h2>
+                </div>
+            </div>
+
+            <div class="admin-stats-grid admin-stats-grid--branch-team">
+                <article class="admin-stat-card admin-stat-card--gold">
+                    <div class="admin-stat-card__content">
+                        <p data-i18n data-i18n-vi="Trạng thái" data-i18n-en="Status">Trạng thái</p>
+                        <strong>@(Model.IsActive ? "Đang hoạt động" : "Tạm khóa")</strong>
+                    </div>
+                </article>
+                <article class="admin-stat-card admin-stat-card--blue">
+                    <div class="admin-stat-card__content">
+                        <p data-i18n data-i18n-vi="Địa chỉ" data-i18n-en="Address">Địa chỉ</p>
+                        <strong>@(!string.IsNullOrWhiteSpace(Model.Address) ? Model.Address : "--")</strong>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Gán nhân sự có sẵn" data-i18n-en="Assign existing members">Gán nhân sự có sẵn</p>
+                    <h2 data-i18n data-i18n-vi="Thêm người đã có vào chi nhánh" data-i18n-en="Add an existing user to this branch">Thêm người đã có vào chi nhánh</h2>
+                </div>
+            </div>
+
+            <form asp-action="AddExistingMember" method="post" class="admin-form-grid branch-team__form">
+                <input type="hidden" name="branchId" value="@Model.BranchId" />
+                <label class="admin-field admin-field--wide">
+                    <span data-i18n data-i18n-vi="Tài khoản hiện có" data-i18n-en="Existing account">Tài khoản hiện có</span>
+                    <select asp-for="ExistingUserId" asp-items="Model.ExistingUserOptions" class="admin-select"></select>
+                </label>
+                <div class="admin-form-actions">
+                    <button type="submit" class="admin-button admin-button--primary" data-i18n data-i18n-vi="Thêm vào chi nhánh" data-i18n-en="Add to branch">Thêm vào chi nhánh</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Tạo nhân sự mới" data-i18n-en="Create a new member">Tạo nhân sự mới</p>
+                    <h2 data-i18n data-i18n-vi="Khởi tạo tài khoản trực tiếp cho chi nhánh" data-i18n-en="Create a new branch account">Khởi tạo tài khoản trực tiếp cho chi nhánh</h2>
+                </div>
+            </div>
+
+            <form asp-action="CreateBranchMember" method="post" class="admin-form-grid branch-team__form">
+                <input type="hidden" name="branchId" value="@Model.BranchId" />
+                <label class="admin-field">
+                    <span data-i18n data-i18n-vi="Họ và tên" data-i18n-en="Full name">Họ và tên</span>
+                    <input asp-for="NewMemberFullName" />
+                </label>
+                <label class="admin-field">
+                    <span data-i18n data-i18n-vi="Email" data-i18n-en="Email">Email</span>
+                    <input asp-for="NewMemberEmail" type="email" />
+                </label>
+                <label class="admin-field">
+                    <span data-i18n data-i18n-vi="Mật khẩu khởi tạo" data-i18n-en="Temporary password">Mật khẩu khởi tạo</span>
+                    <input asp-for="NewMemberPassword" type="password" />
+                </label>
+                <label class="admin-field">
+                    <span data-i18n data-i18n-vi="Vai trò" data-i18n-en="Role">Vai trò</span>
+                    <select asp-for="NewMemberRole" asp-items="Model.NewMemberRoleOptions" class="admin-select">
+                    </select>
+                </label>
+                <div class="admin-form-actions">
+                    <button type="submit" class="admin-button admin-button--primary" data-i18n data-i18n-vi="Tạo tài khoản chi nhánh" data-i18n-en="Create branch account">Tạo tài khoản chi nhánh</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Nhân sự hiện tại" data-i18n-en="Current team">Nhân sự hiện tại</p>
+                    <h2 data-i18n data-i18n-vi="Danh sách chủ, quản lí và nhân viên" data-i18n-en="Owner, manager, and staff list">Danh sách chủ, quản lí và nhân viên</h2>
+                </div>
+            </div>
+
+            <div class="table-shell">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n data-i18n-vi="Nhân sự" data-i18n-en="Member">Nhân sự</th>
+                            <th data-i18n data-i18n-vi="Email" data-i18n-en="Email">Email</th>
+                            <th data-i18n data-i18n-vi="Vai trò" data-i18n-en="Role">Vai trò</th>
+                            <th data-i18n data-i18n-vi="Trạng thái" data-i18n-en="Status">Trạng thái</th>
+                            <th data-i18n data-i18n-vi="Thao tác" data-i18n-en="Actions">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var member in Model.Members)
+                        {
+                            <tr>
+                                <td class="data-table__strong">@member.FullName</td>
+                                <td>@member.Email</td>
+                                <td>
+                                    <span class="status-chip status-chip--neutral"
+                                          data-i18n
+                                          data-i18n-vi="@RoleCatalog.GetVietnameseLabel(member.Role)"
+                                          data-i18n-en="@GetRoleLabelEn(member.Role)">
+                                        @RoleCatalog.GetVietnameseLabel(member.Role)
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (member.IsActive)
+                                    {
+                                        <span class="status-chip status-chip--success" data-i18n data-i18n-vi="Hoạt động" data-i18n-en="Active">Hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-chip status-chip--danger" data-i18n data-i18n-vi="Đã khóa" data-i18n-en="Locked">Đã khóa</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (member.CanRemove)
+                                    {
+                                        <form asp-action="RemoveBranchMember" method="post">
+                                            <input type="hidden" name="branchId" value="@Model.BranchId" />
+                                            <input type="hidden" name="userId" value="@member.Id" />
+                                            <button type="submit" class="admin-button admin-button--danger" data-i18n data-i18n-vi="Gỡ khỏi chi nhánh" data-i18n-en="Remove from branch">Gỡ khỏi chi nhánh</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="data-table__stack">
+                                            <span data-i18n data-i18n-vi="Không thể chỉnh" data-i18n-en="Protected">Không thể chỉnh</span>
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>

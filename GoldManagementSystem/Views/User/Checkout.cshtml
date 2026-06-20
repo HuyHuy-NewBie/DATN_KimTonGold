@@ -1,0 +1,713 @@
+@model GoldManagementSystem.Models.Product
+<style>
+    /* Checkout Layout redesign */
+    .checkout-container {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 2rem;
+        margin-top: 1.5rem;
+        align-items: start;
+    }
+    
+    @@media (max-width: 992px) {
+        .checkout-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Stepper progress styles */
+    .stepper-progress {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 2.5rem;
+        background: #fdfafb;
+        padding: 1.25rem 2rem;
+        border-radius: 20px;
+        border: 1px solid rgba(239, 122, 157, 0.1);
+    }
+    
+    .stepper-progress__step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+        flex: 1;
+    }
+    
+    .stepper-progress__step .step-num {
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid rgba(39, 37, 31, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--brand-muted, #888);
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+    
+    .stepper-progress__step .step-label {
+        font-size: 0.76rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--brand-muted, #888);
+        transition: all 0.3s ease;
+    }
+    
+    .stepper-progress__step.is-active .step-num {
+        border-color: #ef7a9d;
+        background: #ef7a9d;
+        color: #fff;
+        box-shadow: 0 0 15px rgba(239, 122, 157, 0.3);
+    }
+    
+    .stepper-progress__step.is-active .step-label {
+        color: #ef7a9d;
+        font-weight: 700;
+    }
+    
+    .stepper-progress__step.is-completed .step-num {
+        border-color: #0f8b6d;
+        background: #0f8b6d;
+        color: #fff;
+    }
+    
+    .stepper-progress__step.is-completed .step-label {
+        color: #0f8b6d;
+    }
+    
+    .stepper-progress__line {
+        height: 2px;
+        background: rgba(39, 37, 31, 0.08);
+        flex: 2;
+        margin: 0 -1rem;
+        margin-top: -1.25rem;
+        z-index: 1;
+        transition: all 0.3s ease;
+    }
+    
+    .stepper-progress__line.is-active {
+        background: #ef7a9d;
+    }
+    
+    .stepper-progress__line.is-completed {
+        background: #0f8b6d;
+    }
+
+    /* Stepper steps panels */
+    .stepper-step {
+        display: none;
+        animation: fadeIn 0.4s ease;
+        grid-column: span 2;
+    }
+    
+    .stepper-step.is-active {
+        display: block;
+    }
+    
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Card radio style override */
+    .checkout-payment__option {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 1rem !important;
+        padding: 1.25rem !important;
+        border-radius: 16px !important;
+        border: 2px solid rgba(39, 37, 31, 0.08) !important;
+        background: #fff !important;
+        cursor: pointer !important;
+        transition: all 0.25s ease !important;
+        margin-bottom: 1rem !important;
+        position: relative !important;
+    }
+    
+    .checkout-payment__option:hover {
+        border-color: rgba(239, 122, 157, 0.4) !important;
+        background: #fffdfd !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 16px rgba(17, 17, 17, 0.03) !important;
+    }
+    
+    .checkout-payment__option input[type="radio"] {
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+        accent-color: #ef7a9d !important;
+        margin-top: 0.15rem !important;
+    }
+    
+    .checkout-payment__option.is-selected {
+        border-color: #ef7a9d !important;
+        background: #fffdfd !important;
+        box-shadow: 0 4px 15px rgba(239, 122, 157, 0.12) !important;
+    }
+
+    /* Stepper Navigation actions */
+    .stepper-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(39, 37, 31, 0.06);
+        grid-column: span 2;
+    }
+    
+    /* Order summary sticky card */
+    .checkout-summary-card {
+        position: sticky;
+        top: 2rem;
+        background: #fff;
+        border-radius: 24px;
+        border: 1px solid rgba(39, 37, 31, 0.07);
+        padding: 1.75rem;
+        box-shadow: 0 10px 30px rgba(17, 17, 17, 0.04);
+    }
+    
+    .checkout-summary-card h3 {
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #111;
+        margin-bottom: 1.25rem;
+        border-bottom: 1px solid rgba(39, 37, 31, 0.06);
+        padding-bottom: 0.75rem;
+    }
+    
+    .summary-addons-section {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed rgba(39, 37, 31, 0.1);
+    }
+    
+    .summary-addon-title {
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #ef7a9d;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .summary-addon-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .checkout-addon {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        background: #fff;
+        border: 1px solid rgba(39, 37, 31, 0.07);
+        padding: 0.85rem;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .checkout-addon:hover {
+        border-color: rgba(239, 122, 157, 0.3);
+        background: #fffdfd;
+    }
+    
+    .checkout-addon input[type="checkbox"] {
+        accent-color: #ef7a9d;
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+</style>
+@{
+    ViewData["Title"] = "Xác nhận đặt hàng";
+    const string fallbackImageUrl = "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80";
+    var imageUrl = Model.GalleryImages.Any() ? Model.GalleryImages.First() : fallbackImageUrl;
+    var activeBranches = ViewBag.ActiveBranches as IEnumerable<GoldManagementSystem.Models.Branch> ?? Enumerable.Empty<GoldManagementSystem.Models.Branch>();
+    var addOnProducts = ViewBag.AddOnProducts as IEnumerable<GoldManagementSystem.Models.Product> ?? Enumerable.Empty<GoldManagementSystem.Models.Product>();
+    var selectedExtraProductIds = ViewBag.SelectedExtraProductIds as ISet<int> ?? new HashSet<int>();
+    var mainQuantity = ViewBag.MainQuantity is int quantity && quantity > 0 ? quantity : 1;
+    var paymentMethod = ViewBag.PaymentMethod as string;
+    var isDiamond = Model.IsDiamondProduct || (!string.IsNullOrWhiteSpace(Model.DiamondShape) && Model.DiamondCarat.HasValue);
+    var estimatedTotal = Model.SellPrice * mainQuantity;
+    var estimatedDeposit = Math.Round(estimatedTotal * 0.1m, 0);
+}
+
+<div class="dashboard-card profile-shell">
+    <section class="profile-shell__hero" style="margin-bottom: 1.5rem;">
+        <div>
+            <p class="profile-shell__eyebrow">
+                <a href="/Products/Details/@Model.Id" class="hover:underline" data-i18n data-i18n-vi="← Quay lại chi tiết sản phẩm" data-i18n-en="← Back to details">← Quay lại chi tiết sản phẩm</a>
+            </p>
+            <h1 data-i18n data-i18n-vi="Xác Nhận Đặt Hàng" data-i18n-en="Confirm Order">Xác Nhận Đặt Hàng</h1>
+            <p data-i18n data-i18n-vi="Hoàn tất quy trình 3 bước để đặt hàng và giữ sản phẩm tại chi nhánh của chúng tôi." data-i18n-en="Complete the 3-step process to order and reserve products at our branch.">Hoàn tất quy trình 3 bước để đặt hàng và giữ sản phẩm tại chi nhánh của chúng tôi.</p>
+        </div>
+    </section>
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="admin-alert admin-alert--danger" style="margin-bottom: 1.5rem;">@TempData["ErrorMessage"]</div>
+    }
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div asp-validation-summary="ModelOnly" class="admin-alert admin-alert--danger" style="margin-bottom: 1.5rem;"></div>
+    }
+
+    <!-- Stepper Navigation Progress Bar -->
+    <div class="stepper-progress">
+        <div class="stepper-progress__step is-active" data-step-indicator="1">
+            <span class="step-num">1</span>
+            <span class="step-label" data-i18n data-i18n-vi="Liên hệ & Chi nhánh" data-i18n-en="Contact & Branch">Liên hệ & Chi nhánh</span>
+        </div>
+        <div class="stepper-progress__line" data-step-line="1"></div>
+        <div class="stepper-progress__step" data-step-indicator="2">
+            <span class="step-num">2</span>
+            <span class="step-label" data-i18n data-i18n-vi="Mua kèm ưu đãi" data-i18n-en="Add-ons">Mua kèm ưu đãi</span>
+        </div>
+        <div class="stepper-progress__line" data-step-line="2"></div>
+        <div class="stepper-progress__step" data-step-indicator="3">
+            <span class="step-num">3</span>
+            <span class="step-label" data-i18n data-i18n-vi="Thanh toán cọc" data-i18n-en="Deposit">Thanh toán cọc</span>
+        </div>
+    </div>
+
+    <div class="checkout-container">
+        <!-- Left Side: Stepper Form Section -->
+        <div class="checkout-form-section" style="background: #fff; border-radius: 24px; padding: 1.75rem; border: 1px solid rgba(39, 37, 31, 0.07);">
+            <form asp-action="PlaceOrder" method="post" id="checkoutForm" class="profile-form">
+                <input type="hidden" name="productId" value="@Model.Id" />
+
+                <!-- STEP 1: CONTACT & BRANCH INFO -->
+                <div class="stepper-step is-active" data-step="1">
+                    <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 700; margin-bottom: 1.25rem; color: #111;" data-i18n data-i18n-vi="Bước 1: Thông tin người nhận & Địa điểm" data-i18n-en="Step 1: Receiver & Location">Bước 1: Thông tin người nhận & Địa điểm</h3>
+                    
+                    <label class="admin-field profile-field">
+                        <span data-i18n data-i18n-vi="Họ tên người nhận" data-i18n-en="Receiver's name">Họ tên người nhận</span>
+                        <input type="text" name="customerName" value="@ViewBag.CustomerName" class="admin-input" required placeholder="Nhập tên người nhận" />
+                        <span class="profile-field__error" data-valmsg-for="customerName"></span>
+                    </label>
+
+                    <label class="admin-field profile-field">
+                        <span data-i18n data-i18n-vi="Số điện thoại" data-i18n-en="Phone number">Số điện thoại</span>
+                        <input type="tel" name="customerPhone" value="@ViewBag.CustomerPhone" class="admin-input" required placeholder="Nhập số điện thoại liên hệ" />
+                        <span class="profile-field__error" data-valmsg-for="customerPhone"></span>
+                    </label>
+
+                    <label class="admin-field profile-field">
+                        <span data-i18n data-i18n-vi="Số lượng sản phẩm chính" data-i18n-en="Main product quantity">Số lượng sản phẩm chính</span>
+                        <input type="number" name="mainQuantity" id="mainQuantityInput" value="@mainQuantity" min="1" max="99" class="admin-input" required />
+                        <span class="profile-field__error" data-valmsg-for="mainQuantity"></span>
+                    </label>
+
+                    <label class="admin-field profile-field">
+                        <span data-i18n data-i18n-vi="Chi nhánh nhận sản phẩm" data-i18n-en="Pickup branch">Chi nhánh nhận sản phẩm</span>
+                        <select name="branchId" class="admin-input" required>
+                            @foreach (var branch in activeBranches)
+                            {
+                                if (branch.Id == Model.BranchId)
+                                {
+                                    <option value="@branch.Id" selected>@branch.BranchName (@branch.Address)</option>
+                                }
+                                else
+                                {
+                                    <option value="@branch.Id">@branch.BranchName (@branch.Address)</option>
+                                }
+                            }
+                        </select>
+                        <span class="profile-field__error" data-valmsg-for="branchId"></span>
+                        <small class="profile-field__hint" data-i18n data-i18n-vi="Vui lòng đến chi nhánh đã chọn để nhận hàng sau khi được duyệt đơn." data-i18n-en="Please visit the selected branch to pick up your order once approved.">Vui lòng đến chi nhánh đã chọn để nhận hàng sau khi được duyệt đơn.</small>
+                    </label>
+                </div>
+
+                <!-- STEP 2: ADD-ONS -->
+                <div class="stepper-step" data-step="2">
+                    <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: #111;" data-i18n data-i18n-vi="Bước 2: Mua thêm trang sức đi kèm" data-i18n-en="Step 2: Add-on products">Bước 2: Mua thêm trang sức đi kèm</h3>
+                    <p style="font-size: 0.82rem; color: var(--brand-muted, #666); margin-bottom: 1.5rem;" data-i18n data-i18n-vi="Chúng tôi đề xuất một số món quà trang sức cùng chi nhánh để đơn thêm phong phú." data-i18n-en="We suggest some jewelry gifts from the same branch to enrich your order.">Chúng tôi đề xuất một số món quà trang sức cùng chi nhánh để đơn thêm phong phú.</p>
+                    
+                    @if (addOnProducts.Any())
+                    {
+                        <div class="checkout-addons__grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            @foreach (var addOn in addOnProducts)
+                            {
+                                var addOnImage = addOn.GalleryImages.Any() ? addOn.GalleryImages.First() : fallbackImageUrl;
+                                <label class="checkout-addon">
+                                    <input type="checkbox" name="extraProductIds" value="@addOn.Id" data-price="@addOn.SellPrice" data-name="@addOn.Name" data-image="@addOnImage" checked="@selectedExtraProductIds.Contains(addOn.Id)" />
+                                    <img src="@addOnImage" alt="@addOn.Name" onerror="this.onerror=null;this.src='@fallbackImageUrl';" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover;" />
+                                    <span style="display: flex; flex-direction: column; gap: 0.15rem;">
+                                        <strong data-auto-i18n style="font-size: 0.8rem; color: #111;">@addOn.Name</strong>
+                                        <small style="font-size: 0.76rem; color: #ef7a9d; font-weight: 600;">@addOn.SellPrice.ToString("N0") ₫</small>
+                                    </span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="padding: 2.5rem; text-align: center; color: var(--brand-muted, #777); background: #fafafa; border-radius: 16px;">
+                            <p data-i18n data-i18n-vi="Không có sản phẩm phụ nào khả dụng tại chi nhánh này." data-i18n-en="No add-on products available at this branch.">Không có sản phẩm phụ nào khả dụng tại chi nhánh này.</p>
+                        </div>
+                    }
+                </div>
+
+                <!-- STEP 3: DEPOSIT METHOD -->
+                <div class="stepper-step" data-step="3">
+                    <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 700; margin-bottom: 1.25rem; color: #111;" data-i18n data-i18n-vi="Bước 3: Lựa chọn hình thức đặt cọc" data-i18n-en="Step 3: Deposit Payment Method">Bước 3: Lựa chọn hình thức đặt cọc</h3>
+                    
+                    <div class="checkout-payment">
+                        <label class="checkout-payment__option" id="cardOnline">
+                            <input type="radio" id="payOnlineRadio" name="paymentMethod" value="@GoldManagementSystem.Models.Order.PaymentMethodOnlineDeposit" checked="@(paymentMethod == null || paymentMethod == GoldManagementSystem.Models.Order.PaymentMethodOnlineDeposit)" />
+                            <span>
+                                <strong id="online-deposit-text" data-i18n data-i18n-vi="Thanh toán cọc online (10%)" data-i18n-en="Pay deposit online (10%)">Thanh toán cọc online (10%)</strong>
+                                <small data-i18n data-i18n-vi="Sau khi tạo đơn, bạn sẽ chuyển sang cổng thanh toán để cọc 10%. Đơn sẽ chuyển sang 'Chờ xác nhận' ngay khi cọc thành công." data-i18n-en="You will be redirected to the payment gateway to pay a 10% deposit. Moves to 'Pending confirmation' immediately upon success.">Sau khi tạo đơn, bạn sẽ chuyển sang cổng thanh toán để cọc 10%. Đơn sẽ chuyển sang 'Chờ xác nhận' ngay khi cọc thành công.</small>
+                            </span>
+                        </label>
+                        
+                        <label class="checkout-payment__option" id="cardOnlineFull">
+                            <input type="radio" id="payOnlineFullRadio" name="paymentMethod" value="@GoldManagementSystem.Models.Order.PaymentMethodOnlineFull" checked="@(paymentMethod == GoldManagementSystem.Models.Order.PaymentMethodOnlineFull)" />
+                            <span>
+                                <strong id="online-full-text" data-i18n data-i18n-vi="Thanh toán toàn bộ sản phẩm (100%)" data-i18n-en="Pay full amount online (100%)">Thanh toán toàn bộ sản phẩm (100%)</strong>
+                                <small data-i18n data-i18n-vi="Sau khi tạo đơn, bạn sẽ chuyển sang cổng thanh toán toàn bộ giá trị đơn hàng. Đơn sẽ chuyển sang 'Chờ xác nhận' ngay khi thanh toán thành công." data-i18n-en="You will be redirected to the payment gateway to pay the full amount. Moves to 'Pending confirmation' immediately upon successful payment.">Sau khi tạo đơn, bạn sẽ chuyển sang cổng thanh toán toàn bộ giá trị đơn hàng. Đơn sẽ chuyển sang 'Chờ xác nhận' ngay khi thanh toán thành công.</small>
+                            </span>
+                        </label>
+                        
+                        <span class="profile-field__error" data-valmsg-for="paymentMethod"></span>
+
+                        <!-- Cash deposit instruction alert -->
+                        <div id="cashDepositWarning" class="admin-alert admin-alert--danger" style="margin-top: 1rem; display: none; border-radius: 12px;">
+                            <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 1.25rem; height: 1.25rem; flex-shrink: 0; color: #b42318; margin-top: 0.1rem;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <span style="font-size: 0.82rem; line-height: 1.4;" data-i18n data-i18n-vi="Cảnh báo: Đơn hàng tiền mặt sẽ tự động hủy sau 1 giờ 30 phút nếu không có nhân viên tại chi nhánh xác nhận đã nhận cọc tiền mặt." data-i18n-en="Warning: Cash orders will be automatically cancelled after 1 hour 30 minutes if no staff at the branch confirms that the cash deposit was received.">Cảnh báo: Đơn hàng tiền mặt sẽ tự động hủy sau 1 giờ 30 phút nếu không có nhân viên tại chi nhánh xác nhận đã nhận cọc tiền mặt.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Controls inside the Form -->
+                <div class="stepper-nav">
+                    <button type="button" id="btnPrev" class="admin-button admin-button--ghost" style="display: none;" data-i18n data-i18n-vi="Quay lại" data-i18n-en="Back">Quay lại</button>
+                    <div style="flex-grow: 1;"></div>
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        @if (addOnProducts.Any())
+                        {
+                            <button type="button" id="btnSkip" class="admin-button admin-button--secondary" style="display: none;" data-i18n data-i18n-vi="Bỏ qua trang sức mua kèm" data-i18n-en="Skip add-ons">Bỏ qua trang sức mua kèm</button>
+                        }
+                        <button type="button" id="btnNext" class="admin-button admin-button--primary" data-i18n data-i18n-vi="Tiếp tục" data-i18n-en="Next">Tiếp tục</button>
+                        <button type="submit" id="btnPlaceOrder" class="admin-button admin-button--primary" style="display: none;" disabled data-i18n data-i18n-vi="Hoàn tất tạo đơn" data-i18n-en="Create order">Hoàn tất tạo đơn</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right Side: Order Summary Card -->
+        <div class="checkout-summary-card">
+            <h3 data-i18n data-i18n-vi="Tóm tắt đơn hàng" data-i18n-en="Order Summary">Tóm tắt đơn hàng</h3>
+            
+            <!-- Main Product Info -->
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
+                <img src="@imageUrl" alt="@Model.Name" onerror="this.onerror=null;this.src='@fallbackImageUrl';" style="width: 70px; height: 70px; border-radius: 12px; object-fit: cover; border: 1px solid rgba(39, 37, 31, 0.08);" />
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #111; margin: 0;" data-auto-i18n>@Model.Name</h4>
+                    <span style="font-size: 0.78rem; color: var(--brand-muted, #666);" data-auto-i18n>@Model.Category / @Model.GoldType</span>
+                    <span style="font-size: 0.78rem; color: #111;">
+                        <span data-i18n data-i18n-vi="Trọng lượng: " data-i18n-en="Weight: ">Trọng lượng: </span>
+                        <strong>@(isDiamond ? (Model.DiamondCarat.HasValue ? $"{Model.DiamondCarat:0.##} ct" : $"{Model.DiamondSize:0.#} ly") : $"{Model.Weight:0.0} chỉ")</strong>
+                    </span>
+                </div>
+            </div>
+
+            <!-- List of selected Add-ons -->
+            <div id="summary-addons-section" class="summary-addons-section" style="display: none;">
+                <span class="summary-addon-title" data-i18n data-i18n-vi="Sản phẩm mua kèm" data-i18n-en="Add-on items">Sản phẩm mua kèm</span>
+                <div id="summary-addons-list">
+                    <!-- Dynamic rendering from Javascript -->
+                </div>
+            </div>
+
+            <!-- Pricing Breakdown -->
+            <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgba(39, 37, 31, 0.06); display: flex; flex-direction: column; gap: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #555;">
+                    <span data-i18n data-i18n-vi="Đơn giá sản phẩm" data-i18n-en="Unit price">Đơn giá sản phẩm</span>
+                    <span>@Model.SellPrice.ToString("N0") ₫</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #555;">
+                    <span data-i18n data-i18n-vi="Số lượng chính" data-i18n-en="Main qty">Số lượng chính</span>
+                    <strong id="summary-main-qty">@mainQuantity</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #555; padding-bottom: 0.75rem; border-bottom: 1px dashed rgba(39, 37, 31, 0.08);">
+                    <span data-i18n data-i18n-vi="Tạm tính sản phẩm chính" data-i18n-en="Main item total">Tạm tính sản phẩm chính</span>
+                    <strong id="summary-main-total">@estimatedTotal.ToString("N0") ₫</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 1.05rem; color: #111; font-weight: 700;">
+                    <span data-i18n data-i18n-vi="Tổng cộng" data-i18n-en="Total amount">Tổng cộng</span>
+                    <span id="summary-total" style="color: #ef7a9d;">@estimatedTotal.ToString("N0") ₫</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.86rem; color: #0f8b6d; font-weight: 600; padding: 0.65rem 0.85rem; background: #ebf8ef; border-radius: 10px; margin-top: 0.25rem;">
+                    <span data-i18n data-i18n-vi="Tiền đặt cọc (10%)" data-i18n-en="Deposit (10%)">Tiền đặt cọc (10%)</span>
+                    <span id="summary-deposit">@estimatedDeposit.ToString("N0") ₫</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 1.25rem; background: #faf8f5; padding: 1rem; border-radius: 12px; font-size: 0.76rem; color: #776f63; line-height: 1.45;">
+                <p style="font-weight: 700; margin-bottom: 0.25rem; color: #111;" data-i18n data-i18n-vi="Lưu ý quan trọng:" data-i18n-en="Important notice:">Lưu ý quan trọng:</p>
+                <ul style="padding-left: 1rem; margin: 0;">
+                    <li data-i18n data-i18n-vi="Đơn đặt hàng online cần được thanh toán trong vòng 1h30p để được xác nhận." data-i18n-en="Online orders must be paid within 1h30m to be confirmed.">Đơn đặt hàng online cần được thanh toán trong vòng 1h30p để được xác nhận.</li>
+                    <li data-i18n data-i18n-vi="Giá bán thực tế sẽ được cố định ngay tại thời điểm thanh toán thành công." data-i18n-en="Actual price will be locked at the time of successful payment.">Giá bán thực tế sẽ được cố định ngay tại thời điểm thanh toán thành công.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let currentStep = 1;
+            const totalSteps = 3;
+
+            // DOM Elements
+            const steps = document.querySelectorAll(".stepper-step");
+            const indicators = document.querySelectorAll(".stepper-progress__step");
+            const lines = document.querySelectorAll(".stepper-progress__line");
+            
+            const btnPrev = document.getElementById("btnPrev");
+            const btnNext = document.getElementById("btnNext");
+            const btnSkip = document.getElementById("btnSkip");
+            const btnPlaceOrder = document.getElementById("btnPlaceOrder");
+            
+            const payOnlineRadio = document.getElementById("payOnlineRadio");
+            const payOnlineFullRadio = document.getElementById("payOnlineFullRadio");
+            const cardOnline = document.getElementById("cardOnline");
+            const cardOnlineFull = document.getElementById("cardOnlineFull");
+            
+            const mainQtyInput = document.getElementById("mainQuantityInput");
+            const addonCheckboxes = document.querySelectorAll('input[name="extraProductIds"]');
+
+            // 1. Navigation handlers
+            function showStep(stepNum) {
+                steps.forEach(s => s.classList.remove("is-active"));
+                indicators.forEach(ind => {
+                    const stepIdx = parseInt(ind.getAttribute("data-step-indicator"));
+                    if (stepIdx === stepNum) {
+                        ind.classList.add("is-active");
+                        ind.classList.remove("is-completed");
+                    } else if (stepIdx < stepNum) {
+                        ind.classList.add("is-completed");
+                        ind.classList.remove("is-active");
+                    } else {
+                        ind.classList.remove("is-active", "is-completed");
+                    }
+                });
+
+                lines.forEach(line => {
+                    const lineIdx = parseInt(line.getAttribute("data-step-line"));
+                    if (lineIdx < stepNum) {
+                        line.classList.add("is-completed");
+                        line.classList.remove("is-active");
+                    } else if (lineIdx === stepNum) {
+                        line.classList.add("is-active");
+                        line.classList.remove("is-completed");
+                    } else {
+                        line.classList.remove("is-active", "is-completed");
+                    }
+                });
+
+                document.querySelector(`.stepper-step[data-step="${stepNum}"]`).classList.add("is-active");
+
+                // Toggle Buttons visibility
+                if (stepNum === 1) {
+                    btnPrev.style.display = "none";
+                    btnNext.style.display = "inline-block";
+                    if (btnSkip) btnSkip.style.display = "none";
+                    btnPlaceOrder.style.display = "none";
+                } else if (stepNum === 2) {
+                    btnPrev.style.display = "inline-block";
+                    btnNext.style.display = "inline-block";
+                    if (btnSkip) btnSkip.style.display = "inline-block";
+                    btnPlaceOrder.style.display = "none";
+                } else if (stepNum === totalSteps) {
+                    btnPrev.style.display = "inline-block";
+                    btnNext.style.display = "none";
+                    if (btnSkip) btnSkip.style.display = "none";
+                    btnPlaceOrder.style.display = "inline-block";
+                } else {
+                    btnPrev.style.display = "inline-block";
+                    btnNext.style.display = "inline-block";
+                    if (btnSkip) btnSkip.style.display = "none";
+                    btnPlaceOrder.style.display = "none";
+                }
+                currentStep = stepNum;
+            }
+
+            // Client Validation for Step 1
+            function validateStep1() {
+                const customerName = document.querySelector('input[name="customerName"]');
+                const customerPhone = document.querySelector('input[name="customerPhone"]');
+                const mainQuantity = document.querySelector('input[name="mainQuantity"]');
+                
+                let isValid = true;
+
+                if (!customerName.value.trim()) {
+                    customerName.reportValidity();
+                    isValid = false;
+                } else if (!customerPhone.value.trim()) {
+                    customerPhone.reportValidity();
+                    isValid = false;
+                } else if (parseInt(mainQuantity.value) <= 0 || !mainQuantity.value) {
+                    mainQuantity.reportValidity();
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            btnNext.addEventListener("click", function () {
+                if (currentStep === 1) {
+                    if (!validateStep1()) return;
+                }
+                if (currentStep < totalSteps) {
+                    showStep(currentStep + 1);
+                }
+            });
+
+            btnPrev.addEventListener("click", function () {
+                if (currentStep > 1) {
+                    showStep(currentStep - 1);
+                }
+            });
+
+            if (btnSkip) {
+                btnSkip.addEventListener("click", function () {
+                    // Uncheck all add-ons
+                    addonCheckboxes.forEach(cb => {
+                        cb.checked = false;
+                    });
+                    recalculateTotals();
+                    showStep(3);
+                });
+            }
+
+            // 2. Pricing and Order Summary Dynamic Recalculation
+            function recalculateTotals() {
+                const unitPrice = parseFloat('@Model.SellPrice');
+                const mainQty = parseInt(mainQtyInput.value) || 1;
+                const mainTotal = unitPrice * mainQty;
+                
+                let extraTotal = 0;
+                let addOnSelectedCount = 0;
+                
+                const summaryAddonsList = document.getElementById("summary-addons-list");
+                summaryAddonsList.innerHTML = "";
+
+                addonCheckboxes.forEach(cb => {
+                    if (cb.checked) {
+                        addOnSelectedCount++;
+                        const price = parseFloat(cb.getAttribute("data-price")) || 0;
+                        const name = cb.getAttribute("data-name");
+                        const img = cb.getAttribute("data-image");
+                        extraTotal += price;
+
+                        const itemDiv = document.createElement("div");
+                        itemDiv.className = "summary-addon-item";
+                        itemDiv.innerHTML = `
+                            <img src="${img}" alt="${name}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(39,37,31,0.06);" />
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-size: 0.78rem; font-weight: 600; color: #111;">${name}</span>
+                                <span style="font-size: 0.74rem; color: var(--brand-muted, #777);">SL: 1 | ${price.toLocaleString('vi-VN')} ₫</span>
+                            </div>
+                        `;
+                        summaryAddonsList.appendChild(itemDiv);
+                    }
+                });
+
+                const summaryAddonsSection = document.getElementById("summary-addons-section");
+                if (addOnSelectedCount > 0) {
+                    summaryAddonsSection.style.display = "block";
+                } else {
+                    summaryAddonsSection.style.display = "none";
+                }
+
+                const grandTotal = mainTotal + extraTotal;
+                const isFullPayment = payOnlineFullRadio && payOnlineFullRadio.checked;
+                const depositRate = isFullPayment ? 1.0 : 0.1;
+                const depositAmount = Math.round(grandTotal * depositRate);
+
+                // Update UI values
+                document.getElementById("summary-main-qty").textContent = mainQty;
+                document.getElementById("summary-main-total").textContent = mainTotal.toLocaleString("vi-VN") + " ₫";
+                document.getElementById("summary-total").textContent = grandTotal.toLocaleString("vi-VN") + " ₫";
+                document.getElementById("summary-deposit").textContent = depositAmount.toLocaleString("vi-VN") + " ₫";
+                
+                const summaryDepositLabel = document.querySelector('[data-i18n-vi="Tiền đặt cọc (10%)"]');
+                if (summaryDepositLabel) {
+                    if (isFullPayment) {
+                        summaryDepositLabel.textContent = "Thanh toán (100%)";
+                        summaryDepositLabel.setAttribute("data-i18n-vi", "Thanh toán (100%)");
+                        summaryDepositLabel.setAttribute("data-i18n-en", "Full payment (100%)");
+                    } else {
+                        summaryDepositLabel.textContent = "Tiền đặt cọc (10%)";
+                        summaryDepositLabel.setAttribute("data-i18n-vi", "Tiền đặt cọc (10%)");
+                        summaryDepositLabel.setAttribute("data-i18n-en", "Deposit (10%)");
+                    }
+                }
+
+                const depositLabelText = `Thanh toán cọc online (10% - ${Math.round(grandTotal * 0.1).toLocaleString("vi-VN")} ₫)`;
+                if (document.getElementById("online-deposit-text")) {
+                    document.getElementById("online-deposit-text").textContent = depositLabelText;
+                }
+                
+                const fullPaymentLabelText = `Thanh toán toàn bộ sản phẩm (100% - ${grandTotal.toLocaleString("vi-VN")} ₫)`;
+                if (document.getElementById("online-full-text")) {
+                    document.getElementById("online-full-text").textContent = fullPaymentLabelText;
+                }
+            }
+
+            mainQtyInput.addEventListener("input", recalculateTotals);
+            addonCheckboxes.forEach(cb => {
+                cb.addEventListener("change", recalculateTotals);
+            });
+
+            // 3. Payment Method selector and Place Order button status control
+            function updatePaymentSelection() {
+                if (cardOnline) cardOnline.classList.remove("is-selected");
+                if (cardOnlineFull) cardOnlineFull.classList.remove("is-selected");
+
+                if (payOnlineFullRadio && payOnlineFullRadio.checked) {
+                    cardOnlineFull.classList.add("is-selected");
+                    btnPlaceOrder.removeAttribute("disabled");
+                    recalculateTotals();
+                } else if (payOnlineRadio && payOnlineRadio.checked) {
+                    cardOnline.classList.add("is-selected");
+                    btnPlaceOrder.removeAttribute("disabled");
+                    recalculateTotals();
+                } else {
+                    btnPlaceOrder.setAttribute("disabled", "true");
+                }
+            }
+
+            if (payOnlineRadio && payOnlineFullRadio) {
+                payOnlineRadio.addEventListener("change", updatePaymentSelection);
+                payOnlineFullRadio.addEventListener("change", updatePaymentSelection);
+            }
+
+            // Run initial setup
+            recalculateTotals();
+            updatePaymentSelection();
+        });
+    </script>
+}

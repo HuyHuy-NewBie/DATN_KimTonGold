@@ -1,0 +1,149 @@
+@model GoldManagementSystem.Models.ViewModels.BranchManagementViewModel
+@using System.Linq
+@{
+    ViewData["Title"] = "Quản Lý Chi Nhánh";
+}
+
+<div class="dashboard-card dashboard-card--flush admin-panel">
+    <section class="admin-hero admin-hero--split">
+        <div>
+            <p class="admin-hero__eyebrow" data-i18n data-i18n-vi="Mạng lưới cửa hàng" data-i18n-en="Store network">Mạng lưới cửa hàng</p>
+            <h1 data-i18n data-i18n-vi="Quản lý chi nhánh" data-i18n-en="Branch management">Quản lý chi nhánh</h1>
+            <p class="admin-hero__text" data-i18n data-i18n-vi="Tạo chi nhánh mới, theo dõi số sản phẩm theo từng nơi và kiểm soát trạng thái hoạt động của từng điểm bán." data-i18n-en="Create new branches, monitor product allocation, and control the active status of each location.">Tạo chi nhánh mới, theo dõi số sản phẩm theo từng nơi và kiểm soát trạng thái hoạt động của từng điểm bán.</p>
+        </div>
+    </section>
+
+    <div class="admin-panel__body">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--success">@TempData["SuccessMessage"]</div>
+        }
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--danger">@TempData["ErrorMessage"]</div>
+        }
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div asp-validation-summary="ModelOnly" class="admin-alert admin-alert--danger"></div>
+        }
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Tạo mới" data-i18n-en="Create branch">Tạo mới</p>
+                    <h2 data-i18n data-i18n-vi="Thêm chi nhánh vào hệ thống" data-i18n-en="Add a branch to the system">Thêm chi nhánh vào hệ thống</h2>
+                </div>
+            </div>
+
+            <form asp-action="CreateBranch" method="post" class="admin-form-grid branch-management__form">
+                <label class="admin-field">
+                    <span data-i18n data-i18n-vi="Tên chi nhánh" data-i18n-en="Branch name">Tên chi nhánh</span>
+                    <input asp-for="BranchName" placeholder="GoldSys Quận 1" />
+                    <span asp-validation-for="BranchName" class="profile-field__error"></span>
+                </label>
+
+                <label class="admin-field">
+                    <span data-i18n data-i18n-vi="Chủ chi nhánh" data-i18n-en="Branch owner">Chủ chi nhánh</span>
+                    <select asp-for="OwnerUserId" asp-items="Model.OwnerOptions" class="admin-select"></select>
+                    <span asp-validation-for="OwnerUserId" class="profile-field__error"></span>
+                </label>
+
+                <label class="admin-field">
+                    <span data-i18n data-i18n-vi="Quản lí chi nhánh" data-i18n-en="Branch manager">Quản lí chi nhánh</span>
+                    <select asp-for="ManagerUserId" asp-items="Model.ManagerOptions" class="admin-select"></select>
+                    <span asp-validation-for="ManagerUserId" class="profile-field__error"></span>
+                </label>
+
+                <label class="admin-field admin-field--wide">
+                    <span data-i18n data-i18n-vi="Địa chỉ" data-i18n-en="Address">Địa chỉ</span>
+                    <input asp-for="Address" placeholder="123 Đường ABC, Quận 1, TP.HCM" />
+                    <span asp-validation-for="Address" class="profile-field__error"></span>
+                </label>
+
+                <div class="admin-form-actions">
+                    <button type="submit" class="admin-button admin-button--primary" data-i18n data-i18n-vi="Thêm chi nhánh" data-i18n-en="Create branch">Thêm chi nhánh</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Phân bổ sản phẩm" data-i18n-en="Product allocation">Phân bổ sản phẩm</p>
+                    <h2 data-i18n data-i18n-vi="Sản phẩm đang thuộc chi nhánh nào" data-i18n-en="Which branch each product belongs to">Sản phẩm đang thuộc chi nhánh nào</h2>
+                </div>
+                <a href="/Products/AdminIndex" class="admin-link" data-i18n data-i18n-vi="Mở quản lý sản phẩm" data-i18n-en="Open product management">Mở quản lý sản phẩm</a>
+            </div>
+
+            <div class="table-shell">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n data-i18n-vi="Chi nhánh" data-i18n-en="Branch">Chi nhánh</th>
+                            <th data-i18n data-i18n-vi="Địa chỉ" data-i18n-en="Address">Địa chỉ</th>
+                            <th data-i18n data-i18n-vi="Nhân sự phụ trách" data-i18n-en="Assigned team">Nhân sự phụ trách</th>
+                            <th data-i18n data-i18n-vi="Sản phẩm" data-i18n-en="Products">Sản phẩm</th>
+                            <th data-i18n data-i18n-vi="Đơn hàng" data-i18n-en="Orders">Đơn hàng</th>
+                            <th data-i18n data-i18n-vi="Trạng thái" data-i18n-en="Status">Trạng thái</th>
+                            <th data-i18n data-i18n-vi="Thao tác" data-i18n-en="Actions">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var branch in Model.Branches)
+                        {
+                            <tr>
+                                <td class="data-table__strong">@branch.BranchName</td>
+                                <td>@(!string.IsNullOrWhiteSpace(branch.Address) ? branch.Address : "--")</td>
+                                <td>
+                                    <div class="data-table__stack">
+                                        <strong data-i18n data-i18n-vi="Chủ chi nhánh" data-i18n-en="Branch owner">Chủ chi nhánh</strong>
+                                        <span>@branch.OwnerSummary</span>
+                                        <strong data-i18n data-i18n-vi="Quản lí" data-i18n-en="Manager">Quản lí</strong>
+                                        <span>@branch.ManagerSummary</span>
+                                        <strong data-i18n data-i18n-vi="Nhân viên" data-i18n-en="Staff">Nhân viên</strong>
+                                        <span>@branch.StaffCount</span>
+                                    </div>
+                                </td>
+                                <td>@branch.ProductCount</td>
+                                <td>@branch.OrderCount</td>
+                                <td>
+                                    @if (branch.IsActive)
+                                    {
+                                        <span class="status-chip status-chip--success" data-i18n data-i18n-vi="Đang hoạt động" data-i18n-en="Active">Đang hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-chip status-chip--neutral" data-i18n data-i18n-vi="Tạm khóa" data-i18n-en="Paused">Tạm khóa</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="admin-action-group">
+                                        <a href="/Admin/BranchTeam?branchId=@branch.Id" class="admin-button admin-button--secondary" data-i18n data-i18n-vi="Nhân viên" data-i18n-en="Staff">Nhân viên</a>
+                                        <a href="/Products/AdminIndex?branchId=@branch.Id" class="admin-button admin-button--ghost" data-i18n data-i18n-vi="Xem sản phẩm" data-i18n-en="View products">Xem sản phẩm</a>
+                                        <form asp-action="ToggleBranchStatus" method="post">
+                                            <input type="hidden" name="branchId" value="@branch.Id" />
+                                            @if (branch.IsActive)
+                                            {
+                                                <button type="submit" class="admin-button admin-button--danger" data-i18n data-i18n-vi="Tạm khóa" data-i18n-en="Pause">Tạm khóa</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="submit" class="admin-button admin-button--secondary" data-i18n data-i18n-vi="Kích hoạt lại" data-i18n-en="Reactivate">Kích hoạt lại</button>
+                                            }
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

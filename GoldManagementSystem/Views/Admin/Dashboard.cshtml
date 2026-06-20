@@ -1,0 +1,148 @@
+@using GoldManagementSystem.Models
+@using System.Linq
+@{
+    ViewData["Title"] = "Dashboard Quản Lý";
+    var recentOrders = ViewBag.RecentOrders as IEnumerable<Order> ?? Enumerable.Empty<Order>();
+    var totalRevenue = ViewBag.TotalRevenue is decimal revenue ? revenue : Convert.ToDecimal(ViewBag.TotalRevenue ?? 0m);
+
+    (string Vi, string En, string Modifier) GetStatusMeta(string status)
+    {
+        return status switch
+        {
+            Order.StatusAwaitingDepositPayment => ("Chờ thanh toán cọc", "Awaiting deposit", "warning"),
+            Order.StatusUnpaidDeposit => ("Chưa thanh toán cọc", "Deposit unpaid", "neutral"),
+            Order.StatusPendingConfirmation => ("Chờ xác nhận", "Pending confirmation", "info"),
+            Order.StatusConfirmed => ("Đã xác nhận", "Confirmed", "success"),
+            Order.StatusCompleted => ("Hoàn thành", "Completed", "success"),
+            Order.StatusCancelled => ("Đã hủy", "Cancelled", "danger"),
+            Order.StatusShipping => ("Vận chuyển", "Shipping", "info"),
+            Order.StatusProcessing => ("Đang xử lý", "Processing", "warning"),
+            _ => (status, status, "neutral")
+        };
+    }
+}
+
+<div class="dashboard-card dashboard-card--flush admin-panel">
+    <section class="admin-hero">
+        <div>
+            <p class="admin-hero__eyebrow" data-i18n data-i18n-vi="Bảng điều khiển" data-i18n-en="Control center">Bảng điều khiển</p>
+            <h1 data-i18n data-i18n-vi="Dashboard tổng quan" data-i18n-en="Operations dashboard">Dashboard tổng quan</h1>
+            <p class="admin-hero__text" data-i18n data-i18n-vi="Theo dõi nhanh doanh thu, đơn hàng, người dùng và danh mục sản phẩm trong một màn hình gọn gàng." data-i18n-en="Track revenue, orders, users, and products from one clean admin screen.">Theo dõi nhanh doanh thu, đơn hàng, người dùng và danh mục sản phẩm trong một màn hình gọn gàng.</p>
+        </div>
+    </section>
+
+    <div class="admin-panel__body">
+        <section class="admin-stats-grid">
+            <article class="admin-stat-card admin-stat-card--gold">
+                <div class="admin-stat-card__content">
+                    <p data-i18n data-i18n-vi="Tổng doanh thu" data-i18n-en="Total revenue">Tổng doanh thu</p>
+                    <strong>@totalRevenue.ToString("N0") ₫</strong>
+                </div>
+                <span class="admin-stat-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.66 0-3 .9-3 2s1.34 2 3 2 3 .9 3 2-1.34 2-3 2m0-8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.4-2.6-1M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                </span>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--blue">
+                <div class="admin-stat-card__content">
+                    <p data-i18n data-i18n-vi="Đơn hàng" data-i18n-en="Orders">Đơn hàng</p>
+                    <strong>@ViewBag.TotalOrders</strong>
+                </div>
+                <span class="admin-stat-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 0 0-8 0v4M5 9h14l1 10.5a1 1 0 0 1-.99 1.1H4.99A1 1 0 0 1 4 19.5L5 9Z" />
+                    </svg>
+                </span>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--green">
+                <div class="admin-stat-card__content">
+                    <p data-i18n data-i18n-vi="Người dùng" data-i18n-en="Users">Người dùng</p>
+                    <strong>@ViewBag.TotalUsers</strong>
+                </div>
+                <span class="admin-stat-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 19a4 4 0 0 0-8 0m8 0H5m11 0h3m-8-8a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 1a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5ZM4 12a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z" />
+                    </svg>
+                </span>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--rose">
+                <div class="admin-stat-card__content">
+                    <p data-i18n data-i18n-vi="Sản phẩm" data-i18n-en="Products">Sản phẩm</p>
+                    <strong>@ViewBag.TotalProducts</strong>
+                </div>
+                <span class="admin-stat-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v9m8-4.5-8 4.5-8-4.5" />
+                    </svg>
+                </span>
+            </article>
+        </section>
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Hoạt động gần đây" data-i18n-en="Recent activity">Hoạt động gần đây</p>
+                    <h2 data-i18n data-i18n-vi="Đơn hàng mới nhất" data-i18n-en="Latest orders">Đơn hàng mới nhất</h2>
+                </div>
+                <a href="/Admin/OrderManagement" class="admin-link" data-i18n data-i18n-vi="Xem tất cả" data-i18n-en="View all">Xem tất cả</a>
+            </div>
+
+            @if (recentOrders.Any())
+            {
+                <div class="table-shell">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n data-i18n-vi="Mã đơn" data-i18n-en="Order no.">Mã đơn</th>
+                                <th data-i18n data-i18n-vi="Khách hàng" data-i18n-en="Customer">Khách hàng</th>
+                                <th data-i18n data-i18n-vi="Ngày tạo" data-i18n-en="Created">Ngày tạo</th>
+                                <th data-i18n data-i18n-vi="Tổng tiền" data-i18n-en="Total">Tổng tiền</th>
+                                <th data-i18n data-i18n-vi="Trạng thái" data-i18n-en="Status">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var order in recentOrders)
+                            {
+                                var status = GetStatusMeta(order.Status);
+                                <tr>
+                                    <td class="data-table__strong">#@order.OrderNumber</td>
+                                    <td>
+                                        @if (order.User != null)
+                                        {
+                                            @order.User.FullName
+                                        }
+                                        else
+                                        {
+                                            <span data-i18n data-i18n-vi="Khách vãng lai" data-i18n-en="Guest">Khách vãng lai</span>
+                                        }
+                                    </td>
+                                    <td>@order.OrderDate.ToString("dd/MM/yyyy")</td>
+                                    <td class="data-table__accent">@order.TotalAmount.ToString("N0") ₫</td>
+                                    <td>
+                                        <span class="status-chip status-chip--@status.Modifier"
+                                              data-i18n
+                                              data-i18n-vi="@status.Vi"
+                                              data-i18n-en="@status.En">
+                                            @status.Vi
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state-card">
+                    <h3 data-i18n data-i18n-vi="Chưa có đơn hàng gần đây" data-i18n-en="No recent orders yet">Chưa có đơn hàng gần đây</h3>
+                    <p data-i18n data-i18n-vi="Dữ liệu sẽ xuất hiện tại đây khi hệ thống ghi nhận thêm giao dịch." data-i18n-en="Data will appear here once the system records new transactions.">Dữ liệu sẽ xuất hiện tại đây khi hệ thống ghi nhận thêm giao dịch.</p>
+                </div>
+            }
+        </section>
+    </div>
+</div>
