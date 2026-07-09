@@ -121,7 +121,7 @@
         /* Toast notification at corner */
         .toast-notification {
             position: fixed;
-            bottom: 24px;
+            bottom: 96px;
             right: 24px;
             background: #fff;
             border-left: 4px solid #ef7a9d;
@@ -150,6 +150,47 @@
             font-size: 0.8rem;
             color: #333;
             line-height: 1.4;
+        }
+
+        /* Floating Chat Button */
+        .floating-chat-button {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ef7a9d, #cb3a6a);
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(203, 58, 106, 0.35);
+            z-index: 999;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .floating-chat-button:hover {
+            transform: scale(1.1);
+            background: linear-gradient(135deg, #f18cb0, #db4a7b);
+            box-shadow: 0 6px 20px rgba(203, 58, 106, 0.5);
+        }
+        .floating-chat-button svg {
+            width: 28px;
+            height: 28px;
+            stroke: currentColor;
+        }
+        @@media (max-width: 768px) {
+            .floating-chat-button {
+                width: 52px;
+                height: 52px;
+                bottom: 16px;
+                right: 16px;
+            }
+            .floating-chat-button svg {
+                width: 24px;
+                height: 24px;
+            }
         }
     </style>
 </head>
@@ -738,5 +779,12 @@
         </script>
     }
     @await RenderSectionAsync("Scripts", required: false)
+
+    <!-- Floating Chat Button -->
+    <a href="/chat-ai/index.html" target="_blank" rel="noopener noreferrer" class="floating-chat-button" aria-label="Tư vấn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+    </a>
 </body>
 </html>

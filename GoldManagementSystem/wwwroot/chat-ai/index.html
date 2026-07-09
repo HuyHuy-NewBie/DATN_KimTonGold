@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KIMTON - Trợ Lý Chat AI Tiệm Vàng Cao Cấp</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=8">
+</head>
+<body>
+    <div class="luxury-bg-overlay"></div>
+
+    <header class="app-header">
+        <div class="logo">
+            <i class="fa-solid fa-gem gold-glow-text"></i>
+            <span class="brand-name gold-gradient-text">KIMTON</span>
+            <span class="brand-subtitle">AI Assistant Studio</span>
+        </div>
+        <div class="header-status">
+            <span class="status-indicator active"></span>
+            <span class="status-text">Hệ thống sẵn sàng</span>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- CỘT TRÁI: THÔNG TIN CỬA HÀNG -->
+        <section class="store-info-panel glass-card">
+            <div class="card-header">
+                <i class="fa-solid fa-store gold-text"></i>
+                <h2>Thông Tin Cửa Hàng</h2>
+            </div>
+            <div class="branch-selector-container">
+                <label for="branchSelector"><i class="fa-solid fa-map-location-dot gold-text"></i> Chọn Chi Nhánh:</label>
+                <select id="branchSelector" class="branch-select">
+                    <!-- Sẽ render bằng JS -->
+                </select>
+            </div>
+            
+            <div class="store-info-content">
+                <div class="info-row">
+                    <div class="info-icon-circle">
+                        <i class="fa-solid fa-shop"></i>
+                    </div>
+                    <div class="info-text-group">
+                        <span class="info-label">Tên Cửa Hàng</span>
+                        <strong class="info-val" id="displayStoreName">Tiệm Vàng KIMTON</strong>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-icon-circle">
+                        <i class="fa-solid fa-phone"></i>
+                    </div>
+                    <div class="info-text-group">
+                        <span class="info-label">Hotline / Zalo</span>
+                        <strong class="info-val" id="displayHotline">0961137407</strong>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-icon-circle">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <div class="info-text-group">
+                        <span class="info-label">Giờ Mở Cửa</span>
+                        <strong class="info-val" id="displayOpenHours">08:00 - 21:30 hàng ngày</strong>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-icon-circle">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+                    <div class="info-text-group">
+                        <span class="info-label">Địa Chỉ Chi Nhánh</span>
+                        <p class="info-val-desc" id="displayAddress">Số 123 Đường Kim Mã, Quận Ba Đình, Hà Nội</p>
+                    </div>
+                </div>
+
+                <div class="form-separator">Chính sách của tiệm</div>
+
+                <div class="info-row">
+                    <div class="info-icon-circle">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </div>
+                    <div class="info-text-group">
+                        <span class="info-label">Thu Đổi Vàng Tây</span>
+                        <p class="info-val-desc" id="displayExchangePolicy">Mua lại 75% giá trị hóa đơn, đổi mẫu mới thu hồi 80%</p>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <div class="info-icon-circle">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div class="info-text-group">
+                        <span class="info-label">Chính Sách Bảo Hành</span>
+                        <p class="info-val-desc" id="displayWarrantyPolicy">Đánh bóng trọn đời, miễn phí đính lại đá tấm rớt trong 6 tháng</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CỘT GIỮA: KHUNG CHAT & CÁC TIỆN ÍCH -->
+        <div class="main-content-area">
+            <section class="chat-simulator glass-card">
+            <div class="chat-header">
+                <div class="avatar-container">
+                    <div class="avatar gold-glow-border">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <span class="online-dot"></span>
+                </div>
+                <div class="chat-meta">
+                    <h2 id="chatAssistantTitle">Trợ Lý KIMTON</h2>
+                    <p>Chuyên viên tư vấn cao cấp</p>
+                </div>
+            </div>
+
+            <!-- Khung chứa tin nhắn -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- Tin nhắn chào mừng -->
+                <div class="message system-msg">
+                    <span>Trí nhớ AI vừa được đồng bộ hóa với thông tin mới nhất của tiệm.</span>
+                </div>
+                <div class="message assistant">
+                    <div class="msg-bubble">
+                        Dạ, tiệm vàng <span class="ai-sync-store-name">KIMTON</span> xin chào anh/chị! Em là trợ lý tư vấn cao cấp của tiệm. Anh/chị cần em hỗ trợ tư vấn mẫu mã, giá vàng hay size nhẫn thế nào ạ?
+                    </div>
+                    <span class="msg-time">Vừa xong</span>
+                </div>
+            </div>
+
+            <!-- Chips gợi ý câu hỏi nhanh -->
+            <div class="quick-chips">
+                <button class="chip" data-question="Giá vàng hôm nay thế nào em?">Giá vàng hôm nay</button>
+                <button class="chip" data-question="Chính sách thu đổi vàng tây bên mình ra sao?">Chính sách thu đổi</button>
+                <button class="chip" data-question="Anh muốn đặt thiết kế nhẫn riêng thì làm thế nào?">Đặt thiết kế riêng</button>
+                <button class="chip" data-question="Địa chỉ tiệm ở đâu và mấy giờ đóng cửa?">Địa chỉ & Giờ mở cửa</button>
+                <button class="chip" data-question="Làm sao để anh tự đo size tay tại nhà?">Hướng dẫn đo size nhẫn</button>
+            </div>
+
+            <!-- Khung nhập tin nhắn -->
+            <div class="chat-input-area">
+                <input type="text" id="userInput" placeholder="Nhập câu hỏi của anh/chị..." autocomplete="off">
+                <button id="sendBtn" class="btn-send">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- CÁC WIDGETS NẰM NGANG PHÍA DƯỚI -->
+        <div class="bottom-widgets-row">
+            <!-- WIDGET 1: BẢNG GIÁ VÀNG -->
+            <div class="price-board glass-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-chart-line gold-text"></i>
+                    <h2>Bảng Giá Vàng Hôm Nay</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="price-table">
+                        <thead>
+                            <tr>
+                                <th>Loại vàng</th>
+                                <th>Mua</th>
+                                <th>Bán</th>
+                            </tr>
+                        </thead>
+                        <tbody id="goldPriceTableBody">
+                            <!-- Sẽ render bằng JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- WIDGET 2: MÁY TÍNH SIZE NHẪN -->
+            <div class="ring-size-calculator glass-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-ruler-horizontal gold-text"></i>
+                    <h2>Tính Size Nhẫn</h2>
+                </div>
+                <div class="calc-body">
+                    <p class="calc-desc">Nhập chu vi ngón tay đo được (mm):</p>
+                    <div class="calc-input-group">
+                        <input type="number" id="circumference" placeholder="Ví dụ: 53" min="30" max="100">
+                        <button id="btnCalc" class="btn-primary">Tính</button>
+                    </div>
+                    <div class="calc-result" id="calcResult" style="display: none;">
+                        <div class="result-box">
+                            <span class="result-label">Size nhẫn:</span>
+                            <strong class="result-value" id="ringSizeOutput">--</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    </main>
+
+
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">Thông báo</div>
+
+    <script src="app.js?v=8"></script>
+</body>
+</html>
