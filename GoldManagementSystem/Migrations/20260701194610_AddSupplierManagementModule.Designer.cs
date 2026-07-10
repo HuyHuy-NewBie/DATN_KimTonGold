@@ -4,6 +4,7 @@ using GoldManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoldManagementSystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260701194610_AddSupplierManagementModule")]
+    partial class AddSupplierManagementModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -197,166 +200,6 @@ namespace GoldManagementSystem.Migrations
                     b.HasKey("ProductId");
 
                     b.ToTable("GoldSilverProductCatalogEntries");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.InventoryItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("CertificateCode")
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal?>("DiamondCarat")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("MaterialType")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("ProductLine")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<string>("ProductName")
-                        .IsRequired()
-                        .HasMaxLength(220)
-                        .HasColumnType("nvarchar(220)");
-
-                    b.Property<int>("QuantityOnHand")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("StockCode")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<int?>("SupplierGoodsReceiptDetailId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("SupplierId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("SupplierPurchaseOrderId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("UnitCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("WarehouseId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("WeightOnHand")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StockCode")
-                        .IsUnique();
-
-                    b.HasIndex("SupplierGoodsReceiptDetailId");
-
-                    b.HasIndex("SupplierId");
-
-                    b.HasIndex("SupplierPurchaseOrderId");
-
-                    b.HasIndex("WarehouseId");
-
-                    b.ToTable("InventoryItems");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.InventoryTransaction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedByUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("InventoryItemId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("QuantityAfter")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuantityChange")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ReferenceId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ReferenceType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("TransactionCode")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<string>("TransactionType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("WarehouseId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("WeightAfter")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("WeightChange")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("InventoryItemId");
-
-                    b.HasIndex("TransactionCode")
-                        .IsUnique();
-
-                    b.HasIndex("WarehouseId");
-
-                    b.ToTable("InventoryTransactions");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.MarketHistory", b =>
@@ -611,7 +454,6 @@ namespace GoldManagementSystem.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Address")
-                        .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
@@ -620,8 +462,8 @@ namespace GoldManagementSystem.Migrations
                         .HasColumnType("nvarchar(120)");
 
                     b.Property<string>("BankAccountNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("BankName")
                         .HasMaxLength(120)
@@ -656,18 +498,16 @@ namespace GoldManagementSystem.Migrations
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("SupplierType")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("TaxCode")
-                        .IsRequired()
-                        .HasMaxLength(13)
-                        .HasColumnType("nvarchar(13)");
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.HasKey("Id");
 
@@ -686,14 +526,6 @@ namespace GoldManagementSystem.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("DeliveredBy")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("DeliveryDocumentNumber")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("Note")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -706,30 +538,17 @@ namespace GoldManagementSystem.Migrations
                     b.Property<DateTime>("ReceivedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int>("SupplierPurchaseOrderId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalAcceptedValue")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("WarehouseId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.HasIndex("ReceiptCode")
-                        .IsUnique();
-
                     b.HasIndex("SupplierPurchaseOrderId");
-
-                    b.HasIndex("WarehouseId");
 
                     b.ToTable("SupplierGoodsReceipts");
                 });
@@ -745,17 +564,7 @@ namespace GoldManagementSystem.Migrations
                     b.Property<int>("AcceptedQuantity")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("ActualDiamondCarat")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ActualDiamondCertificate")
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
                     b.Property<decimal>("ActualUnitCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("ActualWeight")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("LineValue")
@@ -765,28 +574,11 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("QualityStatus")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int>("ReceivedQuantity")
                         .HasColumnType("int");
 
-                    b.Property<string>("ReceivingNote")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<int>("RejectedQuantity")
                         .HasColumnType("int");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Resolution")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("SupplierGoodsReceiptId")
                         .HasColumnType("int");
@@ -976,47 +768,6 @@ namespace GoldManagementSystem.Migrations
                     b.HasIndex("SupplierPurchaseOrderId");
 
                     b.ToTable("SupplierPurchaseOrderDetails");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.Warehouse", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Location")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Warehouses");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -1224,65 +975,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("GoldManagementSystem.Models.InventoryItem", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.SupplierGoodsReceiptDetail", "SupplierGoodsReceiptDetail")
-                        .WithMany()
-                        .HasForeignKey("SupplierGoodsReceiptDetailId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GoldManagementSystem.Models.Supplier", "Supplier")
-                        .WithMany()
-                        .HasForeignKey("SupplierId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GoldManagementSystem.Models.SupplierPurchaseOrder", "SupplierPurchaseOrder")
-                        .WithMany()
-                        .HasForeignKey("SupplierPurchaseOrderId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GoldManagementSystem.Models.Warehouse", "Warehouse")
-                        .WithMany("InventoryItems")
-                        .HasForeignKey("WarehouseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Supplier");
-
-                    b.Navigation("SupplierGoodsReceiptDetail");
-
-                    b.Navigation("SupplierPurchaseOrder");
-
-                    b.Navigation("Warehouse");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.InventoryTransaction", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GoldManagementSystem.Models.InventoryItem", "InventoryItem")
-                        .WithMany()
-                        .HasForeignKey("InventoryItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GoldManagementSystem.Models.Warehouse", "Warehouse")
-                        .WithMany("Transactions")
-                        .HasForeignKey("WarehouseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CreatedByUser");
-
-                    b.Navigation("InventoryItem");
-
-                    b.Navigation("Warehouse");
-                });
-
             modelBuilder.Entity("GoldManagementSystem.Models.Order", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
@@ -1368,17 +1060,9 @@ namespace GoldManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("GoldManagementSystem.Models.Warehouse", "Warehouse")
-                        .WithMany()
-                        .HasForeignKey("WarehouseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("SupplierPurchaseOrder");
-
-                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupplierGoodsReceiptDetail", b =>
@@ -1465,17 +1149,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("SupplierPurchaseOrder");
                 });
 
-            modelBuilder.Entity("GoldManagementSystem.Models.Warehouse", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
-                        .WithMany("Warehouses")
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1534,8 +1207,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Orders");
 
                     b.Navigation("Products");
-
-                    b.Navigation("Warehouses");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Order", b =>
@@ -1577,13 +1248,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("Receipts");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.Warehouse", b =>
-                {
-                    b.Navigation("InventoryItems");
-
-                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }

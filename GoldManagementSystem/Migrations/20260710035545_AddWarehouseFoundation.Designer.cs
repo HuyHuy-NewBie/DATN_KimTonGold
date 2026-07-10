@@ -4,6 +4,7 @@ using GoldManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoldManagementSystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260710035545_AddWarehouseFoundation")]
+    partial class AddWarehouseFoundation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -686,14 +689,6 @@ namespace GoldManagementSystem.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("DeliveredBy")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("DeliveryDocumentNumber")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("Note")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -706,30 +701,17 @@ namespace GoldManagementSystem.Migrations
                     b.Property<DateTime>("ReceivedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int>("SupplierPurchaseOrderId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalAcceptedValue")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("WarehouseId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.HasIndex("ReceiptCode")
-                        .IsUnique();
-
                     b.HasIndex("SupplierPurchaseOrderId");
-
-                    b.HasIndex("WarehouseId");
 
                     b.ToTable("SupplierGoodsReceipts");
                 });
@@ -745,17 +727,7 @@ namespace GoldManagementSystem.Migrations
                     b.Property<int>("AcceptedQuantity")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("ActualDiamondCarat")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ActualDiamondCertificate")
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
                     b.Property<decimal>("ActualUnitCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("ActualWeight")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("LineValue")
@@ -765,28 +737,11 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("QualityStatus")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<int>("ReceivedQuantity")
                         .HasColumnType("int");
 
-                    b.Property<string>("ReceivingNote")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<int>("RejectedQuantity")
                         .HasColumnType("int");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Resolution")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("SupplierGoodsReceiptId")
                         .HasColumnType("int");
@@ -1368,17 +1323,9 @@ namespace GoldManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("GoldManagementSystem.Models.Warehouse", "Warehouse")
-                        .WithMany()
-                        .HasForeignKey("WarehouseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("SupplierPurchaseOrder");
-
-                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupplierGoodsReceiptDetail", b =>

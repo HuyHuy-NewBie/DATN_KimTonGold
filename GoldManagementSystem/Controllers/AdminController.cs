@@ -11,6 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 
 namespace GoldManagementSystem.Controllers
 {
@@ -21,13 +23,20 @@ namespace GoldManagementSystem.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly AuthNotificationService _notificationService;
+        private readonly InventoryStockService _inventoryStockService;
 
-        public AdminController(ApplicationDbContext context, UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager, AuthNotificationService notificationService)
+        public AdminController(
+            ApplicationDbContext context,
+            UserManager<AppUser> userManager,
+            RoleManager<IdentityRole> roleManager,
+            AuthNotificationService notificationService,
+            InventoryStockService inventoryStockService)
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
             _notificationService = notificationService;
+            _inventoryStockService = inventoryStockService;
         }
 
         // 1. Dashboard Quản lý
@@ -55,6 +64,1708 @@ namespace GoldManagementSystem.Controllers
             ViewBag.RecentOrders = recentOrders;
 
             return View();
+        }
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> SupplierManagement(
+            string searchTerm = null,
+            string statusFilter = null)
+        {
+            ViewBag.ActiveSuppliersForEdit = await _context.Suppliers
+                .Where(item => item.IsActive)
+                .OrderBy(item => item.Name)
+                .ToListAsync();
+
+            ViewBag.ActiveBranchesForEdit = await _context.Branches
+                .Where(item => item.IsActive)
+                .OrderBy(item => item.BranchName)
+                .ToListAsync();
+
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            var warehouseQuery = _context.Warehouses
+                .AsNoTracking()
+                .Include(warehouse => warehouse.Branch)
+                .Where(warehouse =>
+                    warehouse.IsActive
+                    && warehouse.Branch.IsActive)
+                .AsQueryable();
+
+            /*
+            * Admin nhìn thấy kho của toàn hệ thống.
+            * Manager và Branch Owner chỉ thấy kho thuộc chi nhánh mình.
+            */
+            if (!User.IsInRole(RoleCatalog.Admin))
+            {
+                if (currentUser?.BranchId != null)
+                {
+                    warehouseQuery = warehouseQuery.Where(
+                        warehouse =>
+                            warehouse.BranchId
+                            == currentUser.BranchId.Value);
+                }
+                else
+                {
+                    warehouseQuery = warehouseQuery.Where(
+                        warehouse => false);
+                }
+            }
+
+            ViewBag.ActiveWarehousesForReceipt =
+                await warehouseQuery
+                    .OrderBy(warehouse =>
+                        warehouse.Branch.BranchName)
+                    .ThenBy(warehouse =>
+                        warehouse.Name)
+                    .ToListAsync();
+
+            return View(
+                await BuildSupplierManagementViewModelAsync(
+                    searchTerm,
+                    statusFilter));
+        }
+                
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> CreateSupplier(
+            string Name,
+            string TaxCode,
+            string ContactPerson,
+            string Phone,
+            string Email,
+            string Address,
+            string[] SupplierTypes,
+            int PaymentTermDays,
+            string BankName,
+            string BankAccountNumber,
+            string BankAccountName,
+            string Note)
+        {
+            // Kiểm tra request có được gửi bằng AJAX hay không
+            var isAjaxRequest = string.Equals(
+                Request.Headers["X-Requested-With"].ToString(),
+                "XMLHttpRequest",
+                StringComparison.OrdinalIgnoreCase);
+
+            // Chuẩn hóa dữ liệu
+            Name = NormalizeOrEmpty(Name);
+            TaxCode = KeepDigitsOnly(TaxCode);
+            ContactPerson = NormalizeOrEmpty(ContactPerson);
+            Phone = KeepDigitsOnly(Phone);
+            Email = NormalizeOrEmpty(Email);
+            Address = NormalizeOrEmpty(Address);
+            BankName = NormalizeOrEmpty(BankName);
+            BankAccountNumber = KeepDigitsOnly(BankAccountNumber);
+            BankAccountName = NormalizeOrEmpty(BankAccountName);
+            Note = NormalizeOrEmpty(Note);
+
+            var supplierTypeText = BuildSupplierTypeText(SupplierTypes);
+
+            // Kiểm tra dữ liệu hợp lệ
+            var validationError = await ValidateSupplierInputAsync(
+                null,
+                Name,
+                TaxCode,
+                ContactPerson,
+                Phone,
+                Email,
+                Address,
+                supplierTypeText,
+                PaymentTermDays,
+                BankName,
+                BankAccountNumber,
+                BankAccountName);
+
+            // Có lỗi thì trả lỗi về popup, không đóng popup
+            if (!string.IsNullOrWhiteSpace(validationError))
+            {
+                if (isAjaxRequest)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = validationError
+                    });
+                }
+
+                TempData["ErrorMessage"] = validationError;
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var supplier = new Supplier
+            {
+                Name = Name,
+                TaxCode = TaxCode,
+                ContactPerson = ContactPerson,
+                Phone = Phone,
+                Email = Email,
+                Address = Address,
+                SupplierType = supplierTypeText,
+                PaymentTermDays = PaymentTermDays,
+                BankName = BankName,
+                BankAccountNumber = BankAccountNumber,
+                BankAccountName = BankAccountName,
+                Note = Note,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            try
+            {
+                _context.Suppliers.Add(supplier);
+
+                var affectedRows = await _context.SaveChangesAsync();
+
+                // Kiểm tra chắc chắn database đã tạo bản ghi
+                if (affectedRows <= 0 || supplier.Id <= 0)
+                {
+                    const string saveError =
+                        "Không thể lưu nhà cung cấp vào cơ sở dữ liệu. Vui lòng thử lại.";
+
+                    if (isAjaxRequest)
+                    {
+                        return StatusCode(500, new
+                        {
+                            success = false,
+                            message = saveError
+                        });
+                    }
+
+                    TempData["ErrorMessage"] = saveError;
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+            }
+            catch (DbUpdateException ex)
+            {
+                // In lỗi thật ra Terminal để kiểm tra khi chạy dự án
+                Console.WriteLine("Lỗi thêm nhà cung cấp:");
+                Console.WriteLine(ex.InnerException?.Message ?? ex.Message);
+
+                const string databaseError =
+                    "Không thể lưu nhà cung cấp. Hãy kiểm tra database, migration hoặc dữ liệu bị trùng.";
+
+                if (isAjaxRequest)
+                {
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = databaseError
+                    });
+                }
+
+                TempData["ErrorMessage"] = databaseError;
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi không xác định khi thêm nhà cung cấp:");
+                Console.WriteLine(ex.Message);
+
+                const string unknownError =
+                    "Đã xảy ra lỗi khi thêm nhà cung cấp. Vui lòng kiểm tra Terminal.";
+
+                if (isAjaxRequest)
+                {
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = unknownError
+                    });
+                }
+
+                TempData["ErrorMessage"] = unknownError;
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var successMessage = $"Đã thêm nhà cung cấp {Name}.";
+            TempData["SuccessMessage"] = successMessage;
+
+            // AJAX nhận JSON thành công
+            if (isAjaxRequest)
+            {
+                return Json(new
+                {
+                    success = true,
+                    message = successMessage,
+                    supplierId = supplier.Id
+                });
+            }
+
+            return RedirectToAction(nameof(SupplierManagement));
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> CreateSupplierPurchaseOrder(
+            int SupplierId,
+            int BranchId,
+            DateTime? ExpectedDeliveryDate,
+            string PurchaseOrderNote,
+            string[] ProductLines,
+            string[] Categories,
+            string[] CustomCategories,
+            string[] ProductNames,
+            string[] GoldTypes,
+            string[] CustomGoldTypes,
+            string[] Quantities,
+            string[] Weights,
+            string[] DiamondCarats,
+            string[] DiamondCertificates,
+            string[] UnitCosts,
+            string[] DetailNotes)
+        {
+            PurchaseOrderNote = NormalizeOrEmpty(PurchaseOrderNote);
+
+            var supplier = await _context.Suppliers
+                .FirstOrDefaultAsync(item => item.Id == SupplierId && item.IsActive);
+
+            if (supplier == null)
+            {
+                TempData["ErrorMessage"] = "Nhà cung cấp không tồn tại hoặc đã tạm ngưng.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var branch = await _context.Branches
+                .FirstOrDefaultAsync(item => item.Id == BranchId && item.IsActive);
+
+            if (branch == null)
+            {
+                TempData["ErrorMessage"] = "Chi nhánh nhận hàng không tồn tại hoặc đã tạm khóa.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (!ExpectedDeliveryDate.HasValue || ExpectedDeliveryDate.Value.Date < DateTime.Today)
+            {
+                TempData["ErrorMessage"] = "Ngày dự kiến giao hàng không được nhỏ hơn ngày hiện tại.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            string GetValue(string[] values, int index)
+            {
+                if (values == null || index < 0 || index >= values.Length)
+                {
+                    return string.Empty;
+                }
+
+                return NormalizeOrEmpty(values[index]);
+            }
+
+            int ParseIntValue(string value)
+            {
+                return int.TryParse(value, out var result) ? result : 0;
+            }
+
+            decimal ParseDecimalValue(string value)
+            {
+                value = NormalizeOrEmpty(value).Replace(",", ".");
+
+                return decimal.TryParse(
+                    value,
+                    NumberStyles.Number,
+                    CultureInfo.InvariantCulture,
+                    out var result)
+                    ? result
+                    : 0m;
+            }
+
+            string ResolveSelectValue(string selectedValue, string customValue)
+            {
+                selectedValue = NormalizeOrEmpty(selectedValue);
+                customValue = NormalizeOrEmpty(customValue);
+
+                if (string.Equals(selectedValue, "__other__", StringComparison.OrdinalIgnoreCase))
+                {
+                    return customValue;
+                }
+
+                return selectedValue;
+            }
+
+            var rowCount = new[]
+            {
+                ProductLines?.Length ?? 0,
+                Categories?.Length ?? 0,
+                ProductNames?.Length ?? 0,
+                GoldTypes?.Length ?? 0,
+                Quantities?.Length ?? 0,
+                UnitCosts?.Length ?? 0
+            }.Max();
+
+            var details = new List<SupplierPurchaseOrderDetail>();
+
+            for (var i = 0; i < rowCount; i++)
+            {
+                var productLine = GetValue(ProductLines, i);
+                var category = ResolveSelectValue(GetValue(Categories, i), GetValue(CustomCategories, i));
+                var productName = GetValue(ProductNames, i);
+                var goldType = ResolveSelectValue(GetValue(GoldTypes, i), GetValue(CustomGoldTypes, i));
+                var quantity = ParseIntValue(GetValue(Quantities, i));
+                var weight = ParseDecimalValue(GetValue(Weights, i));
+                var diamondCaratValue = ParseDecimalValue(GetValue(DiamondCarats, i));
+                var diamondCarat = diamondCaratValue > 0 ? diamondCaratValue : (decimal?)null;
+                var diamondCertificate = GetValue(DiamondCertificates, i);
+                var unitCost = ParseDecimalValue(GetValue(UnitCosts, i));
+                var detailNote = GetValue(DetailNotes, i);
+
+                var isEmptyRow =
+                    string.IsNullOrWhiteSpace(productLine)
+                    && string.IsNullOrWhiteSpace(category)
+                    && string.IsNullOrWhiteSpace(productName)
+                    && string.IsNullOrWhiteSpace(goldType)
+                    && quantity <= 0
+                    && unitCost <= 0;
+
+                if (isEmptyRow)
+                {
+                    continue;
+                }
+
+                var rowNumber = i + 1;
+
+                if (!AllowedPurchaseOrderProductLines.Any(item => string.Equals(item, productLine, StringComparison.OrdinalIgnoreCase)))
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng chọn nhóm hàng hợp lệ.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (!SupplierSupportsPurchaseProductLine(supplier, productLine))
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Nhà cung cấp không có nhóm cung ứng phù hợp với dòng hàng {productLine}.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (string.IsNullOrWhiteSpace(category))
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng chọn hoặc nhập danh mục hàng.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (string.IsNullOrWhiteSpace(productName))
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng nhập tên sản phẩm dự kiến nhập.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (string.IsNullOrWhiteSpace(goldType))
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng chọn hoặc nhập chất liệu / phân loại.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (quantity <= 0)
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Số lượng đặt hàng phải lớn hơn 0.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (unitCost <= 0)
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Đơn giá nhập phải lớn hơn 0.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (IsWeightRequiredPurchaseLine(productLine) && weight <= 0)
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Trọng lượng phải lớn hơn 0 đối với vàng hoặc bạc.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (IsCaratRequiredPurchaseLine(productLine) && (!diamondCarat.HasValue || diamondCarat.Value <= 0))
+                {
+                    TempData["ErrorMessage"] = $"Dòng {rowNumber}: Carat phải lớn hơn 0 đối với kim cương hoặc đá quý.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                if (!IsWeightRequiredPurchaseLine(productLine))
+                {
+                    weight = 0;
+                }
+
+                if (!IsCaratRequiredPurchaseLine(productLine))
+                {
+                    diamondCarat = null;
+                }
+
+                var totalCost = quantity * unitCost;
+
+                details.Add(new SupplierPurchaseOrderDetail
+                {
+                    ProductLine = productLine,
+                    Category = category,
+                    ProductName = productName,
+                    GoldType = goldType,
+                    Quantity = quantity,
+                    Weight = weight,
+                    DiamondCarat = diamondCarat,
+                    DiamondCertificate = diamondCertificate,
+                    UnitCost = unitCost,
+                    TotalCost = totalCost,
+                    ReceivedQuantity = 0,
+                    AcceptedQuantity = 0,
+                    RejectedQuantity = 0,
+                    Note = detailNote
+                });
+            }
+
+            if (!details.Any())
+            {
+                TempData["ErrorMessage"] = "Vui lòng thêm ít nhất một dòng hàng hợp lệ cho đơn đặt hàng.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            var purchaseOrder = new SupplierPurchaseOrder
+            {
+                OrderCode = $"PO-{DateTime.Now:yyyyMMddHHmmss}",
+                SupplierId = supplier.Id,
+                BranchId = branch.Id,
+                CreatedByUserId = currentUser.Id,
+                CreatedAt = DateTime.Now,
+                ExpectedDeliveryDate = ExpectedDeliveryDate.Value.Date,
+                Status = SupplierPurchaseOrder.StatusOrdered,
+                TotalAmount = details.Sum(item => item.TotalCost),
+                Note = PurchaseOrderNote
+            };
+
+            foreach (var detail in details)
+            {
+                purchaseOrder.Details.Add(detail);
+            }
+
+            _context.SupplierPurchaseOrders.Add(purchaseOrder);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Đã tạo đơn đặt hàng NCC {purchaseOrder.OrderCode}.";
+            return RedirectToAction(nameof(SupplierManagement));
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> UpdateSupplierPurchaseOrder(
+            int PurchaseOrderId,
+            int SupplierId,
+            int BranchId,
+            DateTime? ExpectedDeliveryDate,
+            string PurchaseOrderNote,
+            string[] ProductLines,
+            string[] Categories,
+            string[] ProductNames,
+            string[] GoldTypes,
+            string[] Quantities,
+            string[] Weights,
+            string[] DiamondCarats,
+            string[] DiamondCertificates,
+            string[] UnitCosts,
+            string[] DetailNotes)
+        {
+            var order = await _context.SupplierPurchaseOrders
+                .Include(item => item.Details)
+                .Include(item => item.Receipts)
+                .Include(item => item.Payments)
+                .FirstOrDefaultAsync(item => item.Id == PurchaseOrderId);
+
+            if (order == null)
+            {
+                TempData["ErrorMessage"] = "Không tìm thấy đơn đặt hàng nhà cung cấp.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (order.Status != SupplierPurchaseOrder.StatusOrdered)
+            {
+                TempData["ErrorMessage"] = "Chỉ được sửa đơn đặt hàng đang ở trạng thái Đã đặt hàng.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if ((order.Receipts != null && order.Receipts.Any()) || (order.Payments != null && order.Payments.Any()))
+            {
+                TempData["ErrorMessage"] = "Không thể sửa đơn đã phát sinh kiểm hàng hoặc thanh toán.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var supplier = await _context.Suppliers
+                .FirstOrDefaultAsync(item => item.Id == SupplierId && item.IsActive);
+
+            if (supplier == null)
+            {
+                TempData["ErrorMessage"] = "Nhà cung cấp không tồn tại hoặc đã tạm ngưng.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var branch = await _context.Branches
+                .FirstOrDefaultAsync(item => item.Id == BranchId && item.IsActive);
+
+            if (branch == null)
+            {
+                TempData["ErrorMessage"] = "Chi nhánh nhận hàng không tồn tại hoặc đã tạm khóa.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (!ExpectedDeliveryDate.HasValue || ExpectedDeliveryDate.Value.Date < DateTime.Today)
+            {
+                TempData["ErrorMessage"] = "Ngày dự kiến giao hàng không được nhỏ hơn ngày hiện tại.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var detailResult = BuildSupplierPurchaseOrderDetails(
+                supplier,
+                ProductLines,
+                Categories,
+                ProductNames,
+                GoldTypes,
+                Quantities,
+                Weights,
+                DiamondCarats,
+                DiamondCertificates,
+                UnitCosts,
+                DetailNotes);
+
+            if (!detailResult.IsValid)
+            {
+                TempData["ErrorMessage"] = detailResult.ErrorMessage;
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            order.SupplierId = supplier.Id;
+            order.BranchId = branch.Id;
+            order.ExpectedDeliveryDate = ExpectedDeliveryDate.Value.Date;
+            order.Note = NormalizeOrEmpty(PurchaseOrderNote);
+            order.TotalAmount = detailResult.Details.Sum(item => item.TotalCost);
+
+            _context.SupplierPurchaseOrderDetails.RemoveRange(order.Details);
+
+            foreach (var detail in detailResult.Details)
+            {
+                order.Details.Add(detail);
+            }
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Đã cập nhật đơn đặt hàng NCC {order.OrderCode}.";
+            return RedirectToAction(nameof(SupplierManagement));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> CancelSupplierPurchaseOrder(int purchaseOrderId)
+        {
+            var order = await _context.SupplierPurchaseOrders
+                .Include(item => item.Receipts)
+                .Include(item => item.Payments)
+                .FirstOrDefaultAsync(item => item.Id == purchaseOrderId);
+
+            if (order == null)
+            {
+                TempData["ErrorMessage"] = "Không tìm thấy đơn đặt hàng nhà cung cấp.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (order.Status != SupplierPurchaseOrder.StatusOrdered)
+            {
+                TempData["ErrorMessage"] = "Chỉ được hủy đơn đặt hàng đang ở trạng thái Đã đặt hàng.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if ((order.Receipts != null && order.Receipts.Any()) || (order.Payments != null && order.Payments.Any()))
+            {
+                TempData["ErrorMessage"] = "Không thể hủy đơn đã phát sinh kiểm hàng hoặc thanh toán.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            order.Status = SupplierPurchaseOrder.StatusCancelled;
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Đã hủy đơn đặt hàng NCC {order.OrderCode}.";
+            return RedirectToAction(nameof(SupplierManagement));
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> CreateSupplierGoodsReceipt(
+            int PurchaseOrderId,
+            int WarehouseId,
+            DateTime? ReceivedAt,
+            string DeliveryDocumentNumber,
+            string DeliveredBy,
+            string ReceiptNote,
+            int[] PurchaseOrderDetailIds,
+            string[] ReceivedQuantities,
+            string[] ActualWeights,
+            string[] ActualDiamondCarats,
+            string[] ActualDiamondCertificates,
+            string[] ReceivingNotes)
+        {
+            DeliveryDocumentNumber =
+                NormalizeOrEmpty(DeliveryDocumentNumber);
+
+            DeliveredBy =
+                NormalizeOrEmpty(DeliveredBy);
+
+            ReceiptNote =
+                NormalizeOrEmpty(ReceiptNote);
+
+            if (DeliveryDocumentNumber.Length > 100)
+            {
+                TempData["ErrorMessage"] =
+                    "Số chứng từ giao hàng không được vượt quá 100 ký tự.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (DeliveredBy.Length > 150)
+            {
+                TempData["ErrorMessage"] =
+                    "Tên người giao hàng không được vượt quá 150 ký tự.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (ReceiptNote.Length > 1000)
+            {
+                TempData["ErrorMessage"] =
+                    "Ghi chú phiếu nhận không được vượt quá 1000 ký tự.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var order = await _context.SupplierPurchaseOrders
+                .Include(item => item.Supplier)
+                .Include(item => item.Branch)
+                .Include(item => item.Details)
+                .Include(item => item.Receipts)
+                    .ThenInclude(receipt => receipt.Details)
+                .FirstOrDefaultAsync(item =>
+                    item.Id == PurchaseOrderId);
+
+            if (order == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Không tìm thấy đơn đặt hàng nhà cung cấp.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (order.Status == SupplierPurchaseOrder.StatusCancelled)
+            {
+                TempData["ErrorMessage"] =
+                    "Không thể nhận hàng cho đơn đã bị hủy.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (order.Status == SupplierPurchaseOrder.StatusReceived)
+            {
+                TempData["ErrorMessage"] =
+                    "Đơn đặt hàng này đã được nhận đủ.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (order.Status != SupplierPurchaseOrder.StatusOrdered
+                && order.Status
+                    != SupplierPurchaseOrder.StatusPartiallyReceived)
+            {
+                TempData["ErrorMessage"] =
+                    "Trạng thái đơn đặt hàng không cho phép tạo phiếu nhận.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            /*
+            * Manager và Branch Owner chỉ được nhận đơn của
+            * chi nhánh đang được phân công.
+            */
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && currentUser.BranchId != order.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Bạn không có quyền nhận hàng cho chi nhánh này.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var warehouse = await _context.Warehouses
+                .Include(item => item.Branch)
+                .FirstOrDefaultAsync(item =>
+                    item.Id == WarehouseId
+                    && item.IsActive);
+
+            if (warehouse == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Kho nhận hàng không tồn tại hoặc đang tạm ngưng.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (warehouse.BranchId != order.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Kho được chọn không thuộc chi nhánh nhận hàng của đơn đặt hàng.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (!ReceivedAt.HasValue)
+            {
+                TempData["ErrorMessage"] =
+                    "Vui lòng nhập thời điểm nhận hàng.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (ReceivedAt.Value > DateTime.Now.AddMinutes(5))
+            {
+                TempData["ErrorMessage"] =
+                    "Thời điểm nhận hàng không được lớn hơn thời điểm hiện tại.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (ReceivedAt.Value.Date < order.CreatedAt.Date)
+            {
+                TempData["ErrorMessage"] =
+                    "Thời điểm nhận hàng không được trước ngày tạo đơn.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            if (PurchaseOrderDetailIds == null
+                || PurchaseOrderDetailIds.Length == 0)
+            {
+                TempData["ErrorMessage"] =
+                    "Đơn đặt hàng không có dòng hàng để nhận.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            var orderDetailDictionary =
+                order.Details.ToDictionary(
+                    detail => detail.Id);
+
+            var receiptDetails =
+                new List<SupplierGoodsReceiptDetail>();
+
+            var receivedQuantityByDetail =
+                new Dictionary<int, int>();
+
+            var submittedDetailIds =
+                new HashSet<int>();
+
+            for (var index = 0;
+                index < PurchaseOrderDetailIds.Length;
+                index++)
+            {
+                var detailId =
+                    PurchaseOrderDetailIds[index];
+
+                if (!submittedDetailIds.Add(detailId))
+                {
+                    TempData["ErrorMessage"] =
+                        "Dữ liệu dòng hàng nhận bị trùng.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                if (!orderDetailDictionary.TryGetValue(
+                    detailId,
+                    out var orderDetail))
+                {
+                    TempData["ErrorMessage"] =
+                        "Có dòng hàng không thuộc đơn đặt hàng.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                var receivedQuantity =
+                    ParseSupplierInt(
+                        GetArrayValue(
+                            ReceivedQuantities,
+                            index));
+
+                var actualWeight =
+                    ParseSupplierDecimal(
+                        GetArrayValue(
+                            ActualWeights,
+                            index));
+
+                var actualCaratValue =
+                    ParseSupplierDecimal(
+                        GetArrayValue(
+                            ActualDiamondCarats,
+                            index));
+
+                var actualCarat =
+                    actualCaratValue > 0
+                        ? actualCaratValue
+                        : (decimal?)null;
+
+                var actualCertificate =
+                    GetArrayValue(
+                        ActualDiamondCertificates,
+                        index);
+
+                var receivingNote =
+                    GetArrayValue(
+                        ReceivingNotes,
+                        index);
+
+                /*
+                * Cho phép nhập 0 để bỏ qua một dòng trong lần giao này.
+                */
+                if (receivedQuantity == 0)
+                {
+                    continue;
+                }
+
+                if (receivedQuantity < 0)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Số lượng nhận không được nhỏ hơn 0.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                var remainingQuantity =
+                    orderDetail.Quantity
+                    - orderDetail.ReceivedQuantity;
+
+                if (remainingQuantity <= 0)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Hàng này đã được nhận đủ.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                if (receivedQuantity > remainingQuantity)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + $"Chỉ còn được nhận tối đa {remainingQuantity} sản phẩm.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                if (IsWeightRequiredPurchaseLine(
+                    orderDetail.ProductLine)
+                    && actualWeight <= 0)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Vui lòng nhập trọng lượng thực nhận.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                if (IsCaratRequiredPurchaseLine(
+                    orderDetail.ProductLine)
+                    && (!actualCarat.HasValue
+                        || actualCarat.Value <= 0))
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Vui lòng nhập carat thực nhận.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                if (!IsWeightRequiredPurchaseLine(
+                    orderDetail.ProductLine))
+                {
+                    actualWeight = 0;
+                }
+
+                if (!IsCaratRequiredPurchaseLine(
+                    orderDetail.ProductLine))
+                {
+                    actualCarat = null;
+                    actualCertificate = string.Empty;
+                }
+
+                receiptDetails.Add(
+                    new SupplierGoodsReceiptDetail
+                    {
+                        SupplierPurchaseOrderDetailId =
+                            orderDetail.Id,
+
+                        ReceivedQuantity =
+                            receivedQuantity,
+
+                        AcceptedQuantity = 0,
+                        RejectedQuantity = 0,
+
+                        ActualWeight =
+                            actualWeight,
+
+                        ActualDiamondCarat =
+                            actualCarat,
+
+                        ActualDiamondCertificate =
+                            actualCertificate,
+
+                        ActualUnitCost =
+                            orderDetail.UnitCost,
+
+                        LineValue = 0,
+
+                        QualityStatus =
+                            SupplierGoodsReceiptDetail
+                                .QualityPending,
+
+                        Resolution =
+                            SupplierGoodsReceiptDetail
+                                .ResolutionNone,
+
+                        ReceivingNote =
+                            receivingNote
+                    });
+
+                receivedQuantityByDetail[orderDetail.Id] =
+                    receivedQuantity;
+            }
+
+            if (!receiptDetails.Any())
+            {
+                TempData["ErrorMessage"] =
+                    "Vui lòng nhập số lượng nhận cho ít nhất một dòng hàng.";
+
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+            try
+            {
+                var receipt = new SupplierGoodsReceipt
+                {
+                    ReceiptCode =
+                        BuildSupplierGoodsReceiptCode(),
+
+                    SupplierPurchaseOrderId =
+                        order.Id,
+
+                    WarehouseId =
+                        warehouse.Id,
+
+                    CreatedByUserId =
+                        currentUser.Id,
+
+                    ReceivedAt =
+                        ReceivedAt.Value,
+
+                    Status =
+                        SupplierGoodsReceipt.StatusPendingInspection,
+
+                    DeliveryDocumentNumber =
+                        DeliveryDocumentNumber,
+
+                    DeliveredBy =
+                        DeliveredBy,
+
+                    TotalAcceptedValue = 0,
+
+                    Note =
+                        ReceiptNote
+                };
+
+                // Thêm các dòng hàng vào phiếu nhận
+                foreach (var receiptDetail in receiptDetails)
+                {
+                    receipt.Details.Add(receiptDetail);
+                }
+
+                // Cập nhật số lượng đã nhận của từng dòng đơn đặt hàng
+                foreach (var quantityEntry in receivedQuantityByDetail)
+                {
+                    var orderDetail =
+                        orderDetailDictionary[quantityEntry.Key];
+
+                    orderDetail.ReceivedQuantity +=
+                        quantityEntry.Value;
+                }
+
+                // Kiểm tra đơn đã nhận đủ tất cả dòng hàng chưa
+                var allItemsReceived =
+                    order.Details.All(detail =>
+                        detail.ReceivedQuantity >= detail.Quantity);
+
+                order.Status = allItemsReceived
+                    ? SupplierPurchaseOrder.StatusReceived
+                    : SupplierPurchaseOrder.StatusPartiallyReceived;
+
+                _context.SupplierGoodsReceipts.Add(receipt);
+
+                /*
+                * Chỉ gọi SaveChangesAsync một lần.
+                * EF Core sẽ tự sử dụng transaction cho toàn bộ:
+                *
+                * - Phiếu nhận hàng
+                * - Chi tiết phiếu nhận
+                * - Số lượng đã nhận
+                * - Trạng thái đơn đặt hàng
+                */
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] =
+                    $"Đã tạo phiếu nhận hàng {receipt.ReceiptCode}. "
+                    + "Hàng đang chờ kiểm tra và chưa được nhập kho.";
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }
+            catch (Exception exception)
+            {
+                var errorMessage =
+                    exception.GetBaseException().Message;
+
+                Console.WriteLine("====================================");
+                Console.WriteLine("LỖI TẠO PHIẾU NHẬN HÀNG NCC");
+                Console.WriteLine(errorMessage);
+                Console.WriteLine(exception);
+                Console.WriteLine("====================================");
+
+                TempData["ErrorMessage"] =
+                    "Không thể tạo phiếu nhận hàng. Chi tiết lỗi: "
+                    + errorMessage;
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }           
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> ApproveSupplierGoodsReceipt(
+            int ReceiptId,
+            Dictionary<int, string> QualityResults,
+            Dictionary<int, string> RejectionReasons)
+        {
+            QualityResults ??= new Dictionary<int, string>();
+            RejectionReasons ??= new Dictionary<int, string>();
+
+            var receipt = await _context.SupplierGoodsReceipts
+                .Include(item => item.Warehouse)
+                .Include(item => item.SupplierPurchaseOrder)
+                .Include(item => item.Details)
+                    .ThenInclude(detail =>
+                        detail.SupplierPurchaseOrderDetail)
+                .FirstOrDefaultAsync(item =>
+                    item.Id == ReceiptId);
+
+            if (receipt == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Không tìm thấy phiếu nhận hàng.";
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }
+
+            /*
+            * Hỗ trợ cả trạng thái cũ nếu trước đó bạn đã thử
+            * chức năng kiểm hàng hai bước.
+            */
+            var canApprove =
+                receipt.Status
+                    == SupplierGoodsReceipt.StatusPendingInspection
+                || receipt.Status
+                    == SupplierGoodsReceipt.StatusInspecting
+                || receipt.Status
+                    == SupplierGoodsReceipt.StatusPendingApproval;
+
+            if (!canApprove)
+            {
+                TempData["ErrorMessage"] =
+                    "Phiếu này đã được duyệt hoặc không còn ở trạng thái cho phép kiểm hàng.";
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }
+
+            if (receipt.Details == null
+                || receipt.Details.Count == 0)
+            {
+                TempData["ErrorMessage"] =
+                    "Phiếu nhận hàng không có dòng hàng.";
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }
+
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            /*
+            * Admin được duyệt mọi chi nhánh.
+            * Manager và Branch Owner chỉ duyệt chi nhánh của mình.
+            */
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && currentUser.BranchId
+                    != receipt.SupplierPurchaseOrder.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Bạn không có quyền duyệt phiếu nhận hàng của chi nhánh này.";
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }
+
+            /*
+            * Kiểm tra toàn bộ dữ liệu trước.
+            * Chưa tạo hàng kho tại vòng lặp này.
+            */
+            foreach (var detail in receipt.Details)
+            {
+                if (!QualityResults.TryGetValue(
+                    detail.Id,
+                    out var result))
+                {
+                    TempData["ErrorMessage"] =
+                        $"Vui lòng chọn Đạt hoặc Không đạt cho dòng "
+                        + $"{detail.SupplierPurchaseOrderDetail?.ProductName ?? detail.Id.ToString()}.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                result = NormalizeOrEmpty(result);
+
+                if (result
+                        != SupplierGoodsReceiptDetail.QualityPassed
+                    && result
+                        != SupplierGoodsReceiptDetail.QualityFailed)
+                {
+                    TempData["ErrorMessage"] =
+                        "Kết quả kiểm hàng không hợp lệ.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                var rejectionReason =
+                    RejectionReasons.TryGetValue(
+                        detail.Id,
+                        out var reason)
+                        ? NormalizeOrEmpty(reason)
+                        : string.Empty;
+
+                if (result
+                        == SupplierGoodsReceiptDetail.QualityFailed
+                    && string.IsNullOrWhiteSpace(rejectionReason))
+                {
+                    TempData["ErrorMessage"] =
+                        $"Vui lòng nhập lý do không đạt cho "
+                        + $"{detail.SupplierPurchaseOrderDetail?.ProductName ?? "dòng hàng"}.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                if (rejectionReason.Length > 500)
+                {
+                    TempData["ErrorMessage"] =
+                        "Lý do không đạt không được vượt quá 500 ký tự.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+
+                if (result
+                        == SupplierGoodsReceiptDetail.QualityPassed
+                    && detail.ReceivedQuantity <= 0)
+                {
+                    TempData["ErrorMessage"] =
+                        "Số lượng hàng đạt phải lớn hơn 0.";
+
+                    return RedirectToAction(
+                        nameof(SupplierManagement));
+                }
+            }
+
+            try
+            {
+                var totalAcceptedQuantity = 0;
+                var totalRejectedQuantity = 0;
+
+                foreach (var detail in receipt.Details)
+                {
+                    var result =
+                        NormalizeOrEmpty(
+                            QualityResults[detail.Id]);
+
+                    var rejectionReason =
+                        RejectionReasons.TryGetValue(
+                            detail.Id,
+                            out var reason)
+                            ? NormalizeOrEmpty(reason)
+                            : string.Empty;
+
+                    var purchaseOrderDetail =
+                        detail.SupplierPurchaseOrderDetail;
+
+                    if (purchaseOrderDetail == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Chi tiết phiếu nhận không liên kết với chi tiết đơn đặt hàng.");
+                    }
+
+                    /*
+                    * Trường hợp dòng hàng đạt:
+                    * Toàn bộ số lượng của dòng được nhập kho.
+                    */
+                    if (result
+                        == SupplierGoodsReceiptDetail.QualityPassed)
+                    {
+                        var resolvedUnitCost =
+                            detail.ActualUnitCost > 0
+                                ? detail.ActualUnitCost
+                                : purchaseOrderDetail.UnitCost;
+
+                        if (resolvedUnitCost <= 0)
+                        {
+                            throw new InvalidOperationException(
+                                $"Đơn giá của {purchaseOrderDetail.ProductName} không hợp lệ.");
+                        }
+
+                        detail.AcceptedQuantity =
+                            detail.ReceivedQuantity;
+
+                        detail.RejectedQuantity = 0;
+
+                        detail.ActualUnitCost =
+                            resolvedUnitCost;
+
+                        detail.LineValue =
+                            detail.ReceivedQuantity
+                            * resolvedUnitCost;
+
+                        detail.QualityStatus =
+                            SupplierGoodsReceiptDetail
+                                .QualityPassed;
+
+                        detail.RejectionReason =
+                            string.Empty;
+
+                        detail.Resolution =
+                            SupplierGoodsReceiptDetail
+                                .ResolutionNone;
+
+                        /*
+                        * Ghi số lượng đạt tổng hợp trên đơn đặt hàng.
+                        */
+                        purchaseOrderDetail.AcceptedQuantity +=
+                            detail.ReceivedQuantity;
+
+                        totalAcceptedQuantity +=
+                            detail.ReceivedQuantity;
+
+                        /*
+                        * Chuẩn bị InventoryItem và InventoryTransaction.
+                        * Chưa SaveChanges ở đây.
+                        */
+                        await _inventoryStockService
+                            .PrepareSupplierReceiptEntryAsync(
+                                receiptDetailId:
+                                    detail.Id,
+
+                                warehouseId:
+                                    receipt.WarehouseId,
+
+                                acceptedQuantity:
+                                    detail.ReceivedQuantity,
+
+                                acceptedWeight:
+                                    detail.ActualWeight,
+
+                                acceptedCarat:
+                                    detail.ActualDiamondCarat,
+
+                                approvedUnitCost:
+                                    resolvedUnitCost,
+
+                                createdByUserId:
+                                    currentUser.Id,
+
+                                note:
+                                    $"Nhập kho từ phiếu {receipt.ReceiptCode}.");
+                    }
+                    /*
+                    * Trường hợp không đạt:
+                    * Không tạo InventoryItem và không tạo giao dịch kho.
+                    */
+                    else
+                    {
+                        detail.AcceptedQuantity = 0;
+
+                        detail.RejectedQuantity =
+                            detail.ReceivedQuantity;
+
+                        detail.LineValue = 0;
+
+                        detail.QualityStatus =
+                            SupplierGoodsReceiptDetail
+                                .QualityFailed;
+
+                        detail.RejectionReason =
+                            rejectionReason;
+
+                        /*
+                        * Tạm để Chưa xử lý.
+                        * Sau này chức năng trả/đổi NCC sẽ cập nhật.
+                        */
+                        detail.Resolution =
+                            SupplierGoodsReceiptDetail
+                                .ResolutionNone;
+
+                        purchaseOrderDetail.RejectedQuantity +=
+                            detail.ReceivedQuantity;
+
+                        totalRejectedQuantity +=
+                            detail.ReceivedQuantity;
+                    }
+                }
+
+                receipt.TotalAcceptedValue =
+                    receipt.Details.Sum(
+                        detail => detail.LineValue);
+
+                /*
+                * Hệ thống tự xác định trạng thái cuối.
+                */
+                if (totalAcceptedQuantity == 0)
+                {
+                    receipt.Status =
+                        SupplierGoodsReceipt.StatusRejected;
+                }
+                else if (totalRejectedQuantity > 0)
+                {
+                    receipt.Status =
+                        SupplierGoodsReceipt
+                            .StatusPartiallyApproved;
+                }
+                else
+                {
+                    receipt.Status =
+                        SupplierGoodsReceipt.StatusApproved;
+                }
+
+                /*
+                * Chỉ SaveChanges một lần:
+                * - Kết quả kiểm hàng
+                * - InventoryItem
+                * - InventoryTransaction
+                * - Trạng thái phiếu
+                *
+                * EF Core tự thực hiện transaction cho lần lưu này.
+                */
+                await _context.SaveChangesAsync();
+
+                if (receipt.Status
+                    == SupplierGoodsReceipt.StatusRejected)
+                {
+                    TempData["SuccessMessage"] =
+                        $"Phiếu {receipt.ReceiptCode} đã được duyệt là Không đạt. "
+                        + "Không có hàng nào được nhập kho.";
+                }
+                else if (receipt.Status
+                    == SupplierGoodsReceipt.StatusPartiallyApproved)
+                {
+                    TempData["SuccessMessage"] =
+                        $"Đã duyệt phiếu {receipt.ReceiptCode}. "
+                        + $"{totalAcceptedQuantity} sản phẩm đạt đã được nhập kho; "
+                        + $"{totalRejectedQuantity} sản phẩm không đạt chưa được nhập kho.";
+                }
+                else
+                {
+                    TempData["SuccessMessage"] =
+                        $"Đã duyệt phiếu {receipt.ReceiptCode}. "
+                        + $"Toàn bộ {totalAcceptedQuantity} sản phẩm đã được nhập kho.";
+                }
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }
+            catch (Exception exception)
+            {
+                var errorMessage =
+                    exception.GetBaseException().Message;
+
+                Console.WriteLine(
+                    "====================================");
+
+                Console.WriteLine(
+                    "LỖI DUYỆT PHIẾU NHẬN HÀNG");
+
+                Console.WriteLine(errorMessage);
+                Console.WriteLine(exception);
+
+                Console.WriteLine(
+                    "====================================");
+
+                TempData["ErrorMessage"] =
+                    "Không thể duyệt phiếu nhận hàng. Chi tiết lỗi: "
+                    + errorMessage;
+
+                return RedirectToAction(
+                    nameof(SupplierManagement));
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> UpdateSupplier(
+            int SupplierId,
+            string Name,
+            string TaxCode,
+            string ContactPerson,
+            string Phone,
+            string Email,
+            string Address,
+            string[] SupplierTypes,
+            int PaymentTermDays,
+            string BankName,
+            string BankAccountNumber,
+            string BankAccountName,
+            string Note)
+        {
+            var supplier = await _context.Suppliers.FindAsync(SupplierId);
+
+            if (supplier == null)
+            {
+                return NotFound();
+            }
+
+            Name = NormalizeOrEmpty(Name);
+            TaxCode = KeepDigitsOnly(TaxCode);
+            ContactPerson = NormalizeOrEmpty(ContactPerson);
+            Phone = KeepDigitsOnly(Phone);
+            Email = NormalizeOrEmpty(Email);
+            Address = NormalizeOrEmpty(Address);
+            BankName = NormalizeOrEmpty(BankName);
+            BankAccountNumber = KeepDigitsOnly(BankAccountNumber);
+            BankAccountName = NormalizeOrEmpty(BankAccountName);
+            Note = NormalizeOrEmpty(Note);
+
+            var supplierTypeText = BuildSupplierTypeText(SupplierTypes);
+
+            var validationError = await ValidateSupplierInputAsync(
+                SupplierId,
+                Name,
+                TaxCode,
+                ContactPerson,
+                Phone,
+                Email,
+                Address,
+                supplierTypeText,
+                PaymentTermDays,
+                BankName,
+                BankAccountNumber,
+                BankAccountName);
+
+            if (!string.IsNullOrWhiteSpace(validationError))
+            {
+                TempData["ErrorMessage"] = validationError;
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            supplier.Name = Name;
+            supplier.TaxCode = TaxCode;
+            supplier.ContactPerson = ContactPerson;
+            supplier.Phone = Phone;
+            supplier.Email = Email;
+            supplier.Address = Address;
+            supplier.SupplierType = supplierTypeText;
+            supplier.PaymentTermDays = PaymentTermDays;
+            supplier.BankName = BankName;
+            supplier.BankAccountNumber = BankAccountNumber;
+            supplier.BankAccountName = BankAccountName;
+            supplier.Note = Note;
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Đã cập nhật nhà cung cấp {supplier.Name}.";
+            return RedirectToAction(nameof(SupplierManagement));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> ToggleSupplierStatus(int supplierId)
+        {
+            var supplier = await _context.Suppliers
+                .Include(item => item.PurchaseOrders)
+                    .ThenInclude(order => order.Receipts)
+                .Include(item => item.PurchaseOrders)
+                    .ThenInclude(order => order.Payments)
+                .FirstOrDefaultAsync(item => item.Id == supplierId);
+
+            if (supplier == null)
+            {
+                return NotFound();
+            }
+
+            if (supplier.IsActive)
+            {
+                var hasOpenOrder = supplier.PurchaseOrders.Any(order =>
+                    order.Status != SupplierPurchaseOrder.StatusReceived
+                    && order.Status != SupplierPurchaseOrder.StatusCancelled);
+
+                if (hasOpenOrder)
+                {
+                    TempData["ErrorMessage"] = "Không thể tạm ngưng nhà cung cấp đang còn đơn đặt hàng chưa xử lý xong.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+
+                var debt = supplier.PurchaseOrders.Sum(CalculateSupplierOrderDebt);
+
+                if (debt > 0)
+                {
+                    TempData["ErrorMessage"] = "Không thể tạm ngưng nhà cung cấp đang còn công nợ.";
+                    return RedirectToAction(nameof(SupplierManagement));
+                }
+            }
+
+            supplier.IsActive = !supplier.IsActive;
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = supplier.IsActive
+                ? $"Đã kích hoạt lại nhà cung cấp {supplier.Name}."
+                : $"Đã tạm ngưng nhà cung cấp {supplier.Name}.";
+
+            return RedirectToAction(nameof(SupplierManagement));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> ToggleSupplierStatusAjax(int supplierId)
+        {
+            var supplier = await _context.Suppliers
+                .Include(item => item.PurchaseOrders)
+                    .ThenInclude(order => order.Receipts)
+                .Include(item => item.PurchaseOrders)
+                    .ThenInclude(order => order.Payments)
+                .FirstOrDefaultAsync(item => item.Id == supplierId);
+
+            if (supplier == null)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "Kh\u00f4ng t\u00ecm th\u1ea5y nh\u00e0 cung c\u1ea5p."
+                });
+            }
+
+            if (supplier.IsActive)
+            {
+                var hasOpenOrder = supplier.PurchaseOrders.Any(order =>
+                    order.Status != SupplierPurchaseOrder.StatusReceived
+                    && order.Status != SupplierPurchaseOrder.StatusCancelled);
+
+                if (hasOpenOrder)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "Kh\u00f4ng th\u1ec3 t\u1ea1m ng\u01b0ng nh\u00e0 cung c\u1ea5p \u0111ang c\u00f2n \u0111\u01a1n \u0111\u1eb7t h\u00e0ng ch\u01b0a x\u1eed l\u00fd xong."
+                    });
+                }
+
+                var debt = supplier.PurchaseOrders.Sum(CalculateSupplierOrderDebt);
+
+                if (debt > 0)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "Kh\u00f4ng th\u1ec3 t\u1ea1m ng\u01b0ng nh\u00e0 cung c\u1ea5p \u0111ang c\u00f2n c\u00f4ng n\u1ee3."
+                    });
+                }
+            }
+
+            supplier.IsActive = !supplier.IsActive;
+
+            await _context.SaveChangesAsync();
+
+            var isActive = supplier.IsActive;
+            var message = isActive
+                ? $"\u0110\u00e3 k\u00edch ho\u1ea1t l\u1ea1i nh\u00e0 cung c\u1ea5p {supplier.Name}."
+                : $"\u0110\u00e3 t\u1ea1m ng\u01b0ng nh\u00e0 cung c\u1ea5p {supplier.Name}.";
+
+            return Json(new
+            {
+                success = true,
+                message,
+                supplierId = supplier.Id,
+                isActive,
+                status = isActive ? "active" : "inactive",
+                statusText = isActive ? "\u0110ang h\u1ee3p t\u00e1c" : "T\u1ea1m ng\u01b0ng",
+                buttonText = isActive ? "T\u1ea1m ng\u01b0ng" : "K\u00edch ho\u1ea1t",
+                buttonClass = isActive ? "admin-button admin-button--danger" : "admin-button admin-button--secondary",
+                statusChipClass = isActive ? "status-chip status-chip--success" : "status-chip status-chip--neutral"
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> DeleteSupplier(int supplierId)
+        {
+            var supplier = await _context.Suppliers
+                .Include(item => item.PurchaseOrders)
+                .Include(item => item.Payments)
+                .FirstOrDefaultAsync(item => item.Id == supplierId);
+
+            if (supplier == null)
+            {
+                return NotFound();
+            }
+
+            var hasTransactions =
+                supplier.PurchaseOrders.Any()
+                || supplier.Payments.Any();
+
+            if (hasTransactions)
+            {
+                TempData["ErrorMessage"] = "Không thể xóa nhà cung cấp đã phát sinh giao dịch. Bạn chỉ nên dùng chức năng tạm ngưng để giữ lịch sử chứng từ.";
+                return RedirectToAction(nameof(SupplierManagement));
+            }
+
+            _context.Suppliers.Remove(supplier);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Đã xóa nhà cung cấp {supplier.Name}.";
+            return RedirectToAction(nameof(SupplierManagement));
         }
 
         [Authorize(Roles = "Admin,Manager,Branch Owner")]
@@ -547,7 +2258,717 @@ namespace GoldManagementSystem.Controllers
                 : $"Đã khóa tài khoản {targetUser.Email}. Tài khoản này sẽ tự bị đăng xuất ở lần tải trang tiếp theo.";
             return RedirectToAction(nameof(UserManagement));
         }
+        [Authorize(Roles = "Admin,Manager,Branch Owner,Staff")]
+        public async Task<IActionResult> InventoryManagement(
+            string searchTerm = null,
+            int? branchId = null,
+            int? warehouseId = null,
+            string statusFilter = null)
+        {
+            searchTerm = NormalizeOrEmpty(searchTerm);
+            statusFilter = NormalizeOrEmpty(statusFilter);
 
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            var isAdmin = User.IsInRole(RoleCatalog.Admin);
+
+            int? scopedBranchId = null;
+
+            if (!isAdmin)
+            {
+                scopedBranchId = currentUser?.BranchId;
+            }
+
+            var warehouseQuery = _context.Warehouses
+                .Include(warehouse => warehouse.Branch)
+                .Include(warehouse => warehouse.InventoryItems)
+                .AsQueryable();
+
+            var inventoryQuery = _context.InventoryItems
+                .Include(item => item.Warehouse)
+                    .ThenInclude(warehouse => warehouse.Branch)
+                .Include(item => item.Supplier)
+                .Include(item => item.SupplierPurchaseOrder)
+                .AsQueryable();
+
+            /*
+            * Admin được xem toàn bộ kho.
+            * Các vai trò còn lại chỉ xem kho thuộc chi nhánh được gán.
+            */
+            if (!isAdmin)
+            {
+                if (scopedBranchId.HasValue)
+                {
+                    warehouseQuery = warehouseQuery.Where(
+                        warehouse => warehouse.BranchId == scopedBranchId.Value);
+
+                    inventoryQuery = inventoryQuery.Where(
+                        item => item.Warehouse.BranchId == scopedBranchId.Value);
+
+                    branchId = scopedBranchId.Value;
+                }
+                else
+                {
+                    warehouseQuery = warehouseQuery.Where(warehouse => false);
+                    inventoryQuery = inventoryQuery.Where(item => false);
+
+                    ViewBag.InventoryScopeWarning =
+                        "Tài khoản của bạn chưa được gán chi nhánh nên chưa thể xem dữ liệu kho.";
+                }
+            }
+
+            var accessibleWarehouses = await warehouseQuery
+                .OrderBy(warehouse => warehouse.Branch.BranchName)
+                .ThenBy(warehouse => warehouse.Name)
+                .ToListAsync();
+
+            /*
+            * Danh sách này dùng để tính thống kê tổng quan,
+            * chưa áp dụng bộ lọc trên giao diện.
+            */
+            var overviewItems = await inventoryQuery.ToListAsync();
+
+            if (branchId.HasValue)
+            {
+                inventoryQuery = inventoryQuery.Where(
+                    item => item.Warehouse.BranchId == branchId.Value);
+            }
+
+            if (warehouseId.HasValue)
+            {
+                inventoryQuery = inventoryQuery.Where(
+                    item => item.WarehouseId == warehouseId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+            {
+                inventoryQuery = inventoryQuery.Where(
+                    item => item.Status == statusFilter);
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                inventoryQuery = inventoryQuery.Where(item =>
+                    item.StockCode.Contains(searchTerm)
+                    || item.ProductName.Contains(searchTerm)
+                    || item.ProductLine.Contains(searchTerm)
+                    || item.Category.Contains(searchTerm)
+                    || item.MaterialType.Contains(searchTerm)
+                    || (
+                        item.CertificateCode != null
+                        && item.CertificateCode.Contains(searchTerm)
+                    )
+                    || (
+                        item.Supplier != null
+                        && item.Supplier.Name.Contains(searchTerm)
+                    )
+                    || item.Warehouse.Name.Contains(searchTerm));
+            }
+
+            var inventoryItems = await inventoryQuery
+                .OrderByDescending(item => item.UpdatedAt)
+                .ThenBy(item => item.StockCode)
+                .ToListAsync();
+
+            var branchQuery = _context.Branches
+                .Where(branch => branch.IsActive)
+                .AsQueryable();
+
+            if (!isAdmin)
+            {
+                if (scopedBranchId.HasValue)
+                {
+                    branchQuery = branchQuery.Where(
+                        branch => branch.Id == scopedBranchId.Value);
+                }
+                else
+                {
+                    branchQuery = branchQuery.Where(branch => false);
+                }
+            }
+
+            var branches = await branchQuery
+                .OrderBy(branch => branch.BranchName)
+                .ToListAsync();
+
+            var model = new InventoryManagementViewModel
+            {
+                SearchTerm = searchTerm,
+                BranchId = branchId,
+                WarehouseId = warehouseId,
+                StatusFilter = statusFilter,
+
+                TotalWarehouses = accessibleWarehouses.Count,
+
+                ActiveWarehouses = accessibleWarehouses.Count(
+                    warehouse => warehouse.IsActive),
+
+                TotalItemLines = overviewItems.Count,
+
+                TotalQuantity = overviewItems.Sum(
+                    item => item.QuantityOnHand),
+
+                TotalWeight = overviewItems.Sum(
+                    item => item.WeightOnHand),
+
+                TotalInventoryValue = overviewItems.Sum(
+                    item => item.InventoryValue),
+
+                Warehouses = accessibleWarehouses,
+
+                InventoryItems = inventoryItems,
+
+                BranchOptions = new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Tất cả chi nhánh --"
+                    }
+                }
+                .Concat(branches.Select(branch => new SelectListItem
+                {
+                    Value = branch.Id.ToString(),
+                    Text = branch.BranchName,
+                    Selected = branchId == branch.Id
+                }))
+                .ToList(),
+
+                WarehouseOptions = new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Tất cả kho --"
+                    }
+                }
+                .Concat(accessibleWarehouses.Select(warehouse => new SelectListItem
+                {
+                    Value = warehouse.Id.ToString(),
+                    Text = $"{warehouse.Code} - {warehouse.Name}",
+                    Selected = warehouseId == warehouse.Id
+                }))
+                .ToList(),
+
+                StatusOptions = new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Tất cả trạng thái --"
+                    },
+                    new SelectListItem
+                    {
+                        Value = InventoryItem.StatusAvailable,
+                        Text = InventoryItem.StatusAvailable,
+                        Selected = statusFilter == InventoryItem.StatusAvailable
+                    },
+                    new SelectListItem
+                    {
+                        Value = InventoryItem.StatusReserved,
+                        Text = InventoryItem.StatusReserved,
+                        Selected = statusFilter == InventoryItem.StatusReserved
+                    },
+                    new SelectListItem
+                    {
+                        Value = InventoryItem.StatusQuarantined,
+                        Text = InventoryItem.StatusQuarantined,
+                        Selected = statusFilter == InventoryItem.StatusQuarantined
+                    },
+                    new SelectListItem
+                    {
+                        Value = InventoryItem.StatusOutOfStock,
+                        Text = InventoryItem.StatusOutOfStock,
+                        Selected = statusFilter == InventoryItem.StatusOutOfStock
+                    }
+                }
+            };
+
+            return View(model);
+        }
+        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        public async Task<IActionResult> InventoryHistory(
+            string searchTerm = null,
+            int? branchId = null,
+            int? warehouseId = null,
+            string transactionType = null,
+            DateTime? fromDate = null,
+            DateTime? toDate = null)
+        {
+            searchTerm = NormalizeOrEmpty(searchTerm);
+            transactionType = NormalizeOrEmpty(transactionType);
+
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            var isAdmin = User.IsInRole(RoleCatalog.Admin);
+
+            int? scopedBranchId = null;
+
+            if (!isAdmin)
+            {
+                scopedBranchId = currentUser?.BranchId;
+
+                /*
+                * Manager và Branch Owner bắt buộc chỉ được xem
+                * lịch sử kho thuộc chi nhánh của tài khoản.
+                */
+                branchId = scopedBranchId;
+            }
+
+            var scopedTransactionQuery = _context.InventoryTransactions
+                .AsNoTracking()
+                .Include(transaction => transaction.Warehouse)
+                    .ThenInclude(warehouse => warehouse.Branch)
+                .Include(transaction => transaction.InventoryItem)
+                    .ThenInclude(item => item.Supplier)
+                .Include(transaction => transaction.CreatedByUser)
+                .AsQueryable();
+
+            var accessibleWarehouseQuery = _context.Warehouses
+                .AsNoTracking()
+                .Include(warehouse => warehouse.Branch)
+                .AsQueryable();
+
+            if (!isAdmin)
+            {
+                if (scopedBranchId.HasValue)
+                {
+                    scopedTransactionQuery = scopedTransactionQuery.Where(
+                        transaction =>
+                            transaction.Warehouse.BranchId
+                            == scopedBranchId.Value);
+
+                    accessibleWarehouseQuery = accessibleWarehouseQuery.Where(
+                        warehouse =>
+                            warehouse.BranchId
+                            == scopedBranchId.Value);
+                }
+                else
+                {
+                    scopedTransactionQuery = scopedTransactionQuery.Where(
+                        transaction => false);
+
+                    accessibleWarehouseQuery = accessibleWarehouseQuery.Where(
+                        warehouse => false);
+
+                    ViewBag.InventoryScopeWarning =
+                        "Tài khoản của bạn chưa được gán chi nhánh nên chưa thể xem lịch sử kho.";
+                }
+            }
+
+            /*
+            * Thống kê được tính theo toàn bộ dữ liệu mà tài khoản
+            * có quyền xem, chưa áp dụng bộ lọc trên giao diện.
+            */
+            var totalTransactions =
+                await scopedTransactionQuery.CountAsync();
+
+            var totalQuantityReceived =
+                await scopedTransactionQuery
+                    .Where(transaction =>
+                        transaction.QuantityChange > 0)
+                    .SumAsync(transaction =>
+                        (int?)transaction.QuantityChange)
+                ?? 0;
+
+            var totalNegativeQuantity =
+                await scopedTransactionQuery
+                    .Where(transaction =>
+                        transaction.QuantityChange < 0)
+                    .SumAsync(transaction =>
+                        (int?)transaction.QuantityChange)
+                ?? 0;
+
+            var totalQuantityIssued =
+                Math.Abs(totalNegativeQuantity);
+
+            var totalPositiveWeight =
+                await scopedTransactionQuery
+                    .Where(transaction =>
+                        transaction.WeightChange > 0)
+                    .SumAsync(transaction =>
+                        (decimal?)transaction.WeightChange)
+                ?? 0m;
+
+            var totalNegativeWeight =
+                await scopedTransactionQuery
+                    .Where(transaction =>
+                        transaction.WeightChange < 0)
+                    .SumAsync(transaction =>
+                        (decimal?)transaction.WeightChange)
+                ?? 0m;
+
+            var totalWeightMoved =
+                totalPositiveWeight + Math.Abs(totalNegativeWeight);
+
+            var filteredTransactionQuery =
+                scopedTransactionQuery;
+
+            if (branchId.HasValue)
+            {
+                filteredTransactionQuery =
+                    filteredTransactionQuery.Where(
+                        transaction =>
+                            transaction.Warehouse.BranchId
+                            == branchId.Value);
+            }
+
+            if (warehouseId.HasValue)
+            {
+                filteredTransactionQuery =
+                    filteredTransactionQuery.Where(
+                        transaction =>
+                            transaction.WarehouseId
+                            == warehouseId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(transactionType))
+            {
+                filteredTransactionQuery =
+                    filteredTransactionQuery.Where(
+                        transaction =>
+                            transaction.TransactionType
+                            == transactionType);
+            }
+
+            if (fromDate.HasValue)
+            {
+                var startDate = fromDate.Value.Date;
+
+                filteredTransactionQuery =
+                    filteredTransactionQuery.Where(
+                        transaction =>
+                            transaction.CreatedAt >= startDate);
+            }
+
+            if (toDate.HasValue)
+            {
+                var endDateExclusive =
+                    toDate.Value.Date.AddDays(1);
+
+                filteredTransactionQuery =
+                    filteredTransactionQuery.Where(
+                        transaction =>
+                            transaction.CreatedAt
+                            < endDateExclusive);
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filteredTransactionQuery =
+                    filteredTransactionQuery.Where(transaction =>
+                        transaction.TransactionCode.Contains(searchTerm)
+                        || transaction.InventoryItem.StockCode.Contains(searchTerm)
+                        || transaction.InventoryItem.ProductName.Contains(searchTerm)
+                        || transaction.InventoryItem.ProductLine.Contains(searchTerm)
+                        || transaction.InventoryItem.Category.Contains(searchTerm)
+                        || transaction.InventoryItem.MaterialType.Contains(searchTerm)
+                        || transaction.Warehouse.Code.Contains(searchTerm)
+                        || transaction.Warehouse.Name.Contains(searchTerm)
+                        || transaction.Warehouse.Branch.BranchName.Contains(searchTerm)
+                        || (
+                            transaction.InventoryItem.Supplier != null
+                            && transaction.InventoryItem.Supplier.Name.Contains(searchTerm)
+                        )
+                        || (
+                            transaction.CreatedByUser != null
+                            && transaction.CreatedByUser.FullName.Contains(searchTerm)
+                        )
+                        || (
+                            transaction.Note != null
+                            && transaction.Note.Contains(searchTerm)
+                        ));
+            }
+
+            /*
+            * Tạm giới hạn 500 giao dịch mới nhất để trang không quá nặng.
+            * Thống kê phía trên vẫn tính trên toàn bộ dữ liệu.
+            */
+            var transactions = await filteredTransactionQuery
+                .OrderByDescending(transaction =>
+                    transaction.CreatedAt)
+                .ThenByDescending(transaction =>
+                    transaction.Id)
+                .Take(500)
+                .ToListAsync();
+
+            var branchQuery = _context.Branches
+                .AsNoTracking()
+                .Where(branch => branch.IsActive)
+                .AsQueryable();
+
+            if (!isAdmin)
+            {
+                if (scopedBranchId.HasValue)
+                {
+                    branchQuery = branchQuery.Where(
+                        branch =>
+                            branch.Id == scopedBranchId.Value);
+                }
+                else
+                {
+                    branchQuery = branchQuery.Where(
+                        branch => false);
+                }
+            }
+
+            var branches = await branchQuery
+                .OrderBy(branch => branch.BranchName)
+                .ToListAsync();
+
+            var accessibleWarehouses =
+                await accessibleWarehouseQuery
+                    .OrderBy(warehouse =>
+                        warehouse.Branch.BranchName)
+                    .ThenBy(warehouse =>
+                        warehouse.Name)
+                    .ToListAsync();
+
+            var warehousesForFilter =
+                accessibleWarehouses.AsEnumerable();
+
+            if (branchId.HasValue)
+            {
+                warehousesForFilter =
+                    warehousesForFilter.Where(
+                        warehouse =>
+                            warehouse.BranchId
+                            == branchId.Value);
+            }
+
+            var transactionTypes = new[]
+            {
+                InventoryTransaction.TypeSupplierReceipt,
+                InventoryTransaction.TypeCustomerIssue,
+                InventoryTransaction.TypeSupplierReturn,
+                InventoryTransaction.TypeAdjustmentIncrease,
+                InventoryTransaction.TypeAdjustmentDecrease,
+                InventoryTransaction.TypeTransferIn,
+                InventoryTransaction.TypeTransferOut
+            };
+
+            var model = new InventoryHistoryViewModel
+            {
+                SearchTerm = searchTerm,
+                BranchId = branchId,
+                WarehouseId = warehouseId,
+                TransactionType = transactionType,
+                FromDate = fromDate,
+                ToDate = toDate,
+
+                TotalTransactions = totalTransactions,
+                TotalQuantityReceived = totalQuantityReceived,
+                TotalQuantityIssued = totalQuantityIssued,
+                TotalWeightMoved = totalWeightMoved,
+
+                Transactions = transactions,
+
+                BranchOptions = new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Tất cả chi nhánh --"
+                    }
+                }
+                .Concat(branches.Select(branch =>
+                    new SelectListItem
+                    {
+                        Value = branch.Id.ToString(),
+                        Text = branch.BranchName,
+                        Selected = branchId == branch.Id
+                    }))
+                .ToList(),
+
+                WarehouseOptions = new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Tất cả kho --"
+                    }
+                }
+                .Concat(warehousesForFilter.Select(warehouse =>
+                    new SelectListItem
+                    {
+                        Value = warehouse.Id.ToString(),
+                        Text =
+                            $"{warehouse.Code} - {warehouse.Name}",
+                        Selected =
+                            warehouseId == warehouse.Id
+                    }))
+                .ToList(),
+
+                TransactionTypeOptions = new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Tất cả loại giao dịch --"
+                    }
+                }
+                .Concat(transactionTypes.Select(type =>
+                    new SelectListItem
+                    {
+                        Value = type,
+                        Text = type,
+                        Selected =
+                            transactionType == type
+                    }))
+                .ToList()
+            };
+
+            return View(model);
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateWarehouse(
+            string Code,
+            string Name,
+            int BranchId,
+            string Location)
+        {
+            Code = NormalizeOrEmpty(Code).ToUpperInvariant();
+            Name = NormalizeOrEmpty(Name);
+            Location = NormalizeOrEmpty(Location);
+
+            if (Code.Length < 3 || Code.Length > 30)
+            {
+                TempData["ErrorMessage"] =
+                    "Mã kho phải có từ 3 đến 30 ký tự.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            if (Name.Length < 3 || Name.Length > 150)
+            {
+                TempData["ErrorMessage"] =
+                    "Tên kho phải có từ 3 đến 150 ký tự.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            if (Location.Length > 300)
+            {
+                TempData["ErrorMessage"] =
+                    "Vị trí kho không được vượt quá 300 ký tự.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            var branch = await _context.Branches
+                .FirstOrDefaultAsync(item =>
+                    item.Id == BranchId
+                    && item.IsActive);
+
+            if (branch == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Chi nhánh không tồn tại hoặc đã tạm khóa.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && currentUser?.BranchId != BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Bạn chỉ được tạo kho cho chi nhánh đang được phân công.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            var normalizedCode = Code.ToLower();
+
+            var codeExists = await _context.Warehouses.AnyAsync(
+                warehouse => warehouse.Code.ToLower() == normalizedCode);
+
+            if (codeExists)
+            {
+                TempData["ErrorMessage"] =
+                    $"Mã kho {Code} đã tồn tại.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            var warehouse = new Warehouse
+            {
+                Code = Code,
+                Name = Name,
+                BranchId = BranchId,
+                Location = Location,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Warehouses.Add(warehouse);
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] =
+                $"Đã tạo kho {Code} - {Name} cho chi nhánh {branch.BranchName}.";
+
+            return RedirectToAction(nameof(InventoryManagement));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ToggleWarehouseStatus(
+            int warehouseId)
+        {
+            var warehouse = await _context.Warehouses
+                .Include(item => item.Branch)
+                .Include(item => item.InventoryItems)
+                .FirstOrDefaultAsync(item => item.Id == warehouseId);
+
+            if (warehouse == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Không tìm thấy kho cần cập nhật.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && currentUser?.BranchId != warehouse.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Bạn không có quyền cập nhật kho của chi nhánh khác.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            /*
+            * Không cho tạm ngưng kho còn hàng.
+            * Sau này phải điều chuyển hoặc xuất hết hàng trước.
+            */
+            if (warehouse.IsActive
+                && warehouse.InventoryItems.Any(
+                    item => item.QuantityOnHand > 0))
+            {
+                TempData["ErrorMessage"] =
+                    "Không thể tạm ngưng kho đang còn hàng. "
+                    + "Hãy chuyển hoặc xuất hết tồn kho trước.";
+
+                return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            warehouse.IsActive = !warehouse.IsActive;
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = warehouse.IsActive
+                ? $"Đã kích hoạt lại kho {warehouse.Code}."
+                : $"Đã tạm ngưng kho {warehouse.Code}.";
+
+            return RedirectToAction(nameof(InventoryManagement));
+        }
         [HttpPost]
         [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> UpdateUserRole(string userId, string newRole)
@@ -631,6 +3052,638 @@ namespace GoldManagementSystem.Controllers
             }
 
             return RedirectToAction(nameof(UserManagement));
+        }
+        private async Task<SupplierManagementViewModel> BuildSupplierManagementViewModelAsync(string searchTerm = null, string statusFilter = null)
+        {
+            searchTerm = NormalizeOrEmpty(searchTerm);
+            statusFilter = NormalizeOrEmpty(statusFilter);
+
+            var suppliersQuery = _context.Suppliers
+                .Include(supplier => supplier.PurchaseOrders)
+                    .ThenInclude(order => order.Receipts)
+                .Include(supplier => supplier.PurchaseOrders)
+                    .ThenInclude(order => order.Payments)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                suppliersQuery = suppliersQuery.Where(supplier =>
+                    supplier.Name.Contains(searchTerm)
+                    || supplier.ContactPerson.Contains(searchTerm)
+                    || supplier.Phone.Contains(searchTerm)
+                    || (supplier.Email != null && supplier.Email.Contains(searchTerm))
+                    || (supplier.TaxCode != null && supplier.TaxCode.Contains(searchTerm)));
+            }
+
+            if (string.Equals(statusFilter, "active", StringComparison.OrdinalIgnoreCase))
+            {
+                suppliersQuery = suppliersQuery.Where(supplier => supplier.IsActive);
+            }
+            else if (string.Equals(statusFilter, "inactive", StringComparison.OrdinalIgnoreCase))
+            {
+                suppliersQuery = suppliersQuery.Where(supplier => !supplier.IsActive);
+            }
+            var suppliers = await suppliersQuery
+                .OrderByDescending(supplier => supplier.IsActive)
+                .ThenBy(supplier => supplier.Name)
+                .ToListAsync();
+            var recentPurchaseOrders = await _context.SupplierPurchaseOrders
+                .Include(order => order.Supplier)
+                .Include(order => order.Branch)
+                .Include(order => order.Details)
+                .Include(order => order.Receipts)
+                .Include(order => order.Payments)
+                .OrderByDescending(order => order.CreatedAt)
+                .Take(8)
+                .ToListAsync();
+            var recentReceipts = await _context.SupplierGoodsReceipts
+                .AsNoTracking()
+                .Include(receipt =>
+                    receipt.SupplierPurchaseOrder)
+                    .ThenInclude(order =>
+                        order.Supplier)
+                .Include(receipt =>
+                    receipt.SupplierPurchaseOrder)
+                    .ThenInclude(order =>
+                        order.Branch)
+                .Include(receipt =>
+                    receipt.Warehouse)
+                    .ThenInclude(warehouse =>
+                        warehouse.Branch)
+                .Include(receipt =>
+                    receipt.CreatedByUser)
+                .Include(receipt =>
+                    receipt.Details)
+                    .ThenInclude(detail =>
+                        detail.SupplierPurchaseOrderDetail)
+                .OrderByDescending(receipt =>
+                    receipt.ReceivedAt)
+                .Take(10)
+                .ToListAsync();
+            var activePurchaseOrders = await _context.SupplierPurchaseOrders
+                .CountAsync(order =>
+                    order.Status == SupplierPurchaseOrder.StatusOrdered
+                    || order.Status == SupplierPurchaseOrder.StatusPartiallyReceived);
+
+            var pendingReceiptCount =
+            await _context.SupplierGoodsReceipts
+                .CountAsync(receipt =>
+                    receipt.Status
+                        == SupplierGoodsReceipt.StatusPendingInspection
+                    || receipt.Status
+                        == SupplierGoodsReceipt.StatusInspecting
+                    || receipt.Status
+                        == SupplierGoodsReceipt.StatusPendingApproval);
+
+            return new SupplierManagementViewModel
+                {
+                    SearchTerm = searchTerm,
+                    StatusFilter = statusFilter,
+                    TotalSuppliers = await _context.Suppliers.CountAsync(),
+                    ActivePurchaseOrders = activePurchaseOrders,
+                    PendingReceiptCount = pendingReceiptCount,
+
+                    TotalSupplierDebt = suppliers.Sum(
+                        supplier =>
+                            supplier.PurchaseOrders.Sum(
+                                CalculateSupplierOrderDebt)),
+
+                    Suppliers = suppliers,
+                    PurchaseOrders = recentPurchaseOrders,
+                    RecentReceipts = recentReceipts,
+                    RecentPayments = new List<SupplierPayment>(),
+
+                    SupplierOptions =
+                        await BuildActiveSupplierOptionsAsync(),
+
+                    BranchOptions =
+                        await BuildActiveBranchOptionsAsync(),
+
+                    ProductLineOptions =
+                        BuildSupplierProductLineOptions(),
+
+                    PaymentMethodOptions =
+                        BuildSupplierPaymentMethodOptions()
+                };
+        }
+
+        private async Task<IReadOnlyList<SelectListItem>> BuildActiveSupplierOptionsAsync()
+        {
+            var suppliers = await _context.Suppliers
+                .Where(supplier => supplier.IsActive)
+                .OrderBy(supplier => supplier.Name)
+                .ToListAsync();
+
+            return new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Chọn nhà cung cấp --"
+                    }
+                }
+                .Concat(suppliers.Select(supplier => new SelectListItem
+                {
+                    Value = supplier.Id.ToString(),
+                    Text = supplier.Name
+                }))
+                .ToList();
+        }
+
+        private async Task<IReadOnlyList<SelectListItem>> BuildActiveBranchOptionsAsync()
+        {
+            var branches = await _context.Branches
+                .Where(branch => branch.IsActive)
+                .OrderBy(branch => branch.BranchName)
+                .ToListAsync();
+
+            return new[]
+                {
+                    new SelectListItem
+                    {
+                        Value = string.Empty,
+                        Text = "-- Chọn chi nhánh nhận hàng --"
+                    }
+                }
+                .Concat(branches.Select(branch => new SelectListItem
+                {
+                    Value = branch.Id.ToString(),
+                    Text = branch.BranchName
+                }))
+                .ToList();
+        }
+
+        private static IReadOnlyList<SelectListItem> BuildSupplierProductLineOptions()
+        {
+            return new[]
+            {
+                new SelectListItem { Value = "Vàng", Text = "Vàng" },
+                new SelectListItem { Value = "Bạc", Text = "Bạc" },
+                new SelectListItem { Value = "Kim cương", Text = "Kim cương" },
+                new SelectListItem { Value = "Đá quý", Text = "Đá quý" },
+                new SelectListItem { Value = "Phụ kiện / hộp đựng", Text = "Phụ kiện / hộp đựng" }
+            };
+        }
+
+        private static IReadOnlyList<SelectListItem> BuildSupplierPaymentMethodOptions()
+        {
+            return new[]
+            {
+                new SelectListItem { Value = SupplierPayment.MethodBankTransfer, Text = SupplierPayment.MethodBankTransfer },
+                new SelectListItem { Value = SupplierPayment.MethodCash, Text = SupplierPayment.MethodCash }
+            };
+        }
+
+        private static decimal CalculateSupplierOrderAcceptedValue(SupplierPurchaseOrder order)
+        {
+            return order?.Receipts?.Sum(receipt => receipt.TotalAcceptedValue) ?? 0m;
+        }
+
+        private static decimal CalculateSupplierOrderPaidAmount(SupplierPurchaseOrder order)
+        {
+            return order?.Payments?.Sum(payment => payment.Amount) ?? 0m;
+        }
+
+        private static decimal CalculateSupplierOrderDebt(SupplierPurchaseOrder order)
+        {
+            var debt = CalculateSupplierOrderAcceptedValue(order) - CalculateSupplierOrderPaidAmount(order);
+            return debt > 0 ? debt : 0m;
+        }
+        private static readonly string[] AllowedSupplierTypes =
+        {
+            "Vàng",
+            "Bạc",
+            "Kim cương",
+            "Đá quý",
+            "Phụ kiện / hộp đựng",
+            "Gia công / sửa chữa"
+        };
+        private static readonly string[] AllowedPurchaseOrderProductLines =
+        {
+            "Vàng",
+            "Bạc",
+            "Kim cương",
+            "Đá quý",
+            "Phụ kiện / hộp đựng"
+        };
+
+        private static bool SupplierSupportsPurchaseProductLine(Supplier supplier, string productLine)
+        {
+            if (supplier == null || string.IsNullOrWhiteSpace(productLine))
+            {
+                return false;
+            }
+
+            var supplierTypes = supplier.SupplierType ?? string.Empty;
+
+            if (supplierTypes.Contains("Vàng bạc đá quý", StringComparison.OrdinalIgnoreCase))
+            {
+                return productLine == "Vàng"
+                    || productLine == "Bạc"
+                    || productLine == "Kim cương"
+                    || productLine == "Đá quý";
+            }
+
+            return supplierTypes
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(item => item.Trim())
+                .Any(item => string.Equals(item, productLine, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsWeightRequiredPurchaseLine(string productLine)
+        {
+            return string.Equals(productLine, "Vàng", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(productLine, "Bạc", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsCaratRequiredPurchaseLine(string productLine)
+        {
+            return string.Equals(productLine, "Kim cương", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(productLine, "Đá quý", StringComparison.OrdinalIgnoreCase);
+        }
+        private class SupplierPurchaseOrderDetailBuildResult
+        {
+            public bool IsValid { get; set; }
+
+            public string ErrorMessage { get; set; } = string.Empty;
+
+            public List<SupplierPurchaseOrderDetail> Details { get; set; } = new List<SupplierPurchaseOrderDetail>();
+        }
+
+        private SupplierPurchaseOrderDetailBuildResult BuildSupplierPurchaseOrderDetails(
+            Supplier supplier,
+            string[] productLines,
+            string[] categories,
+            string[] productNames,
+            string[] goldTypes,
+            string[] quantities,
+            string[] weights,
+            string[] diamondCarats,
+            string[] diamondCertificates,
+            string[] unitCosts,
+            string[] detailNotes)
+        {
+            var result = new SupplierPurchaseOrderDetailBuildResult();
+
+            var rowCount = new[]
+            {
+                productLines?.Length ?? 0,
+                categories?.Length ?? 0,
+                productNames?.Length ?? 0,
+                goldTypes?.Length ?? 0,
+                quantities?.Length ?? 0,
+                unitCosts?.Length ?? 0
+            }.Max();
+
+            for (var i = 0; i < rowCount; i++)
+            {
+                var rowNumber = i + 1;
+
+                var productLine = GetArrayValue(productLines, i);
+                var category = GetArrayValue(categories, i);
+                var productName = GetArrayValue(productNames, i);
+                var goldType = GetArrayValue(goldTypes, i);
+                var quantity = ParseSupplierInt(GetArrayValue(quantities, i));
+                var weight = ParseSupplierDecimal(GetArrayValue(weights, i));
+                var diamondCaratValue = ParseSupplierDecimal(GetArrayValue(diamondCarats, i));
+                var diamondCarat = diamondCaratValue > 0 ? diamondCaratValue : (decimal?)null;
+                var diamondCertificate = GetArrayValue(diamondCertificates, i);
+                var unitCost = ParseSupplierDecimal(GetArrayValue(unitCosts, i));
+                var detailNote = GetArrayValue(detailNotes, i);
+
+                var isEmptyRow =
+                    string.IsNullOrWhiteSpace(productLine)
+                    && string.IsNullOrWhiteSpace(category)
+                    && string.IsNullOrWhiteSpace(productName)
+                    && string.IsNullOrWhiteSpace(goldType)
+                    && quantity <= 0
+                    && unitCost <= 0;
+
+                if (isEmptyRow)
+                {
+                    continue;
+                }
+
+                if (!AllowedPurchaseOrderProductLines.Any(item => string.Equals(item, productLine, StringComparison.OrdinalIgnoreCase)))
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Vui lòng chọn nhóm hàng hợp lệ.";
+                    return result;
+                }
+
+                if (!SupplierSupportsPurchaseProductLine(supplier, productLine))
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Nhà cung cấp không có nhóm cung ứng phù hợp với dòng hàng {productLine}.";
+                    return result;
+                }
+
+                if (string.IsNullOrWhiteSpace(category))
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Vui lòng chọn danh mục hàng.";
+                    return result;
+                }
+
+                if (string.IsNullOrWhiteSpace(goldType))
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Vui lòng chọn chất liệu / phân loại.";
+                    return result;
+                }
+
+                if (string.IsNullOrWhiteSpace(productName))
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Vui lòng nhập tên sản phẩm dự kiến nhập.";
+                    return result;
+                }
+
+                if (quantity <= 0)
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Số lượng đặt hàng phải lớn hơn 0.";
+                    return result;
+                }
+
+                if (unitCost <= 0)
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Đơn giá nhập phải lớn hơn 0.";
+                    return result;
+                }
+
+                if (IsWeightRequiredPurchaseLine(productLine) && weight <= 0)
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Trọng lượng phải lớn hơn 0 đối với vàng hoặc bạc.";
+                    return result;
+                }
+
+                if (IsCaratRequiredPurchaseLine(productLine) && (!diamondCarat.HasValue || diamondCarat.Value <= 0))
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Dòng {rowNumber}: Carat phải lớn hơn 0 đối với kim cương hoặc đá quý.";
+                    return result;
+                }
+
+                if (!IsWeightRequiredPurchaseLine(productLine))
+                {
+                    weight = 0;
+                }
+
+                if (!IsCaratRequiredPurchaseLine(productLine))
+                {
+                    diamondCarat = null;
+                }
+
+                result.Details.Add(new SupplierPurchaseOrderDetail
+                {
+                    ProductLine = productLine,
+                    Category = category,
+                    ProductName = productName,
+                    GoldType = goldType,
+                    Quantity = quantity,
+                    Weight = weight,
+                    DiamondCarat = diamondCarat,
+                    DiamondCertificate = diamondCertificate,
+                    UnitCost = unitCost,
+                    TotalCost = quantity * unitCost,
+                    ReceivedQuantity = 0,
+                    AcceptedQuantity = 0,
+                    RejectedQuantity = 0,
+                    Note = detailNote
+                });
+            }
+
+            if (!result.Details.Any())
+            {
+                result.IsValid = false;
+                result.ErrorMessage = "Vui lòng thêm ít nhất một dòng hàng hợp lệ cho đơn đặt hàng.";
+                return result;
+            }
+
+            result.IsValid = true;
+            return result;
+        }
+
+        private static string GetArrayValue(string[] values, int index)
+        {
+            if (values == null || index < 0 || index >= values.Length)
+            {
+                return string.Empty;
+            }
+
+            return NormalizeOrEmpty(values[index]);
+        }
+
+        private static int ParseSupplierInt(string value)
+        {
+            return int.TryParse(value, out var result) ? result : 0;
+        }
+
+        private static decimal ParseSupplierDecimal(string value)
+        {
+            value = NormalizeOrEmpty(value).Replace(",", ".");
+
+            return decimal.TryParse(
+                value,
+                NumberStyles.Number,
+                CultureInfo.InvariantCulture,
+                out var result)
+                ? result
+                : 0m;
+        }
+        private static readonly int[] AllowedPaymentTerms =
+        {
+            0, 7, 15, 30, 45, 60, 90
+        };
+        private static readonly string[] AllowedBankNames =
+        {
+            "Vietcombank",
+            "VietinBank",
+            "BIDV",
+            "Agribank",
+            "Techcombank",
+            "ACB",
+            "MB Bank",
+            "Sacombank",
+            "VPBank",
+            "TPBank",
+            "Khác"
+        };
+
+        private static string KeepDigitsOnly(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return new string(value.Where(char.IsDigit).ToArray());
+        }
+
+        private static bool IsValidVietnamTaxCode(string taxCode)
+        {
+            if (string.IsNullOrWhiteSpace(taxCode))
+            {
+                return false;
+            }
+
+            return taxCode.All(char.IsDigit)
+                && (taxCode.Length == 10 || taxCode.Length == 13);
+        }
+
+        private static bool IsValidVietnamPhone(string phone)
+        {
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                return false;
+            }
+
+            return phone.All(char.IsDigit)
+                && phone.Length == 10
+                && phone.StartsWith("0");
+        }
+
+        private static string BuildSupplierTypeText(string[] supplierTypes)
+        {
+            if (supplierTypes == null || supplierTypes.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var result = new List<string>();
+
+            foreach (var supplierType in supplierTypes)
+            {
+                var matchedType = AllowedSupplierTypes.FirstOrDefault(item =>
+                    string.Equals(item, NormalizeOrEmpty(supplierType), StringComparison.OrdinalIgnoreCase));
+
+                if (!string.IsNullOrWhiteSpace(matchedType) && !result.Contains(matchedType))
+                {
+                    result.Add(matchedType);
+                }
+            }
+
+            return string.Join(", ", result);
+        }
+
+        private async Task<string> ValidateSupplierInputAsync(
+            int? currentSupplierId,
+            string name,
+            string taxCode,
+            string contactPerson,
+            string phone,
+            string email,
+            string address,
+            string supplierTypeText,
+            int paymentTermDays,
+            string bankName,
+            string bankAccountNumber,
+            string bankAccountName)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Length < 3)
+            {
+                return "Tên nhà cung cấp phải có ít nhất 3 ký tự.";
+            }
+
+            if (!IsValidVietnamTaxCode(taxCode))
+            {
+                return "Mã số thuế không hợp lệ. Mã số thuế phải gồm đúng 10 hoặc 13 chữ số.";
+            }
+
+            if (string.IsNullOrWhiteSpace(contactPerson) || contactPerson.Length < 2)
+            {
+                return "Người liên hệ phải có ít nhất 2 ký tự.";
+            }
+
+            if (!IsValidVietnamPhone(phone))
+            {
+                return "Số điện thoại không hợp lệ. Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(email) && !new EmailAddressAttribute().IsValid(email))
+            {
+                return "Email nhà cung cấp không hợp lệ.";
+            }
+
+            if (string.IsNullOrWhiteSpace(address) || address.Length < 5)
+            {
+                return "Địa chỉ nhà cung cấp phải có ít nhất 5 ký tự.";
+            }
+
+            if (string.IsNullOrWhiteSpace(supplierTypeText))
+            {
+                return "Vui lòng chọn ít nhất một nhóm cung ứng.";
+            }
+
+            if (!AllowedPaymentTerms.Contains(paymentTermDays))
+            {
+                return "Số ngày công nợ không hợp lệ. Vui lòng chọn theo danh sách có sẵn.";
+            }
+
+            var hasBankInfo =
+                !string.IsNullOrWhiteSpace(bankName)
+                || !string.IsNullOrWhiteSpace(bankAccountNumber)
+                || !string.IsNullOrWhiteSpace(bankAccountName);
+
+            if (hasBankInfo)
+            {
+                if (string.IsNullOrWhiteSpace(bankName))
+                {
+                    return "Vui lòng chọn ngân hàng nếu có nhập thông tin tài khoản.";
+                }
+
+                if (!AllowedBankNames.Any(item => string.Equals(item, bankName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return "Ngân hàng không hợp lệ. Vui lòng chọn ngân hàng trong danh sách.";
+                }
+
+                if (string.IsNullOrWhiteSpace(bankAccountNumber))
+                {
+                    return "Vui lòng nhập số tài khoản ngân hàng.";
+                }
+
+                if (!bankAccountNumber.All(char.IsDigit) || bankAccountNumber.Length < 6 || bankAccountNumber.Length > 20)
+                {
+                    return "Số tài khoản phải là số và có độ dài từ 6 đến 20 chữ số.";
+                }
+
+                if (string.IsNullOrWhiteSpace(bankAccountName) || bankAccountName.Length < 3)
+                {
+                    return "Vui lòng nhập chủ tài khoản ngân hàng hợp lệ.";
+                }
+            }
+
+            var duplicatedName = await _context.Suppliers.AnyAsync(supplier =>
+                supplier.Id != currentSupplierId
+                && supplier.Name.ToLower() == name.ToLower());
+
+            if (duplicatedName)
+            {
+                return "Tên nhà cung cấp này đã tồn tại.";
+            }
+
+            var duplicatedTaxCode = await _context.Suppliers.AnyAsync(supplier =>
+                supplier.Id != currentSupplierId
+                && supplier.TaxCode == taxCode);
+
+            if (duplicatedTaxCode)
+            {
+                return "Mã số thuế này đã được dùng cho nhà cung cấp khác.";
+            }
+
+            var duplicatedPhone = await _context.Suppliers.AnyAsync(supplier =>
+                supplier.Id != currentSupplierId
+                && supplier.Phone == phone);
+
+            if (duplicatedPhone)
+            {
+                return "Số điện thoại này đã được dùng cho nhà cung cấp khác.";
+            }
+
+            return string.Empty;
         }
         private async Task<BranchManagementViewModel> BuildBranchManagementViewModelAsync(BranchManagementViewModel source = null)
         {
@@ -1062,6 +4115,15 @@ namespace GoldManagementSystem.Controllers
             {
                 // Ignore errors
             }
+        }
+        private static string BuildSupplierGoodsReceiptCode()
+        {
+            var randomPart = Guid.NewGuid()
+                .ToString("N")
+                .Substring(0, 4)
+                .ToUpperInvariant();
+
+            return $"GR-{DateTime.Now:yyyyMMddHHmmssfff}-{randomPart}";
         }
     }
 }

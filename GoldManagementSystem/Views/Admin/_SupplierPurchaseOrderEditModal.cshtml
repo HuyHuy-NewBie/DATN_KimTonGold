@@ -1,0 +1,190 @@
+@model GoldManagementSystem.Models.SupplierPurchaseOrder
+@using GoldManagementSystem.Models
+
+<div class="supplier-modal" id="purchaseOrderEditModal-@Model.Id" aria-hidden="true">
+    <div class="supplier-modal__backdrop" data-close-modal></div>
+
+    <div class="supplier-modal__dialog supplier-modal__dialog--large">
+        <div class="supplier-modal__header">
+            <div>
+                <p class="admin-section__eyebrow">Sửa đơn đặt hàng NCC</p>
+                <h2>@Model.OrderCode</h2>
+            </div>
+
+            <button type="button" class="supplier-modal__close" data-close-modal>×</button>
+        </div>
+
+        <form asp-action="UpdateSupplierPurchaseOrder"
+              asp-controller="Admin"
+              method="post"
+              class="supplier-purchase-form js-purchase-edit-form"
+              onsubmit="return confirm('Bạn có chắc muốn lưu thay đổi đơn đặt hàng này không?');">
+
+            <input type="hidden" name="PurchaseOrderId" value="@Model.Id" />
+
+            <div class="supplier-order-grid">
+                <label class="admin-field">
+                    <span>Nhà cung cấp *</span>
+                    <select name="SupplierId" class="admin-select" required>
+                        <option value="">-- Chọn nhà cung cấp --</option>
+                        @foreach (var supplier in ViewBag.ActiveSuppliersForEdit as List<Supplier> ?? new List<Supplier>())
+                        {
+                            if (supplier.Id == Model.SupplierId)
+                            {
+                                <option value="@supplier.Id" selected>@supplier.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@supplier.Id">@supplier.Name</option>
+                            }
+                        }
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Chi nhánh nhận hàng *</span>
+                    <select name="BranchId" class="admin-select" required>
+                        <option value="">-- Chọn chi nhánh nhận hàng --</option>
+                        @foreach (var branch in ViewBag.ActiveBranchesForEdit as List<Branch> ?? new List<Branch>())
+                        {
+                            if (branch.Id == Model.BranchId)
+                            {
+                                <option value="@branch.Id" selected>@branch.BranchName</option>
+                            }
+                            else
+                            {
+                                <option value="@branch.Id">@branch.BranchName</option>
+                            }
+                        }
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Ngày dự kiến giao *</span>
+                    <input type="date"
+                           name="ExpectedDeliveryDate"
+                           required
+                           min="@DateTime.Today.ToString("yyyy-MM-dd")"
+                           value="@(Model.ExpectedDeliveryDate.HasValue ? Model.ExpectedDeliveryDate.Value.ToString("yyyy-MM-dd") : "")" />
+                </label>
+
+                <label class="admin-field">
+                    <span>Ghi chú đơn đặt hàng</span>
+                    <textarea name="PurchaseOrderNote" rows="2" maxlength="1000">@Model.Note</textarea>
+                </label>
+            </div>
+
+            <div class="purchase-order-line-toolbar">
+                <div>
+                    <p class="admin-section__eyebrow">Chi tiết hàng đặt</p>
+                    <h3>Danh sách dòng hàng</h3>
+                </div>
+
+                <button type="button" class="admin-button admin-button--secondary js-add-edit-purchase-line">
+                    + Thêm dòng hàng
+                </button>
+            </div>
+
+            <div class="purchase-order-lines js-edit-purchase-lines">
+                @{
+                    var details = Model.Details?.ToList() ?? new List<SupplierPurchaseOrderDetail>();
+                    if (!details.Any())
+                    {
+                        details.Add(new SupplierPurchaseOrderDetail
+                        {
+                            ProductLine = "Vàng",
+                            Quantity = 1,
+                            Weight = 0,
+                            UnitCost = 0
+                        });
+                    }
+                }
+
+                @for (var i = 0; i < details.Count; i++)
+                {
+                    var detail = details[i];
+
+                    <article class="purchase-order-line">
+                        <div class="purchase-order-line__header">
+                            <strong>Dòng hàng <span class="js-line-number">@(i + 1)</span></strong>
+
+                            <button type="button"
+                                    class="admin-button admin-button--danger js-remove-purchase-line">
+                                Xóa dòng
+                            </button>
+                        </div>
+
+                        <div class="purchase-order-line__grid">
+                            <label class="admin-field">
+                                <span>Nhóm hàng *</span>
+                                <select name="ProductLines" class="admin-select js-purchase-product-line" required data-current-value="@detail.ProductLine">
+                                    <option value="">-- Chọn nhóm hàng --</option>
+                                    <option value="Vàng">Vàng</option>
+                                    <option value="Bạc">Bạc</option>
+                                    <option value="Kim cương">Kim cương</option>
+                                    <option value="Đá quý">Đá quý</option>
+                                    <option value="Phụ kiện / hộp đựng">Phụ kiện / hộp đựng</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Danh mục hàng *</span>
+                                <select name="Categories" class="admin-select js-purchase-category" required data-current-value="@detail.Category">
+                                    <option value="">-- Chọn danh mục --</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Chất liệu / phân loại *</span>
+                                <select name="GoldTypes" class="admin-select js-purchase-type" required data-current-value="@detail.GoldType">
+                                    <option value="">-- Chọn phân loại --</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Tên sản phẩm dự kiến nhập *</span>
+                                <input type="text" name="ProductNames" required maxlength="220" value="@detail.ProductName" />
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Số lượng *</span>
+                                <input type="number" name="Quantities" required min="1" step="1" value="@detail.Quantity" />
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Đơn giá nhập *</span>
+                                <input type="number" name="UnitCosts" required min="1" step="1000" value="@detail.UnitCost.ToString("0")" />
+                            </label>
+
+                            <label class="admin-field">
+                                <span class="js-weight-label">Trọng lượng gram</span>
+                                <input type="number" name="Weights" min="0" step="0.01" value="@detail.Weight.ToString("0.##")" />
+                            </label>
+
+                            <label class="admin-field">
+                                <span class="js-carat-label">Carat</span>
+                                <input type="number" name="DiamondCarats" min="0" step="0.01" value="@(detail.DiamondCarat.HasValue ? detail.DiamondCarat.Value.ToString("0.##") : "")" />
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Mã kiểm định</span>
+                                <input type="text" name="DiamondCertificates" maxlength="120" value="@detail.DiamondCertificate" />
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Ghi chú dòng hàng</span>
+                                <textarea name="DetailNotes" rows="2" maxlength="500">@detail.Note</textarea>
+                            </label>
+                        </div>
+                    </article>
+                }
+            </div>
+
+            <div class="admin-form-actions">
+                <button type="submit" class="admin-button admin-button--primary">
+                    Lưu thay đổi đơn
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

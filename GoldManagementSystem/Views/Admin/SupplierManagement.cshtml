@@ -45,6 +45,11 @@
                 Đơn đặt hàng
             </a>
 
+            <a href="#goods-receipt-list"
+            class="admin-button admin-button--secondary">
+                Phiếu nhận hàng
+            </a>
+
             <a href="#supplier-list" class="admin-button admin-button--primary">
                 Danh sách NCC
             </a>
@@ -107,7 +112,11 @@
             </button>
         </div>
 
-        <form asp-action="CreateSupplier" asp-controller="Admin" method="post" class="admin-form-grid supplier-form-grid">
+        <form asp-action="CreateSupplier"
+        asp-controller="Admin"
+        method="post"
+        class="admin-form-grid supplier-form-grid"
+        id="supplierCreateForm">
             <label class="admin-field">
                 <span>Tên nhà cung cấp *</span>
                 <input type="text" name="Name" required maxlength="180" minlength="3" placeholder="VD: Công ty TNHH Vàng Bạc ABC" />
@@ -216,9 +225,19 @@
                 <span>Ghi chú</span>
                 <textarea name="Note" rows="3" maxlength="1000" placeholder="VD: chuyên cung ứng vàng 18K, có giấy kiểm định..."></textarea>
             </label>
-
+            <div class="admin-field admin-field--wide">
+                <div class="admin-alert admin-alert--danger"
+                    id="supplierCreateError"
+                    role="alert"
+                    hidden>
+                </div>
+            </div>
             <div class="admin-form-actions">
-                <button type="submit" class="admin-button admin-button--primary">Thêm nhà cung cấp</button>
+                <button type="submit"
+                        class="admin-button admin-button--primary"
+                        id="supplierCreateSubmitButton">
+                    Thêm nhà cung cấp
+                </button>
             </div>
         </form>
         </div>
@@ -245,7 +264,22 @@
             <div class="supplier-order-grid">
                 <label class="admin-field">
                     <span>Nhà cung cấp *</span>
-                    <select name="SupplierId" class="admin-select" required asp-items="Model.SupplierOptions"></select>
+
+                    <select name="SupplierId"
+                            id="purchaseOrderSupplierSelect"
+                            class="admin-select"
+                            required>
+
+                        <option value="">-- Chọn nhà cung cấp --</option>
+
+                        @foreach (Supplier supplier in ViewBag.ActiveSuppliersForEdit)
+                        {
+                            <option value="@supplier.Id"
+                                    data-supplier-types="@supplier.SupplierType">
+                                @supplier.Name
+                            </option>
+                        }
+                    </select>
                 </label>
 
                 <label class="admin-field">
@@ -394,7 +428,22 @@
                         var canEditOrder = order.Status == SupplierPurchaseOrder.StatusOrdered
                         && (order.Receipts == null || !order.Receipts.Any())
                         && (order.Payments == null || !order.Payments.Any());
+                        var remainingOrderQuantity =
+                            order.Details?.Sum(detail =>
+                                Math.Max(
+                                    0,
+                                    detail.Quantity
+                                    - detail.ReceivedQuantity))
+                            ?? 0;
 
+                        var canReceiveOrder =
+                            remainingOrderQuantity > 0
+                            && (
+                                order.Status
+                                    == SupplierPurchaseOrder.StatusOrdered
+                                || order.Status
+                                    == SupplierPurchaseOrder.StatusPartiallyReceived
+                            );
                     <tr class="supplier-order-row js-order-detail-row"
                         data-detail-modal="purchaseOrderDetailModal-@order.Id">
                         <td>
@@ -435,6 +484,14 @@
                                         data-open-modal="purchaseOrderDetailModal-@order.Id">
                                     Chi tiết
                                 </button>
+                                @if (canReceiveOrder)
+                                {
+                                    <button type="button"
+                                            class="admin-button admin-button--primary"
+                                            data-open-modal="supplierGoodsReceiptCreateModal-@order.Id">
+                                        Nhận hàng
+                                    </button>
+                                }
 
                                 @if (canEditOrder)
                                 {
@@ -479,19 +536,433 @@
     {
         foreach (var order in Model.PurchaseOrders)
         {
-            var canEditOrder = order.Status == SupplierPurchaseOrder.StatusOrdered
-                && (order.Receipts == null || !order.Receipts.Any())
-                && (order.Payments == null || !order.Payments.Any());
+            var canEditOrder =
+                order.Status
+                    == SupplierPurchaseOrder.StatusOrdered
+                && (order.Receipts == null
+                    || !order.Receipts.Any())
+                && (order.Payments == null
+                    || !order.Payments.Any());
 
-            @await Html.PartialAsync("_SupplierPurchaseOrderDetailModal", order)
+            var remainingOrderQuantity =
+                order.Details?.Sum(detail =>
+                    Math.Max(
+                        0,
+                        detail.Quantity
+                        - detail.ReceivedQuantity))
+                ?? 0;
+
+            var canReceiveOrder =
+                remainingOrderQuantity > 0
+                && (
+                    order.Status
+                        == SupplierPurchaseOrder.StatusOrdered
+                    || order.Status
+                        == SupplierPurchaseOrder.StatusPartiallyReceived
+                );
+
+            @await Html.PartialAsync(
+                "_SupplierPurchaseOrderDetailModal",
+                order)
+
+            if (canReceiveOrder)
+            {
+                @await Html.PartialAsync(
+                    "_SupplierGoodsReceiptCreateModal",
+                    order)
+            }
 
             if (canEditOrder)
             {
-                @await Html.PartialAsync("_SupplierPurchaseOrderEditModal", order)
+                @await Html.PartialAsync(
+                    "_SupplierPurchaseOrderEditModal",
+                    order)
             }
         }
     }
 </section>
+        @* =========================================================
+            PHIẾU NHẬN HÀNG
+            Phần này phải nằm ngoài bảng đơn đặt hàng
+            và trước section danh sách nhà cung cấp.
+            ========================================================= *@
+
+            <section class="admin-section" id="goods-receipt-list">
+                <div class="admin-section__header">
+                    <div>
+                        <p class="admin-section__eyebrow">
+                            Tiếp nhận hàng hóa
+                        </p>
+
+                        <h2>Phiếu nhận hàng gần đây</h2>
+                    </div>
+
+                    <span class="status-chip status-chip--info">
+                        @Model.RecentReceipts.Count phiếu
+                    </span>
+                </div>
+
+                <div class="admin-alert admin-alert--success">
+                    Nhân viên kiểm tra hàng hóa trực tiếp bên ngoài,
+                    sau đó chỉ cần chọn Đạt hoặc Không đạt trên hệ thống.
+                    Những dòng đạt sẽ được nhập kho khi duyệt phiếu.
+                </div>
+
+                <div class="table-shell">
+                    <table class="data-table supplier-table">
+                        <thead>
+                            <tr>
+                                <th>Mã phiếu</th>
+                                <th>Đơn đặt hàng</th>
+                                <th>Nhà cung cấp</th>
+                                <th>Kho nhận</th>
+                                <th>Thời điểm nhận</th>
+                                <th>Số lượng nhận</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @if (Model.RecentReceipts.Any())
+                            {
+                                foreach (var receipt in Model.RecentReceipts)
+                                {
+                                    var receivedQuantity =
+                                        receipt.Details?.Sum(
+                                            detail =>
+                                                detail.ReceivedQuantity)
+                                        ?? 0;
+
+                                    var canReview =
+                                        receipt.Status
+                                            == SupplierGoodsReceipt
+                                                .StatusPendingInspection
+                                        || receipt.Status
+                                            == SupplierGoodsReceipt
+                                                .StatusInspecting
+                                        || receipt.Status
+                                            == SupplierGoodsReceipt
+                                                .StatusPendingApproval;
+
+                                    <tr>
+                                        <td>
+                                            <strong>
+                                                @receipt.ReceiptCode
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            @(receipt.SupplierPurchaseOrder?
+                                                .OrderCode ?? "--")
+                                        </td>
+
+                                        <td>
+                                            @(receipt.SupplierPurchaseOrder?
+                                                .Supplier?
+                                                .Name ?? "--")
+                                        </td>
+
+                                        <td>
+                                            <div class="data-table__stack">
+                                                <strong>
+                                                    @(receipt.Warehouse?.Name
+                                                        ?? "--")
+                                                </strong>
+
+                                                <span>
+                                                    @(receipt.Warehouse?.Code
+                                                        ?? "--")
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            @(receipt.ReceivedAt.ToString("dd/MM/yyyy HH:mm"))
+                                        </td>
+
+                                        <td>
+                                            @receivedQuantity.ToString("N0")
+                                        </td>
+
+                                        <td>
+                                            @if (receipt.Status
+                                                == SupplierGoodsReceipt
+                                                    .StatusPendingInspection)
+                                            {
+                                                <span class="status-chip status-chip--warning">
+                                                    Chờ kiểm tra
+                                                </span>
+                                            }
+                                            else if (receipt.Status
+                                                == SupplierGoodsReceipt
+                                                    .StatusApproved)
+                                            {
+                                                <span class="status-chip status-chip--success">
+                                                    Đã duyệt nhập kho
+                                                </span>
+                                            }
+                                            else if (receipt.Status
+                                                == SupplierGoodsReceipt
+                                                    .StatusPartiallyApproved)
+                                            {
+                                                <span class="status-chip status-chip--info">
+                                                    Đạt một phần
+                                                </span>
+                                            }
+                                            else if (receipt.Status
+                                                == SupplierGoodsReceipt
+                                                    .StatusRejected)
+                                            {
+                                                <span class="status-chip status-chip--danger">
+                                                    Không đạt
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="status-chip status-chip--info">
+                                                    @receipt.Status
+                                                </span>
+                                            }
+                                        </td>
+
+                                        <td>
+                                            <div class="admin-action-group">
+                                                <button type="button"
+                                                        class="admin-button admin-button--secondary"
+                                                        data-open-modal="supplierGoodsReceiptDetailModal-@receipt.Id">
+                                                    Chi tiết
+                                                </button>
+
+                                                @if (canReview)
+                                                {
+                                                    <button type="button"
+                                                            class="admin-button admin-button--primary"
+                                                            data-toggle-receipt-review="receiptReviewRow-@receipt.Id">
+                                                        Kiểm hàng
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    @*
+                                        Dòng kiểm hàng nằm trực tiếp dưới phiếu.
+                                        Đây vẫn là một thẻ tr hợp lệ trong tbody,
+                                        nên không làm vỡ bố cục bảng.
+                                    *@
+                                    @if (canReview)
+                                    {
+                                        <tr id="receiptReviewRow-@receipt.Id"
+                                            hidden>
+
+                                            <td colspan="8">
+                                                <form asp-action="ApproveSupplierGoodsReceipt"
+                                                    asp-controller="Admin"
+                                                    method="post"
+                                                    class="supplier-receipt-review-form">
+
+                                                    <input type="hidden"
+                                                        name="ReceiptId"
+                                                        value="@receipt.Id" />
+
+                                                    <div class="admin-section__header">
+                                                        <div>
+                                                            <p class="admin-section__eyebrow">
+                                                                Ghi nhận kết quả kiểm hàng
+                                                            </p>
+
+                                                            <h3>
+                                                                @receipt.ReceiptCode
+                                                            </h3>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="admin-alert admin-alert--success">
+                                                        Mỗi dòng hàng được đánh giá toàn bộ:
+                                                        hoặc toàn bộ đạt, hoặc toàn bộ không đạt.
+                                                    </div>
+
+                                                    <div class="table-shell">
+                                                        <table class="data-table supplier-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Hàng hóa</th>
+                                                                    <th>Số lượng nhận</th>
+                                                                    <th>Thông tin thực nhận</th>
+                                                                    <th>Kết quả</th>
+                                                                    <th>Lý do không đạt</th>
+                                                                </tr>
+                                                            </thead>
+
+                                                            <tbody>
+                                                                @foreach (var detail
+                                                                    in receipt.Details)
+                                                                {
+                                                                    <tr class="js-simple-quality-row">
+                                                                        <td>
+                                                                            <div class="data-table__stack">
+                                                                                <strong>
+                                                                                    @(detail
+                                                                                        .SupplierPurchaseOrderDetail?
+                                                                                        .ProductName
+                                                                                        ?? "--")
+                                                                                </strong>
+
+                                                                                <span>
+                                                                                    @(detail
+                                                                                        .SupplierPurchaseOrderDetail?
+                                                                                        .ProductLine
+                                                                                        ?? "--")
+                                                                                    ·
+                                                                                    @(detail
+                                                                                        .SupplierPurchaseOrderDetail?
+                                                                                        .Category
+                                                                                        ?? "--")
+                                                                                    ·
+                                                                                    @(detail
+                                                                                        .SupplierPurchaseOrderDetail?
+                                                                                        .GoldType
+                                                                                        ?? "--")
+                                                                                </span>
+                                                                            </div>
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <strong>
+                                                                                @(detail.ReceivedQuantity.ToString("N0"))
+                                                                            </strong>
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <div class="data-table__stack">
+                                                                                @if (detail.ActualWeight > 0)
+                                                                                {
+                                                                                    <span>
+                                                                                        Trọng lượng:
+                                                                                        @(detail.ActualWeight.ToString("N2")) g
+                                                                                    </span>
+                                                                                }
+
+                                                                                @if (detail
+                                                                                    .ActualDiamondCarat
+                                                                                    .HasValue)
+                                                                                {
+                                                                                    <span>
+                                                                                        Carat:
+                                                                                        @detail
+                                                                                            .ActualDiamondCarat
+                                                                                            .Value
+                                                                                            .ToString("N2")
+                                                                                    </span>
+                                                                                }
+
+                                                                                @if (!string.IsNullOrWhiteSpace(
+                                                                                    detail
+                                                                                        .ActualDiamondCertificate))
+                                                                                {
+                                                                                    <span>
+                                                                                        Kiểm định:
+                                                                                        @detail
+                                                                                            .ActualDiamondCertificate
+                                                                                    </span>
+                                                                                }
+
+                                                                                @if (detail.ActualWeight <= 0
+                                                                                    && !detail
+                                                                                        .ActualDiamondCarat
+                                                                                        .HasValue)
+                                                                                {
+                                                                                    <span>--</span>
+                                                                                }
+                                                                            </div>
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <div class="admin-action-group">
+                                                                                <label>
+                                                                                    <input type="radio"
+                                                                                        name="QualityResults[@detail.Id]"
+                                                                                        value="@SupplierGoodsReceiptDetail.QualityPassed"
+                                                                                        class="js-quality-result"
+                                                                                        checked
+                                                                                        required />
+
+                                                                                    Đạt
+                                                                                </label>
+
+                                                                                <label>
+                                                                                    <input type="radio"
+                                                                                        name="QualityResults[@detail.Id]"
+                                                                                        value="@SupplierGoodsReceiptDetail.QualityFailed"
+                                                                                        class="js-quality-result" />
+
+                                                                                    Không đạt
+                                                                                </label>
+                                                                            </div>
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <textarea name="RejectionReasons[@detail.Id]"
+                                                                                    class="js-rejection-reason"
+                                                                                    rows="2"
+                                                                                    maxlength="500"
+                                                                                    placeholder="Chỉ nhập khi hàng không đạt"
+                                                                                    disabled>@detail.RejectionReason</textarea>
+                                                                        </td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+
+                                                    <div class="admin-form-actions">
+                                                        <button type="submit"
+                                                                class="admin-button admin-button--primary"
+                                                                onclick="return confirm('Bạn xác nhận kết quả kiểm hàng và duyệt nhập kho?');">
+                                                            Duyệt phiếu và nhập kho
+                                                        </button>
+
+                                                        <button type="button"
+                                                                class="admin-button admin-button--secondary"
+                                                                data-close-receipt-review="receiptReviewRow-@receipt.Id">
+                                                            Đóng
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8">
+                                        Chưa có phiếu nhận hàng.
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            @*
+                Quan trọng: các popup phải được render ngoài table.
+                Không đặt PartialAsync ở trong tbody.
+            *@
+            @if (Model.RecentReceipts.Any())
+            {
+                foreach (var receipt in Model.RecentReceipts)
+                {
+                    @await Html.PartialAsync(
+                        "_SupplierGoodsReceiptDetailModal",
+                        receipt)
+                }
+            }
+
+            <section class="admin-section" id="supplier-list">
         <section class="admin-section" id="supplier-list">
             <div class="admin-section__header">
                 <div>
@@ -791,7 +1262,107 @@
                 this.value = this.value.replace(/\D/g, "");
             });
         });
+        const supplierCreateForm =
+            document.getElementById("supplierCreateForm");
 
+        const supplierCreateError =
+            document.getElementById("supplierCreateError");
+
+        const supplierCreateSubmitButton =
+            document.getElementById("supplierCreateSubmitButton");
+
+        function showSupplierCreateError(message) {
+            if (!supplierCreateError) {
+                alert(message);
+                return;
+            }
+
+            supplierCreateError.textContent = message;
+            supplierCreateError.hidden = false;
+
+            // Cuộn tới vị trí thông báo lỗi trong popup
+            supplierCreateError.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+        }
+
+        if (supplierCreateForm) {
+            supplierCreateForm.addEventListener("submit", async function (event) {
+                // Không cho form tải lại trang theo cách mặc định
+                event.preventDefault();
+
+                // Kiểm tra required, pattern, minlength...
+                if (!supplierCreateForm.checkValidity()) {
+                    supplierCreateForm.reportValidity();
+                    return;
+                }
+
+                // Ẩn thông báo lỗi cũ
+                if (supplierCreateError) {
+                    supplierCreateError.textContent = "";
+                    supplierCreateError.hidden = true;
+                }
+
+                const originalButtonText = supplierCreateSubmitButton
+                    ? supplierCreateSubmitButton.textContent
+                    : "Thêm nhà cung cấp";
+
+                // Khóa nút để tránh nhấn nhiều lần
+                if (supplierCreateSubmitButton) {
+                    supplierCreateSubmitButton.disabled = true;
+                    supplierCreateSubmitButton.textContent = "Đang lưu...";
+                }
+
+                try {
+                    const response = await fetch(supplierCreateForm.action, {
+                        method: "POST",
+
+                        // Backend dùng header này để biết đây là AJAX
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+
+                        // FormData chứa toàn bộ input và AntiForgeryToken
+                        body: new FormData(supplierCreateForm)
+                    });
+
+                    const contentType =
+                        response.headers.get("content-type") || "";
+
+                    const result = contentType.includes("application/json")
+                        ? await response.json()
+                        : null;
+
+                    // Backend báo lỗi hoặc không trả về JSON đúng
+                    if (!response.ok || !result || !result.success) {
+                        showSupplierCreateError(
+                            result && result.message
+                                ? result.message
+                                : "Không thể thêm nhà cung cấp. Vui lòng kiểm tra lại dữ liệu."
+                        );
+
+                        return;
+                    }
+
+                    // Chỉ tải lại trang sau khi SaveChangesAsync thành công
+                    window.location.reload();
+                }
+                catch (error) {
+                    console.error(error);
+
+                    showSupplierCreateError(
+                        "Không thể kết nối đến máy chủ. Vui lòng thử lại."
+                    );
+                }
+                finally {
+                    if (supplierCreateSubmitButton) {
+                        supplierCreateSubmitButton.disabled = false;
+                        supplierCreateSubmitButton.textContent = originalButtonText;
+                    }
+                }
+            });
+        }
         const supplierSearchInput = document.getElementById("supplierSearchInput");
         const supplierStatusFilter = document.getElementById("supplierStatusFilter");
         const supplierFilterButton = document.getElementById("supplierFilterButton");
@@ -1274,6 +1845,283 @@
 
             updatePurchaseLineFields(line);
         }
+        // =====================================================
+        // LỌC NHÓM HÀNG THEO NHÀ CUNG CẤP
+        // =====================================================
+
+        const purchaseOrderSupplierSelect =
+            document.getElementById("purchaseOrderSupplierSelect");
+
+        // Những nhóm hàng được phép tạo đơn đặt hàng
+        const allowedPurchaseProductLines = [
+            "Vàng",
+            "Bạc",
+            "Kim cương",
+            "Đá quý",
+            "Phụ kiện / hộp đựng"
+        ];
+
+        /**
+         * Lấy danh sách nhóm cung ứng của nhà cung cấp đang được chọn.
+         */
+        function getSelectedSupplierProductLines() {
+            if (!purchaseOrderSupplierSelect) {
+                return [];
+            }
+
+            const selectedOption =
+                purchaseOrderSupplierSelect.options[
+                    purchaseOrderSupplierSelect.selectedIndex
+                ];
+
+            if (!selectedOption || !selectedOption.value) {
+                return [];
+            }
+
+            const supplierTypeText =
+                selectedOption.dataset.supplierTypes || "";
+
+            let supplierTypes = supplierTypeText
+                .split(",")
+                .map(function (item) {
+                    return item.trim();
+                })
+                .filter(function (item) {
+                    return item !== "";
+                });
+
+            /*
+            * Hỗ trợ dữ liệu nhà cung cấp cũ có nhóm:
+            * "Vàng bạc đá quý"
+            */
+            if (
+                supplierTypeText
+                    .toLocaleLowerCase("vi")
+                    .includes("vàng bạc đá quý")
+            ) {
+                supplierTypes.push(
+                    "Vàng",
+                    "Bạc",
+                    "Kim cương",
+                    "Đá quý"
+                );
+            }
+
+            // Chỉ giữ lại các nhóm có thể đặt hàng
+            supplierTypes = supplierTypes.filter(function (supplierType) {
+                return allowedPurchaseProductLines.some(function (allowedType) {
+                    return allowedType.toLocaleLowerCase("vi")
+                        === supplierType.toLocaleLowerCase("vi");
+                });
+            });
+
+            // Loại bỏ dữ liệu bị trùng
+            return supplierTypes.filter(function (item, index, array) {
+                return array.findIndex(function (otherItem) {
+                    return otherItem.toLocaleLowerCase("vi")
+                        === item.toLocaleLowerCase("vi");
+                }) === index;
+            });
+        }
+
+        /**
+         * Tạo lại dropdown Nhóm hàng cho một dòng hàng.
+         */
+        function fillSupplierProductLineSelect(
+            productLineSelect,
+            supplierProductLines,
+            currentValue
+        ) {
+            if (!productLineSelect) {
+                return;
+            }
+
+            productLineSelect.innerHTML = "";
+
+            const emptyOption = document.createElement("option");
+            emptyOption.value = "";
+
+            if (
+                !purchaseOrderSupplierSelect
+                || !purchaseOrderSupplierSelect.value
+            ) {
+                emptyOption.textContent =
+                    "-- Chọn nhà cung cấp trước --";
+            } else if (supplierProductLines.length === 0) {
+                emptyOption.textContent =
+                    "-- Nhà cung cấp không có nhóm hàng phù hợp --";
+            } else {
+                emptyOption.textContent =
+                    "-- Chọn nhóm hàng --";
+            }
+
+            productLineSelect.appendChild(emptyOption);
+
+            supplierProductLines.forEach(function (productLine) {
+                const option = document.createElement("option");
+
+                option.value = productLine;
+                option.textContent = productLine;
+
+                if (
+                    currentValue
+                    && currentValue.toLocaleLowerCase("vi")
+                        === productLine.toLocaleLowerCase("vi")
+                ) {
+                    option.selected = true;
+                }
+
+                productLineSelect.appendChild(option);
+            });
+
+            productLineSelect.disabled =
+                !purchaseOrderSupplierSelect
+                || !purchaseOrderSupplierSelect.value
+                || supplierProductLines.length === 0;
+        }
+
+        /**
+         * Cập nhật Nhóm hàng cho tất cả dòng hàng trong popup.
+         */
+        function updateProductLinesBySupplier() {
+            if (!purchaseOrderLines) {
+                return;
+            }
+
+            const supplierProductLines =
+                getSelectedSupplierProductLines();
+
+            const lines =
+                purchaseOrderLines.querySelectorAll(
+                    ".purchase-order-line"
+                );
+
+            lines.forEach(function (line) {
+                const productLineSelect =
+                    line.querySelector(
+                        ".js-purchase-product-line"
+                    );
+
+                if (!productLineSelect) {
+                    return;
+                }
+
+                const oldProductLine =
+                    productLineSelect.value;
+
+                /*
+                * Chỉ giữ nhóm cũ nếu nhà cung cấp mới
+                * cũng có cung ứng nhóm đó.
+                */
+                const canKeepOldValue =
+                    supplierProductLines.some(function (item) {
+                        return item.toLocaleLowerCase("vi")
+                            === oldProductLine.toLocaleLowerCase("vi");
+                    });
+
+                fillSupplierProductLineSelect(
+                    productLineSelect,
+                    supplierProductLines,
+                    canKeepOldValue ? oldProductLine : ""
+                );
+
+                /*
+                * Cập nhật lại Danh mục và Chất liệu.
+                * Nếu nhóm cũ không còn phù hợp thì hai ô này
+                * sẽ trở về trạng thái chọn nhóm hàng trước.
+                */
+                updatePurchaseLineFields(line);
+            });
+        }
+
+        // Khi đổi nhà cung cấp thì lọc lại Nhóm hàng
+        if (purchaseOrderSupplierSelect) {
+            purchaseOrderSupplierSelect.addEventListener(
+                "change",
+                function () {
+                    updateProductLinesBySupplier();
+                }
+            );
+        }
+
+        // =====================================================
+        // KHỞI TẠO DÒNG HÀNG ĐẦU TIÊN
+        // =====================================================
+
+        if (purchaseOrderLines) {
+            purchaseOrderLines
+                .querySelectorAll(".purchase-order-line")
+                .forEach(function (line) {
+                    setupPurchaseLine(line);
+                });
+
+            refreshPurchaseLineNumbers();
+        }
+
+        // Ban đầu chưa chọn nhà cung cấp thì khóa Nhóm hàng
+        updateProductLinesBySupplier();
+
+        // =====================================================
+        // THÊM DÒNG HÀNG MỚI
+        // =====================================================
+
+        if (addPurchaseOrderLineButton && purchaseOrderLines) {
+            addPurchaseOrderLineButton.addEventListener(
+                "click",
+                function () {
+                    const firstLine =
+                        purchaseOrderLines.querySelector(
+                            ".purchase-order-line"
+                        );
+
+                    if (!firstLine) {
+                        return;
+                    }
+
+                    const newLine = firstLine.cloneNode(true);
+
+                    // Xóa dữ liệu input của dòng được sao chép
+                    newLine
+                        .querySelectorAll("input, textarea")
+                        .forEach(function (input) {
+                            if (input.name === "Quantities") {
+                                input.value = "1";
+                            } else if (input.name === "Weights") {
+                                input.value = "0";
+                            } else {
+                                input.value = "";
+                            }
+                        });
+
+                    // Đưa tất cả select về giá trị trống
+                    newLine
+                        .querySelectorAll("select")
+                        .forEach(function (select) {
+                            select.value = "";
+                        });
+
+                    purchaseOrderLines.appendChild(newLine);
+
+                    // Gắn sự kiện change và xóa dòng
+                    setupPurchaseLine(newLine);
+
+                    // Lọc Nhóm hàng của dòng mới theo NCC
+                    const productLineSelect =
+                        newLine.querySelector(
+                            ".js-purchase-product-line"
+                        );
+
+                    fillSupplierProductLineSelect(
+                        productLineSelect,
+                        getSelectedSupplierProductLines(),
+                        ""
+                    );
+
+                    updatePurchaseLineFields(newLine);
+                    refreshPurchaseLineNumbers();
+                }
+            );
+        }
         document.querySelectorAll("[data-open-modal]").forEach(function (button) {
             button.addEventListener("click", function () {
                 const modalId = button.getAttribute("data-open-modal");
@@ -1336,5 +2184,115 @@
                 openSupplierModalById(row.dataset.detailModal);
             });
         });
+        document
+            .querySelectorAll("[data-toggle-receipt-review]")
+            .forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const targetId =
+                        button.dataset.toggleReceiptReview;
+
+                    const reviewRow =
+                        document.getElementById(targetId);
+
+                    if (!reviewRow) {
+                        return;
+                    }
+
+                    const willOpen =
+                        reviewRow.hidden;
+
+                    reviewRow.hidden =
+                        !willOpen;
+
+                    button.textContent =
+                        willOpen
+                            ? "Ẩn kiểm hàng"
+                            : "Kiểm hàng";
+
+                    if (willOpen) {
+                        reviewRow.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center"
+                        });
+                    }
+                });
+            });
+
+        document
+            .querySelectorAll("[data-close-receipt-review]")
+            .forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const targetId =
+                        button.dataset.closeReceiptReview;
+
+                    const reviewRow =
+                        document.getElementById(targetId);
+
+                    if (!reviewRow) {
+                        return;
+                    }
+
+                    reviewRow.hidden = true;
+
+                    const openButton =
+                        document.querySelector(
+                            '[data-toggle-receipt-review="'
+                            + targetId
+                            + '"]'
+                        );
+
+                    if (openButton) {
+                        openButton.textContent =
+                            "Kiểm hàng";
+                    }
+                });
+            });
+
+        function updateSimpleQualityRow(row) {
+            const selectedResult =
+                row.querySelector(
+                    '.js-quality-result:checked'
+                );
+
+            const rejectionReason =
+                row.querySelector(
+                    ".js-rejection-reason"
+                );
+
+            if (!selectedResult
+                || !rejectionReason) {
+                return;
+            }
+
+            const isFailed =
+                selectedResult.value === "Không đạt";
+
+            rejectionReason.disabled =
+                !isFailed;
+
+            rejectionReason.required =
+                isFailed;
+
+            if (!isFailed) {
+                rejectionReason.value = "";
+            }
+        }
+
+        document
+            .querySelectorAll(".js-simple-quality-row")
+            .forEach(function (row) {
+                row
+                    .querySelectorAll(".js-quality-result")
+                    .forEach(function (radio) {
+                        radio.addEventListener(
+                            "change",
+                            function () {
+                                updateSimpleQualityRow(row);
+                            }
+                        );
+                    });
+
+                updateSimpleQualityRow(row);
+            });
     </script>
 }

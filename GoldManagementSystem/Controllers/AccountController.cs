@@ -100,6 +100,12 @@ namespace GoldManagementSystem.Controllers
                 {
                     return Redirect(model.ReturnUrl);
                 }
+
+                if (userRoles.Contains("Admin") || userRoles.Contains("Manager") || userRoles.Contains("Branch Owner"))
+                {
+                    return RedirectToAction("Dashboard", "Admin");
+                }
+
                 return RedirectToAction("Index", "Home");
             }
 

@@ -44,6 +44,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.Configure<NotificationOptions>(builder.Configuration.GetSection("Notifications"));
 builder.Services.Configure<AuthVerificationOptions>(builder.Configuration.GetSection("AuthVerification"));
 builder.Services.AddScoped<AuthNotificationService>();
+builder.Services.AddScoped<InventoryStockService>();
 builder.Services.AddSingleton<PendingAccountVerificationService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSignalR();

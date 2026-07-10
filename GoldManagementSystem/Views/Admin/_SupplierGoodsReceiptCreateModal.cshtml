@@ -1,0 +1,379 @@
+@model GoldManagementSystem.Models.SupplierPurchaseOrder
+@using GoldManagementSystem.Models
+@using System
+@using System.Collections.Generic
+@using System.Linq
+
+@{
+    var allWarehouses =
+        ViewBag.ActiveWarehousesForReceipt
+            as IEnumerable<Warehouse>
+        ?? Enumerable.Empty<Warehouse>();
+
+    var branchWarehouses =
+        allWarehouses
+            .Where(warehouse =>
+                warehouse.BranchId == Model.BranchId
+                && warehouse.IsActive)
+            .OrderBy(warehouse =>
+                warehouse.Name)
+            .ToList();
+
+    var receivableDetails =
+        Model.Details
+            .Where(detail =>
+                detail.ReceivedQuantity
+                < detail.Quantity)
+            .ToList();
+
+    var hasAvailableWarehouse =
+        branchWarehouses.Any();
+
+    bool RequiresWeight(string productLine)
+    {
+        return string.Equals(
+                productLine,
+                "Vàng",
+                StringComparison.OrdinalIgnoreCase)
+            || string.Equals(
+                productLine,
+                "Bạc",
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    bool RequiresCarat(string productLine)
+    {
+        return string.Equals(
+                productLine,
+                "Kim cương",
+                StringComparison.OrdinalIgnoreCase)
+            || string.Equals(
+                productLine,
+                "Đá quý",
+                StringComparison.OrdinalIgnoreCase);
+    }
+}
+
+<div class="supplier-modal"
+     id="supplierGoodsReceiptCreateModal-@Model.Id"
+     aria-hidden="true">
+
+    <div class="supplier-modal__backdrop"
+         data-close-modal>
+    </div>
+
+    <div class="supplier-modal__dialog supplier-modal__dialog--large">
+        <div class="supplier-modal__header">
+            <div>
+                <p class="admin-section__eyebrow">
+                    Tiếp nhận hàng hóa
+                </p>
+
+                <h2>
+                    Tạo phiếu nhận hàng @Model.OrderCode
+                </h2>
+            </div>
+
+            <button type="button"
+                    class="supplier-modal__close"
+                    data-close-modal>
+                ×
+            </button>
+        </div>
+
+        <div class="admin-alert admin-alert--success">
+            Phiếu này chỉ xác nhận hàng đã đến kho.
+            Hàng chưa được nhập vào tồn kho và chưa phát sinh
+            công nợ cho đến khi được kiểm tra và duyệt.
+        </div>
+
+        @if (!hasAvailableWarehouse)
+        {
+            <div class="admin-alert admin-alert--danger">
+                Chi nhánh @Model.Branch?.BranchName chưa có kho
+                đang hoạt động. Hãy tạo kho trước khi nhận hàng.
+            </div>
+        }
+
+        <form asp-action="CreateSupplierGoodsReceipt"
+              asp-controller="Admin"
+              method="post">
+
+            <input type="hidden"
+                   name="PurchaseOrderId"
+                   value="@Model.Id" />
+
+            <div class="supplier-detail-grid">
+                <div>
+                    <span>Nhà cung cấp</span>
+
+                    <strong>
+                        @(Model.Supplier?.Name ?? "--")
+                    </strong>
+                </div>
+
+                <div>
+                    <span>Chi nhánh nhận</span>
+
+                    <strong>
+                        @(Model.Branch?.BranchName ?? "--")
+                    </strong>
+                </div>
+
+                <div>
+                    <span>Ngày đặt hàng</span>
+
+                    <strong>
+                        @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+                    </strong>
+                </div>
+
+                <div>
+                    <span>Dự kiến giao</span>
+
+                    <strong>
+                        @(Model.ExpectedDeliveryDate.HasValue
+                            ? Model.ExpectedDeliveryDate.Value
+                                .ToString("dd/MM/yyyy")
+                            : "--")
+                    </strong>
+                </div>
+            </div>
+
+            <div class="supplier-order-grid">
+                <label class="admin-field">
+                    <span>Kho nhận hàng *</span>
+
+                    <select name="WarehouseId"
+                            class="admin-select"
+                            required
+                            disabled="@(!hasAvailableWarehouse)">
+
+                        <option value="">
+                            -- Chọn kho nhận hàng --
+                        </option>
+
+                        @foreach (var warehouse
+                            in branchWarehouses)
+                        {
+                            <option value="@warehouse.Id">
+                                @warehouse.Code - @warehouse.Name
+                            </option>
+                        }
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Thời điểm nhận hàng *</span>
+
+                    <input type="datetime-local"
+                           name="ReceivedAt"
+                           value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")"
+                           max="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")"
+                           required />
+                </label>
+
+                <label class="admin-field">
+                    <span>Số chứng từ giao hàng</span>
+
+                    <input type="text"
+                           name="DeliveryDocumentNumber"
+                           maxlength="100"
+                           placeholder="VD: PXK-000123" />
+                </label>
+
+                <label class="admin-field">
+                    <span>Người giao hàng</span>
+
+                    <input type="text"
+                           name="DeliveredBy"
+                           maxlength="150"
+                           placeholder="Tên người giao bên NCC" />
+                </label>
+
+                <label class="admin-field admin-field--wide">
+                    <span>Ghi chú phiếu nhận</span>
+
+                    <textarea name="ReceiptNote"
+                              rows="2"
+                              maxlength="1000"
+                              placeholder="Tình trạng bao bì, số kiện hàng...">
+                    </textarea>
+                </label>
+            </div>
+
+            <div class="purchase-order-line-toolbar">
+                <div>
+                    <p class="admin-section__eyebrow">
+                        Hàng thực tế được giao
+                    </p>
+
+                    <h3>Chi tiết nhận hàng</h3>
+                </div>
+            </div>
+
+            <div class="table-shell">
+                <table class="data-table supplier-table">
+                    <thead>
+                        <tr>
+                            <th>Hàng hóa</th>
+                            <th>SL đặt</th>
+                            <th>Đã nhận</th>
+                            <th>Còn lại</th>
+                            <th>SL nhận lần này</th>
+                            <th>Gram thực nhận</th>
+                            <th>Carat thực nhận</th>
+                            <th>Mã kiểm định thực tế</th>
+                            <th>Ghi chú lúc nhận</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var detail
+                            in receivableDetails)
+                        {
+                            var remainingQuantity =
+                                Math.Max(
+                                    0,
+                                    detail.Quantity
+                                    - detail.ReceivedQuantity);
+
+                            var requiresWeight =
+                                RequiresWeight(
+                                    detail.ProductLine);
+
+                            var requiresCarat =
+                                RequiresCarat(
+                                    detail.ProductLine);
+
+                            <tr>
+                                <td>
+                                    <input type="hidden"
+                                           name="PurchaseOrderDetailIds"
+                                           value="@detail.Id" />
+
+                                    <div class="data-table__stack">
+                                        <strong>
+                                            @detail.ProductName
+                                        </strong>
+
+                                        <span>
+                                            @detail.ProductLine
+                                            · @detail.Category
+                                            · @detail.GoldType
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @detail.Quantity.ToString("N0")
+                                </td>
+
+                                <td>
+                                    @detail.ReceivedQuantity.ToString("N0")
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        @remainingQuantity.ToString("N0")
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    <input type="number"
+                                           name="ReceivedQuantities"
+                                           value="@remainingQuantity"
+                                           min="0"
+                                           max="@remainingQuantity"
+                                           step="1"
+                                           required />
+                                </td>
+
+                                <td>
+                                    @if (requiresWeight)
+                                    {
+                                        <input type="number"
+                                               name="ActualWeights"
+                                               min="0.01"
+                                               step="0.01"
+                                               placeholder="Gram"
+                                               required />
+                                    }
+                                    else
+                                    {
+                                        <input type="hidden"
+                                               name="ActualWeights"
+                                               value="0" />
+
+                                        <span>--</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @if (requiresCarat)
+                                    {
+                                        <input type="number"
+                                               name="ActualDiamondCarats"
+                                               min="0.01"
+                                               step="0.01"
+                                               placeholder="Carat"
+                                               required />
+                                    }
+                                    else
+                                    {
+                                        <input type="hidden"
+                                               name="ActualDiamondCarats"
+                                               value="0" />
+
+                                        <span>--</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @if (requiresCarat)
+                                    {
+                                        <input type="text"
+                                               name="ActualDiamondCertificates"
+                                               maxlength="120"
+                                               value="@detail.DiamondCertificate"
+                                               placeholder="Mã kiểm định" />
+                                    }
+                                    else
+                                    {
+                                        <input type="hidden"
+                                               name="ActualDiamondCertificates"
+                                               value="" />
+
+                                        <span>--</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <textarea name="ReceivingNotes"
+                                              rows="2"
+                                              maxlength="500"
+                                              placeholder="Bao bì, tình trạng bên ngoài...">
+                                    </textarea>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="admin-form-actions">
+                <button type="submit"
+                        class="admin-button admin-button--primary"
+                        disabled="@(!hasAvailableWarehouse)">
+                    Xác nhận nhận hàng
+                </button>
+
+                <button type="button"
+                        class="admin-button admin-button--secondary"
+                        data-close-modal>
+                    Hủy
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
