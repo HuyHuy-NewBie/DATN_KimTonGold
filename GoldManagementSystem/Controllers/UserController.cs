@@ -167,6 +167,7 @@ namespace GoldManagementSystem.Controllers
                     ModelState.AddModelError(nameof(model.PhoneNumber), BuildLockoutMessage("xác nhận đổi số điện thoại", lockedPhoneUntil.Value));
                 }
             }
+              
 
             if (!ModelState.IsValid)
             {
@@ -191,7 +192,7 @@ namespace GoldManagementSystem.Controllers
                     await _notificationService.SendEmailChangeRequestedAsync(user.Email, user.FullName, model.Email);
                     await _notificationService.SendEmailChangeConfirmationAsync(model.Email, user.FullName, verificationCode);
                     updates.Add($"Đã gửi mã xác nhận tới {MaskEmail(model.Email)} để hoàn tất đổi email.");
-                }
+                } 
                 else
                 {
                     var updateEmailResult = await _userManager.SetEmailAsync(user, model.Email);

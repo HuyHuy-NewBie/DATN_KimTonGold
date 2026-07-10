@@ -145,5 +145,146 @@
                 </div>
             }
         </section>
+
+        @inject GoldManagementSystem.Data.ApplicationDbContext DbContext
+        @using Microsoft.EntityFrameworkCore
+        @{
+            var activeBranches = await DbContext.Branches
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.BranchName)
+                .ToListAsync();
+        }
+
+        <section class="admin-section" style="margin-top: 2rem; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 2rem;">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow" data-i18n data-i18n-vi="Trí tuệ nhân tạo" data-i18n-en="Artificial intelligence">Trí tuệ nhân tạo</p>
+                    <h2 data-i18n data-i18n-vi="Cấu hình Trợ lý Chat AI KIMTON" data-i18n-en="Configure KIMTON Chat AI Assistant">Cấu hình Trợ lý Chat AI KIMTON</h2>
+                    <p style="font-size: 0.88rem; color: #666; margin-top: 0.25rem;" data-i18n data-i18n-vi="Lựa chọn chi nhánh để xuất System Prompt chuẩn hóa cho ChatGPT / Gemini." data-i18n-en="Select a branch to export the standardized System Prompt for ChatGPT / Gemini.">Lựa chọn chi nhánh để xuất System Prompt chuẩn hóa cho ChatGPT / Gemini.</p>
+                </div>
+            </div>
+
+            <div style="background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                <div class="admin-field" style="max-width: 320px; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <span style="font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: #555;" data-i18n data-i18n-vi="Chọn chi nhánh" data-i18n-en="Select branch">Chọn chi nhánh</span>
+                    <select id="adminPromptBranchSelect" class="admin-select" style="padding: 0.6rem; border-radius: 8px; border: 1px solid #ccc; width: 100%;">
+                        @foreach (var b in activeBranches)
+                        {
+                            <option value="@b.Id" 
+                                    data-name="@b.BranchName" 
+                                    data-phone="@b.PhoneNumber" 
+                                    data-address="@b.Address">
+                                @b.BranchName
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <span style="font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: #555;" data-i18n data-i18n-vi="Nội dung System Prompt" data-i18n-en="System Prompt content">Nội dung System Prompt</span>
+                    <textarea id="adminPromptTextarea" readonly rows="12" style="font-family: 'Courier New', Courier, monospace; font-size: 0.82rem; padding: 1rem; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); background: #f9f9f9; resize: vertical; line-height: 1.5; color: #333; width: 100%;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" id="adminCopyPromptBtn" class="admin-button admin-button--primary" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; cursor: pointer;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span data-i18n data-i18n-vi="Sao chép Prompt" data-i18n-en="Copy Prompt">Sao chép Prompt</span>
+                    </button>
+                    <span id="adminCopyStatus" style="font-size: 0.85rem; color: #2ec4b6; font-weight: 600; display: none; align-self: center;" data-i18n data-i18n-vi="Đã sao chép vào bộ nhớ tạm!" data-i18n-en="Copied to clipboard!">Đã sao chép vào bộ nhớ tạm!</span>
+                </div>
+            </div>
+        </section>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const select = document.getElementById("adminPromptBranchSelect");
+                const textarea = document.getElementById("adminPromptTextarea");
+                const copyBtn = document.getElementById("adminCopyPromptBtn");
+                const status = document.getElementById("adminCopyStatus");
+
+                const goldPrices = {
+                    gold24k: { buy: 7450000, sell: 7600000 },
+                    gold18k: { buy: 5350000, sell: 5550000 },
+                    gold14k: { buy: 4100000, sell: 4300000 }
+                };
+
+                function updatePrompt() {
+                    if (!select || !textarea) return;
+                    const option = select.options[select.selectedIndex];
+                    if (!option) return;
+
+                    const name = option.getAttribute("data-name");
+                    const phone = option.getAttribute("data-phone") || "0961137407";
+                    const address = option.getAttribute("data-address") || "Chưa cập nhật địa chỉ";
+                    const openHours = "08:00 - 21:30 hàng ngày";
+
+                    const pricesText = `
+  + Vàng SJC / 24K (9999): Mua vào ` + goldPrices.gold24k.buy.toLocaleString('vi-VN') + ` đ/chỉ - Bán ra ` + goldPrices.gold24k.sell.toLocaleString('vi-VN') + ` đ/chỉ
+  + Vàng Tây 18K: Mua vào ` + goldPrices.gold18k.buy.toLocaleString('vi-VN') + ` đ/chỉ - Bán ra ` + goldPrices.gold18k.sell.toLocaleString('vi-VN') + ` đ/chỉ
+  + Vàng Tây 14K: Mua vào ` + goldPrices.gold14k.buy.toLocaleString('vi-VN') + ` đ/chỉ - Bán ra ` + goldPrices.gold14k.sell.toLocaleString('vi-VN') + ` đ/chỉ`;
+
+                    const promptText = `Bạn là Trợ Lý KIMTON — chuyên viên tư vấn cao cấp của tiệm vàng ` + name + `.
+
+## THÔNG TIN CỬA HÀNG (luôn dùng chính xác dữ liệu dưới đây, không tự bịa)
+- Tên: ` + name + `
+- Hotline/Zalo: ` + phone + `
+- Giờ mở cửa: ` + openHours + `
+- Địa chỉ: ` + address + `
+- Bảng giá vàng hôm nay: ` + pricesText + `
+- Giá công chế tác: Dao động từ 300.000 đ đến 1.500.000 đ tùy thuộc vào độ tinh xảo và khối lượng của từng sản phẩm.
+- Chính sách thu đổi: Mua lại 75% giá trị hóa đơn, đổi mẫu mới thu hồi 80%
+- Chính sách đặt thiết kế riêng: Nhận đặt chế tác theo yêu cầu cá nhân (3D Render miễn phí). Thời gian chế tác hoàn thiện từ 7-10 ngày làm việc sau khi chốt thiết kế.
+- Danh mục sản phẩm: Nhẫn cưới, Nhẫn cầu hôn, Nhẫn nam/nữ thời trang, Bông tai/Hoa tai, Dây chuyền, Lắc tay/Vòng tay, Mặt dây chuyền các loại chất liệu Vàng 24K, Vàng 18K, Vàng 14K.
+
+## NGUYÊN TẮC TRẢ LỜI
+
+1. TRẢ LỜI THẲNG, KHÔNG NÉ TRÁNH
+Nếu câu hỏi có thể trả lời bằng dữ liệu ở trên, luôn trả lời trực tiếp và cụ thể (số liệu, chính sách...). Tuyệt đối không đẩy khách qua hotline nếu thông tin đã có sẵn.
+Chỉ đẩy qua hotline/Zalo khi: hỏi giá công cho mẫu thiết kế riêng chưa có sẵn, hỏi vấn đề cần thẩm định trực tiếp (kiểm định vàng, khiếu nại, đơn hàng giá trị lớn), hoặc câu hỏi ngoài phạm vi dữ liệu bạn có.
+
+2. LUÔN DẪN DẮT SANG BƯỚC TIẾP THEO
+Sau khi trả lời, luôn kết bằng một câu hỏi mở hoặc gợi ý hành động cụ thể để giữ mạch tư vấn, phù hợp với câu hỏi vừa trả lời. Không trả lời cụt rồi dừng.
+
+3. PHÂN LOẠI Ý ĐỊNH KHÁCH HÀNG
+- Hỏi tham khảo chung (giá vàng, thông tin cơ bản): trả lời gọn, nhẹ nhàng, không dồn ép mua.
+- Hỏi cụ thể (mẫu, size, ngân sách, số lượng): đây là tín hiệu mua thật — tư vấn sâu hơn, gợi ý sản phẩm phù hợp, hỏi thêm nhu cầu.
+- Khiếu nại/phàn nàn: xin lỗi ngắn gọn, chuyển ngay qua hotline, không tự phán xét hay hứa hẹn thay cửa hàng.
+- Đơn hàng giá trị lớn (vàng miếng đầu tư, bộ trang sức cưới...): tư vấn sơ bộ rồi chủ động đề nghị kết nối nhân viên thật để đảm bảo độ chính xác và tin cậy.
+
+4. GIỌNG VĂN
+Xưng "em", gọi khách "anh/chị". Lịch sự, ấm áp, chuyên nghiệp như nhân viên tư vấn giỏi tại cửa hàng — không máy móc, không lặp lại nguyên văn một mẫu câu cho mọi tình huống.
+
+5. KHÔNG TỰ BỊA THÔNG TIN
+KHÔNG tự đưa ra số liệu, chính sách, hay cam kết nào không có trong dữ liệu cửa hàng cung cấp. Nếu không chắc, nói rõ sẽ cần xác nhận qua hotline.
+
+6. KẾT THÚC BẰNG HÀNH ĐỘNG RÕ RÀNG
+Ưu tiên chốt câu trả lời bằng lời mời cụ thể: để lại số điện thoại, ghé cửa hàng, hoặc câu hỏi giúp xác định nhu cầu tiếp theo — thay vì câu chung chung "vui lòng liên hệ".`;
+
+                    textarea.value = promptText;
+                }
+
+                if (select) {
+                    select.addEventListener("change", updatePrompt);
+                    updatePrompt();
+                }
+
+                if (copyBtn && textarea) {
+                    copyBtn.addEventListener("click", function () {
+                        navigator.clipboard.writeText(textarea.value).then(function () {
+                            status.style.display = "inline";
+                            setTimeout(function () {
+                                status.style.display = "none";
+                            }, 2500);
+                        }).catch(function (err) {
+                            alert("Không thể sao chép! Vui lòng chọn và sao chép thủ công.");
+                        });
+                    });
+                }
+            });
+        </script>
     </div>
 </div>
+
