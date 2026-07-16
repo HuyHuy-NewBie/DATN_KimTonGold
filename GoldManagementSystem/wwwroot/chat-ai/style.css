@@ -20,7 +20,8 @@
     --transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Global resets & Base */
+
+/* Global resets & Base 2*/
 * {
     margin: 0;
     padding: 0;
@@ -47,7 +48,7 @@ body {
     width: 100%;
     height: 100%;
     z-index: -1;
-    background-image: 
+    background-image:
         radial-gradient(circle at 10% 20%, rgba(212, 175, 55, 0.05) 0%, transparent 40%),
         radial-gradient(circle at 90% 80%, rgba(170, 124, 17, 0.05) 0%, transparent 45%),
         radial-gradient(circle at 50% 50%, rgba(7, 9, 14, 1) 0%, rgba(2, 3, 5, 1) 100%);
@@ -230,13 +231,15 @@ body {
 
 /* Main Container Grid */
 .app-container {
-    max-width: 1350px; /* Perfectly centered compact dashboard */
+    max-width: 1350px;
+    /* Perfectly centered compact dashboard */
     width: 100%;
     margin: 0 auto;
     padding: 24px;
     flex-grow: 1;
     display: grid;
-    grid-template-columns: 320px 1fr; /* 2 Columns: Left info, Right main area */
+    grid-template-columns: 320px 1fr;
+    /* 2 Columns: Left info, Right main area */
     gap: 24px;
     height: calc(100vh - 70px);
     overflow: hidden;
@@ -246,12 +249,13 @@ body {
 .main-content-area {
     height: 100%;
     display: grid;
-    grid-template-rows: 1fr auto; /* Chat at top, widgets row at bottom */
+    grid-template-rows: 1fr auto;
+    /* Chat at top, widgets row at bottom */
     gap: 20px;
     overflow: hidden;
 }
 
-.main-content-area > .chat-simulator {
+.main-content-area>.chat-simulator {
     height: 100%;
     min-height: 0;
 }
@@ -259,7 +263,8 @@ body {
 /* Bottom widgets horizontal row */
 .bottom-widgets-row {
     display: grid;
-    grid-template-columns: 1.4fr 1fr; /* Two columns: Price board is wider */
+    grid-template-columns: 1.4fr 1fr;
+    /* Two columns: Price board is wider */
     gap: 16px;
     align-items: stretch;
 }
@@ -491,7 +496,8 @@ body {
     transition: var(--transition);
 }
 
-.branch-select:focus, .branch-select:hover {
+.branch-select:focus,
+.branch-select:hover {
     border-color: var(--color-gold);
     background: rgba(255, 255, 255, 0.05);
     box-shadow: 0 0 10px rgba(212, 175, 55, 0.1);
@@ -522,7 +528,7 @@ body {
     font-weight: 500;
 }
 
-.admin-form input, 
+.admin-form input,
 .admin-form textarea {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -535,7 +541,7 @@ body {
     width: 100%;
 }
 
-.admin-form input:focus, 
+.admin-form input:focus,
 .admin-form textarea:focus {
     outline: none;
     border-color: var(--color-gold);
@@ -659,6 +665,7 @@ body {
         opacity: 0;
         transform: translateY(8px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -726,11 +733,13 @@ body {
     overflow-x: auto;
     white-space: nowrap;
     border-top: 1px solid rgba(255, 255, 255, 0.03);
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
+    /* Firefox */
 }
 
 .quick-chips::-webkit-scrollbar {
-    display: none; /* Chrome/Safari */
+    display: none;
+    /* Chrome/Safari */
 }
 
 .chip {
@@ -766,12 +775,25 @@ body {
     animation: typingBounce 1.2s infinite ease-in-out;
 }
 
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
 
 @keyframes typingBounce {
-    0%, 44%, 100% { transform: translateY(0); }
-    22% { transform: translateY(-4px); }
+
+    0%,
+    44%,
+    100% {
+        transform: translateY(0);
+    }
+
+    22% {
+        transform: translateY(-4px);
+    }
 }
 
 /* Input area */
@@ -828,7 +850,7 @@ body {
     padding-right: 4px;
 }
 
-.widget-panel > div {
+.widget-panel>div {
     flex-shrink: 0;
 }
 
@@ -856,7 +878,8 @@ body {
 /* Table styling for prices */
 .price-table {
     width: 100%;
-    min-width: 380px; /* Prevent column shrinking below 380px */
+    min-width: 380px;
+    /* Prevent column shrinking below 380px */
     border-collapse: collapse;
     margin-top: 12px;
     font-size: 12.5px;
@@ -923,14 +946,16 @@ body {
 }
 
 /* Calculator body */
-.calc-body, .exporter-body {
+.calc-body,
+.exporter-body {
     padding: 18px 20px;
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-.calc-desc, .exporter-desc {
+.calc-desc,
+.exporter-desc {
     font-size: 12px;
     color: var(--color-text-secondary);
 }
@@ -1131,9 +1156,10 @@ body {
     overflow: hidden;
 }
 
-.middle-column > .chat-simulator {
+.middle-column>.chat-simulator {
     height: 100%;
-    min-height: 0; /* Important for grid inner scroll */
+    min-height: 0;
+    /* Important for grid inner scroll */
 }
 
 /* Horizontal Price Board Layout */
@@ -1178,9 +1204,17 @@ body {
 }
 
 @keyframes badgePulse {
-    0% { opacity: 0.4; }
-    50% { opacity: 1; }
-    100% { opacity: 0.4; }
+    0% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.4;
+    }
 }
 
 .price-cards-container {
@@ -1271,7 +1305,7 @@ body {
         height: auto;
         overflow-y: auto;
     }
-    
+
     .widget-panel {
         grid-column: span 2;
         display: grid;
@@ -1280,7 +1314,7 @@ body {
         height: auto;
         overflow-y: visible;
     }
-    
+
     .prompt-exporter {
         grid-column: span 2;
     }
@@ -1291,20 +1325,22 @@ body {
         grid-template-columns: 1fr;
         padding: 12px;
     }
-    
-    .admin-panel, .chat-simulator, .widget-panel {
+
+    .admin-panel,
+    .chat-simulator,
+    .widget-panel {
         grid-column: span 1;
     }
-    
+
     .widget-panel {
         display: flex;
         flex-direction: column;
     }
-    
+
     .app-header {
         padding: 0 16px;
     }
-    
+
     .brand-subtitle {
         display: none;
     }

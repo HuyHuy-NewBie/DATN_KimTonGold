@@ -1,5 +1,6 @@
 using GoldManagementSystem.Data;
 using GoldManagementSystem.Models;
+using GoldManagementSystem.Properties.Services;
 using GoldManagementSystem.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
@@ -10,6 +11,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
+
+// Background service lỗi sẽ không crash toàn bộ app
+builder.Services.Configure<HostOptions>(options =>
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
+
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -60,6 +66,7 @@ builder.Services.AddHttpClient("ExchangeRates", client =>
     client.Timeout = TimeSpan.FromSeconds(12);
 });
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<ChatService>();
 builder.Services.AddScoped<IMarketPriceService, MarketPriceService>();
 builder.Services.AddHostedService<MarketUpdateWorker>();
 builder.Services.AddControllersWithViews();

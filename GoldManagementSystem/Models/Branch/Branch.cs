@@ -18,6 +18,21 @@ namespace GoldManagementSystem.Models
         [StringLength(20)]
         public string PhoneNumber { get; set; }
 
+        [StringLength(1000)]
+        public string ProductPriceInfo { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string SizeSelectionInfo { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string WarrantyInfo { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string TradeInPolicyInfo { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string OrderProcessInfo { get; set; } = string.Empty;
+
         public bool IsActive { get; set; } = true;
 
         // Navigation properties

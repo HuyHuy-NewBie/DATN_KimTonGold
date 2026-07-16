@@ -7,6 +7,11 @@ namespace GoldManagementSystem.Models.ViewModels
         public string Address { get; set; } = string.Empty;
         public string OwnerSummary { get; set; } = string.Empty;
         public string ManagerSummary { get; set; } = string.Empty;
+        public string ProductPriceInfo { get; set; } = string.Empty;
+        public string SizeSelectionInfo { get; set; } = string.Empty;
+        public string WarrantyInfo { get; set; } = string.Empty;
+        public string TradeInPolicyInfo { get; set; } = string.Empty;
+        public string OrderProcessInfo { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public int ProductCount { get; set; }
         public int OrderCount { get; set; }

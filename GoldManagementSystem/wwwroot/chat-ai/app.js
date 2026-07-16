@@ -7,6 +7,7 @@ const storeBranches = [
         openHours: "08:00 - 21:30 hàng ngày",
         address: "Số 123 Đường Kim Mã, Quận Ba Đình, Hà Nội"
     },
+    //2//
     {
         id: "caugiay",
         name: "KIMTON Cầu Giấy",
@@ -110,7 +111,7 @@ function renderStoreInfo() {
     displayAddress.textContent = storeConfig.address;
     displayExchangePolicy.textContent = storeConfig.exchangePolicy;
     displayWarrantyPolicy.textContent = storeConfig.warrantyPolicy;
-    
+
     // Sync chat welcoming names
     document.querySelectorAll('.ai-sync-store-name').forEach(el => {
         el.textContent = storeConfig.name;
@@ -121,7 +122,7 @@ function renderStoreInfo() {
 function populateBranchSelector() {
     const branchSelector = document.getElementById('branchSelector');
     if (!branchSelector) return;
-    
+
     let html = '';
     storeBranches.forEach(branch => {
         html += `<option value="${branch.id}">${branch.name}</option>`;
@@ -136,14 +137,14 @@ function populateBranchSelector() {
             storeConfig.hotline = branch.hotline;
             storeConfig.openHours = branch.openHours;
             storeConfig.address = branch.address;
-            
+
             // Re-render display
             renderStoreInfo();
             renderPriceBoard();
-            
+
             // Update dynamically rendered title on chat
             document.getElementById('chatAssistantTitle').textContent = `Trợ Lý ${storeConfig.name.replace(" (Trụ sở chính)", "").replace(" HCM", "")}`;
-            
+
             // Feedback
             showToast(`Đã chuyển sang ${branch.name}`);
             addSystemMessage(`Hệ thống đã kết nối với Chi nhánh ${branch.name}.`);
@@ -204,7 +205,7 @@ function renderPriceBoard() {
             </tr>
         `;
     });
-    
+
     const container = document.getElementById('goldPriceTableBody');
     if (container) {
         container.innerHTML = html;
@@ -257,7 +258,7 @@ function handleSendMessage() {
 
 // Escapes special characters for safe output injection
 function escapeHTML(str) {
-    return str.replace(/[&<>'"]/g, 
+    return str.replace(/[&<>'"]/g,
         tag => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -334,7 +335,7 @@ function generateAIReply(msg) {
     const phone = storeConfig.hotline;
     const hours = storeConfig.openHours;
     const addr = storeConfig.address;
-    
+
     // 1. Gold Prices (Important Rule: No static fake prices in text, redirect to hotline)
     if (text.includes("giá") || text.includes("gia") || text.includes("bao nhieu một chỉ") || text.includes("bao nhieu 1 chi")) {
         return `Dạ, giá vàng biến động liên tục theo từng giờ trên thị trường. Để nhận báo giá chính xác nhất ở thời điểm hiện tại kèm theo tiền công chế tác và ưu đãi mới nhất, anh/chị vui lòng nhắn tin trực tiếp số Hotline/Zalo <strong>${phone}</strong> hoặc để lại số điện thoại, nhân viên của cửa hàng sẽ liên hệ báo giá ngay lập tức ạ.`;
@@ -421,7 +422,7 @@ function calculateRingSize() {
 
     ringSizeOutput.textContent = `Size ${closest.size}`;
     calcResult.style.display = 'block';
-    
+
     // Add dynamic glow to the result box
     const box = document.querySelector('.result-box');
     box.style.boxShadow = '0 0 15px rgba(212, 175, 55, 0.4)';

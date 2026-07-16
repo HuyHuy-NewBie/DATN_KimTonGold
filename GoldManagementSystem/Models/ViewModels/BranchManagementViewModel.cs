@@ -13,6 +13,12 @@ namespace GoldManagementSystem.Models.ViewModels
         [StringLength(300, ErrorMessage = "Địa chỉ tối đa 300 ký tự.")]
         public string Address { get; set; } = string.Empty;
 
+        public string ProductPriceInfo { get; set; } = string.Empty;
+        public string SizeSelectionInfo { get; set; } = string.Empty;
+        public string WarrantyInfo { get; set; } = string.Empty;
+        public string TradeInPolicyInfo { get; set; } = string.Empty;
+        public string OrderProcessInfo { get; set; } = string.Empty;
+
         public string OwnerUserId { get; set; } = string.Empty;
         public string ManagerUserId { get; set; } = string.Empty;
         public IReadOnlyList<SelectListItem> OwnerOptions { get; set; } =

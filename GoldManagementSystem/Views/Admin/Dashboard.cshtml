@@ -173,7 +173,12 @@
                             <option value="@b.Id" 
                                     data-name="@b.BranchName" 
                                     data-phone="@b.PhoneNumber" 
-                                    data-address="@b.Address">
+                                    data-address="@b.Address"
+                                    data-product-price="@b.ProductPriceInfo"
+                                    data-size-selection="@b.SizeSelectionInfo"
+                                    data-warranty="@b.WarrantyInfo"
+                                    data-trade-in="@b.TradeInPolicyInfo"
+                                    data-order-process="@b.OrderProcessInfo">
                                 @b.BranchName
                             </option>
                         }
@@ -219,12 +224,12 @@
                     const name = option.getAttribute("data-name");
                     const phone = option.getAttribute("data-phone") || "0961137407";
                     const address = option.getAttribute("data-address") || "Chưa cập nhật địa chỉ";
+                    const productPriceInfo = option.getAttribute("data-product-price") || "Nội dung giá sản phẩm chưa được cập nhật.";
+                    const sizeSelectionInfo = option.getAttribute("data-size-selection") || "Nội dung chọn size chưa được cập nhật.";
+                    const warrantyInfo = option.getAttribute("data-warranty") || "Nội dung bảo hành chưa được cập nhật.";
+                    const tradeInInfo = option.getAttribute("data-trade-in") || "Nội dung chính sách thu đổi chưa được cập nhật.";
+                    const orderProcessInfo = option.getAttribute("data-order-process") || "Nội dung đặt hàng chưa được cập nhật.";
                     const openHours = "08:00 - 21:30 hàng ngày";
-
-                    const pricesText = `
-  + Vàng SJC / 24K (9999): Mua vào ` + goldPrices.gold24k.buy.toLocaleString('vi-VN') + ` đ/chỉ - Bán ra ` + goldPrices.gold24k.sell.toLocaleString('vi-VN') + ` đ/chỉ
-  + Vàng Tây 18K: Mua vào ` + goldPrices.gold18k.buy.toLocaleString('vi-VN') + ` đ/chỉ - Bán ra ` + goldPrices.gold18k.sell.toLocaleString('vi-VN') + ` đ/chỉ
-  + Vàng Tây 14K: Mua vào ` + goldPrices.gold14k.buy.toLocaleString('vi-VN') + ` đ/chỉ - Bán ra ` + goldPrices.gold14k.sell.toLocaleString('vi-VN') + ` đ/chỉ`;
 
                     const promptText = `Bạn là Trợ Lý KIMTON — chuyên viên tư vấn cao cấp của tiệm vàng ` + name + `.
 
@@ -233,11 +238,12 @@
 - Hotline/Zalo: ` + phone + `
 - Giờ mở cửa: ` + openHours + `
 - Địa chỉ: ` + address + `
-- Bảng giá vàng hôm nay: ` + pricesText + `
-- Giá công chế tác: Dao động từ 300.000 đ đến 1.500.000 đ tùy thuộc vào độ tinh xảo và khối lượng của từng sản phẩm.
-- Chính sách thu đổi: Mua lại 75% giá trị hóa đơn, đổi mẫu mới thu hồi 80%
-- Chính sách đặt thiết kế riêng: Nhận đặt chế tác theo yêu cầu cá nhân (3D Render miễn phí). Thời gian chế tác hoàn thiện từ 7-10 ngày làm việc sau khi chốt thiết kế.
-- Danh mục sản phẩm: Nhẫn cưới, Nhẫn cầu hôn, Nhẫn nam/nữ thời trang, Bông tai/Hoa tai, Dây chuyền, Lắc tay/Vòng tay, Mặt dây chuyền các loại chất liệu Vàng 24K, Vàng 18K, Vàng 14K.
+- Giá sản phẩm: ` + productPriceInfo + `
+- Chọn size: ` + sizeSelectionInfo + `
+- Bảo hành: ` + warrantyInfo + `
+- Chính sách thu đổi: ` + tradeInInfo + `
+- Đặt hàng: ` + orderProcessInfo + `
+- Nếu khách hỏi về giá vàng, kích thước, bảo hành, thu đổi, hoặc đặt hàng, hãy ưu tiên trả lời bằng nội dung chính xác từ các mục trên.
 
 ## NGUYÊN TẮC TRẢ LỜI
 

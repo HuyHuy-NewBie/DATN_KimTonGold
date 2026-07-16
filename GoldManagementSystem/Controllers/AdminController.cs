@@ -37,8 +37,9 @@ namespace GoldManagementSystem.Controllers
             _roleManager = roleManager;
             _notificationService = notificationService;
             _inventoryStockService = inventoryStockService;
-        }
-
+        }  
+        //2//
+ 
         // 1. Dashboard Quản lý
         [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> Dashboard()
@@ -1774,8 +1775,6 @@ namespace GoldManagementSystem.Controllers
             return View(await BuildBranchManagementViewModelAsync());
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Manager,Branch Owner")]
         public async Task<IActionResult> CreateBranch(BranchManagementViewModel model)
         {
@@ -1809,6 +1808,11 @@ namespace GoldManagementSystem.Controllers
                 BranchName = model.BranchName,
                 Address = model.Address,
                 PhoneNumber = string.Empty,
+                ProductPriceInfo = model.ProductPriceInfo,
+                SizeSelectionInfo = model.SizeSelectionInfo,
+                WarrantyInfo = model.WarrantyInfo,
+                TradeInPolicyInfo = model.TradeInPolicyInfo,
+                OrderProcessInfo = model.OrderProcessInfo,
                 IsActive = true
             });
 
@@ -3707,7 +3711,12 @@ namespace GoldManagementSystem.Controllers
                     Address = branch.Address,
                     IsActive = branch.IsActive,
                     ProductCount = branch.Products.Count(),
-                    OrderCount = branch.Orders.Count()
+                    OrderCount = branch.Orders.Count(),
+                    ProductPriceInfo = branch.ProductPriceInfo,
+                    SizeSelectionInfo = branch.SizeSelectionInfo,
+                    WarrantyInfo = branch.WarrantyInfo,
+                    TradeInPolicyInfo = branch.TradeInPolicyInfo,
+                    OrderProcessInfo = branch.OrderProcessInfo
                 })
                 .ToListAsync();
 
@@ -4124,6 +4133,43 @@ namespace GoldManagementSystem.Controllers
                 .ToUpperInvariant();
 
             return $"GR-{DateTime.Now:yyyyMMddHHmmssfff}-{randomPart}";
+        }
+
+        // ── Cài đặt AI Chatbot ──────────────────────────────────────────────
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> ChatSettings()
+        {
+            var settings = await _context.ChatSettings.FirstOrDefaultAsync()
+                           ?? new ChatSettings { Id = 1 };
+            return View(settings);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> ChatSettings(ChatSettings model)
+        {
+            var existing = await _context.ChatSettings.FirstOrDefaultAsync();
+            if (existing == null)
+            {
+                existing = new ChatSettings { Id = 1 };
+                _context.ChatSettings.Add(existing);
+            }
+
+            existing.ShopName         = (model.ShopName ?? "KimTon Gold").Trim();
+            existing.Hotline          = (model.Hotline ?? "1800 9999").Trim();
+            existing.ShopAddress      = (model.ShopAddress ?? string.Empty).Trim();
+            existing.ProductPriceInfo = (model.ProductPriceInfo ?? string.Empty).Trim();
+            existing.SizeGuideInfo    = (model.SizeGuideInfo ?? string.Empty).Trim();
+            existing.WarrantyInfo     = (model.WarrantyInfo ?? string.Empty).Trim();
+            existing.ExchangePolicy   = (model.ExchangePolicy ?? string.Empty).Trim();
+            existing.OrderProcess     = (model.OrderProcess ?? string.Empty).Trim();
+            existing.UpdatedAt        = DateTime.UtcNow;
+            existing.UpdatedBy        = User.Identity?.Name ?? "admin";
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Đã lưu cài đặt chatbot thành công.";
+            return RedirectToAction(nameof(ChatSettings));
         }
     }
 }

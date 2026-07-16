@@ -32,11 +32,30 @@ namespace GoldManagementSystem.Data
         public DbSet<Warehouse> Warehouses { get; set; }
         public DbSet<InventoryItem> InventoryItems { get; set; }
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
+        public DbSet<ChatSettings> ChatSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
+            // Seed 1 row mặc định cho ChatSettings (singleton pattern)
+            builder.Entity<ChatSettings>().HasData(new ChatSettings
+            {
+                Id = 1,
+                ShopName = "KimTon Gold",
+                Hotline = "1800 9999",
+                ShopAddress = "123 Đường Vàng Kim, Quận 1, TP. HCM",
+                ProductPriceInfo = string.Empty,
+                SizeGuideInfo = string.Empty,
+                WarrantyInfo = string.Empty,
+                ExchangePolicy = string.Empty,
+                OrderProcess = string.Empty,
+                UpdatedAt = new System.DateTime(2025, 1, 1, 0, 0, 0, System.DateTimeKind.Utc),
+                UpdatedBy = "system"
+            }); 
+            //2//
+
+ 
             // Cấu hình Fluent API cho Code First nếu cần thiết
             builder.Entity<Order>()
                 .HasOne(o => o.Branch)

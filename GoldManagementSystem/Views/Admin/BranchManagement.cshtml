@@ -62,6 +62,31 @@
                     <span asp-validation-for="Address" class="profile-field__error"></span>
                 </label>
 
+                <label class="admin-field admin-field--wide">
+                    <span data-i18n data-i18n-vi="Nội dung Giá sản phẩm" data-i18n-en="Product price info">Nội dung Giá sản phẩm</span>
+                    <textarea asp-for="ProductPriceInfo" rows="3" placeholder="Ví dụ: Giá sản phẩm tham khảo từ 2.500.000 ₫ đến 45.000.000 ₫ tùy loại và mẫu mã."></textarea>
+                </label>
+
+                <label class="admin-field admin-field--wide">
+                    <span data-i18n data-i18n-vi="Nội dung Chọn size" data-i18n-en="Size selection info">Nội dung Chọn size</span>
+                    <textarea asp-for="SizeSelectionInfo" rows="3" placeholder="Ví dụ: Kích thước nhẫn có thể điều chỉnh từ 50-65, vui lòng cung cấp số size hoặc đặt lịch thử."></textarea>
+                </label>
+
+                <label class="admin-field admin-field--wide">
+                    <span data-i18n data-i18n-vi="Nội dung Bảo hành" data-i18n-en="Warranty info">Nội dung Bảo hành</span>
+                    <textarea asp-for="WarrantyInfo" rows="3" placeholder="Ví dụ: Bảo hành 12 tháng cho lỗi kỹ thuật, không bảo hành vấn đề do người dùng."></textarea>
+                </label>
+
+                <label class="admin-field admin-field--wide">
+                    <span data-i18n data-i18n-vi="Nội dung Chính sách thu đổi" data-i18n-en="Trade-in policy info">Nội dung Chính sách thu đổi</span>
+                    <textarea asp-for="TradeInPolicyInfo" rows="3" placeholder="Ví dụ: Hỗ trợ thu đổi 70-80% giá trị nếu còn nguyên vẹn và có hóa đơn."></textarea>
+                </label>
+
+                <label class="admin-field admin-field--wide">
+                    <span data-i18n data-i18n-vi="Nội dung Đặt hàng" data-i18n-en="Order process info">Nội dung Đặt hàng</span>
+                    <textarea asp-for="OrderProcessInfo" rows="3" placeholder="Ví dụ: Đặt hàng trước 1-3 ngày, hỗ trợ giao hàng hoặc nhận tại cửa hàng."></textarea>
+                </label>
+
                 <div class="admin-form-actions">
                     <button type="submit" class="admin-button admin-button--primary" data-i18n data-i18n-vi="Thêm chi nhánh" data-i18n-en="Create branch">Thêm chi nhánh</button>
                 </div>
