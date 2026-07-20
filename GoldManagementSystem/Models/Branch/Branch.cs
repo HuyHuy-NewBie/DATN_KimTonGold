@@ -42,5 +42,8 @@ namespace GoldManagementSystem.Models
 
         public virtual ICollection<Warehouse> Warehouses { get; set; }
             = new List<Warehouse>();
+
+        public virtual ICollection<BranchWarehouseAccess> WarehouseAccesses { get; set; }
+            = new List<BranchWarehouseAccess>();
     }
 }

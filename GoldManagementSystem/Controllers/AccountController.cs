@@ -101,9 +101,9 @@ namespace GoldManagementSystem.Controllers
                     return Redirect(model.ReturnUrl);
                 }
 
-                if (userRoles.Contains("Admin") || userRoles.Contains("Manager") || userRoles.Contains("Branch Owner"))
+                if (userRoles.Contains(RoleCatalog.Admin))
                 {
-                    return RedirectToAction("Dashboard", "Admin");
+                    return RedirectToAction("Index", "Management");
                 }
 
                 return RedirectToAction("Index", "Home");
@@ -413,6 +413,10 @@ namespace GoldManagementSystem.Controllers
             if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
                 return Redirect(model.ReturnUrl);
+            }
+            if (userRoles.Contains(RoleCatalog.Admin))
+            {
+                return RedirectToAction("Index", "Management");
             }
             return RedirectToAction("Index", "Home");
         }

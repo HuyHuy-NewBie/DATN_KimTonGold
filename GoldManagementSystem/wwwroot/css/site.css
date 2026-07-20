@@ -25,6 +25,13 @@
   font-weight: 700;
 }
 
+/* Giữ padding và border trong đúng kích thước khai báo, tránh các ô/nút đè lên nhau. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   --brand-ink: #27251f;
   --brand-muted: #6e6a63;
@@ -80,6 +87,21 @@ input,
 select,
 textarea {
   font: inherit;
+  max-width: 100%;
+}
+
+.dashboard-content,
+.management-page,
+.management-card,
+.admin-panel,
+.details-main,
+.details-main__actions > *,
+.management-kpis > *,
+.management-grid > *,
+.product-admin-grid > *,
+.branch-card-grid > *,
+.admin-form-grid > * {
+  min-width: 0;
 }
 
 .promo-strip {
@@ -307,6 +329,40 @@ textarea {
 .header-icon svg {
   width: 1.2rem;
   height: 1.2rem;
+}
+
+#notificationBellTrigger {
+  border-color: transparent;
+  background: transparent;
+  color: #111111;
+}
+
+#notificationBellTrigger:hover,
+#notificationBellTrigger:focus-visible {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #111111;
+}
+
+#notificationBellTrigger svg {
+  width: 1.28rem;
+  height: 1.28rem;
+  overflow: visible;
+}
+
+#notificationBellTrigger .notification-bell-icon__body {
+  fill: none;
+  stroke: #111111;
+  stroke-width: 1.65;
+  stroke-linejoin: round;
+}
+
+#notificationBellTrigger .notification-bell-icon__ring {
+  fill: none;
+  stroke: #111111;
+  stroke-width: 1.8;
+  stroke-linecap: round;
 }
 
 .header-icon--search {
@@ -1165,11 +1221,14 @@ textarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
+  width: 100%;
 }
 
 .details-main__action-item,
 .details-main__actions form,
 .details-main__actions a {
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
 }
 
@@ -1179,6 +1238,11 @@ textarea {
   width: 100%;
   min-height: 40px;
   height: 40px;
+  max-width: 100%;
+  padding-inline: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .section-heading__actions--compact {
@@ -5332,3 +5396,6 @@ body.supplier-modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* Management portal: visually aligned with the KimTon storefront. */
+.management-page{padding:28px;max-width:1280px;margin:0 auto}.management-hero{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:34px 38px;background:linear-gradient(120deg,#211915,#76513b);color:#fff;border-radius:22px}.management-hero p{letter-spacing:.16em;font-size:.72rem;margin:0 0 8px;color:#ead1a3;font-weight:700}.management-hero h1{font-family:'Cormorant Garamond',serif;font-size:2.55rem;margin:0}.management-hero span{opacity:.82}.management-back{border:1px solid rgba(255,255,255,.5);border-radius:999px;color:#fff;padding:10px 16px;text-decoration:none;white-space:nowrap}.management-tabs{display:flex;gap:9px;flex-wrap:wrap;margin:22px 0}.management-tabs a,.management-actions a,.management-card>a,.management-report{padding:10px 15px;background:#fff;border:1px solid #eadfd7;border-radius:10px;color:#4a3023;text-decoration:none;font-weight:700;font-size:.86rem}.management-tabs a.active{background:#8f5d3d;color:#fff;border-color:#8f5d3d}.management-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.management-kpis article,.management-card{background:#fff;border:1px solid #ede6e1;border-radius:16px;padding:22px;box-shadow:0 8px 24px rgba(47,28,18,.05)}.management-kpis span{color:#816f65;font-size:.84rem}.management-kpis strong{display:block;font-size:1.38rem;margin-top:8px;color:#493122}.management-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}.management-card h2{font-family:'Cormorant Garamond',serif;font-size:1.75rem;margin:0 0 7px;color:#342119}.management-card p{color:#725f55;line-height:1.6}.management-card div,.management-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}.management-card button{border:0;background:#eee7e2;color:#8d7a6e;padding:10px 15px;border-radius:10px}.management-card--wide{margin-top:18px}.salary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.salary-grid div{display:block;margin:0;padding:15px;background:#fbf6f2;border-radius:11px;line-height:1.65;color:#654d3e}.management-note{display:none;width:100%;min-height:96px;margin-top:16px;padding:12px;border:1px solid #decfc4;border-radius:10px}.management-note.show{display:block}@media(max-width:760px){.management-page{padding:16px}.management-hero{padding:25px;display:block}.management-back{display:inline-block;margin-top:16px}.management-kpis,.management-grid,.salary-grid{grid-template-columns:1fr}}

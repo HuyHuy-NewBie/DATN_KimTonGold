@@ -51,6 +51,8 @@ builder.Services.Configure<NotificationOptions>(builder.Configuration.GetSection
 builder.Services.Configure<AuthVerificationOptions>(builder.Configuration.GetSection("AuthVerification"));
 builder.Services.AddScoped<AuthNotificationService>();
 builder.Services.AddScoped<InventoryStockService>();
+builder.Services.AddScoped<IManagementPermissionService, ManagementPermissionService>();
+builder.Services.AddScoped<SystemNotificationService>();
 builder.Services.AddSingleton<PendingAccountVerificationService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSignalR();
@@ -72,6 +74,25 @@ builder.Services.AddHostedService<MarketUpdateWorker>();
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
+
+// Bảo đảm đầy đủ cấp bậc nhân sự mà khu quản trị sử dụng.
+using (var roleScope = app.Services.CreateScope())
+{
+    try
+    {
+        var roleManager = roleScope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        foreach (var roleName in RoleCatalog.AllOrderedRoles)
+        {
+            if (!await roleManager.RoleExistsAsync(roleName))
+                await roleManager.CreateAsync(new IdentityRole(roleName));
+        }
+    }
+    catch (Exception exception)
+    {
+        // Không chặn web khởi động khi SQL Server tạm thời mất kết nối.
+        app.Logger.LogWarning(exception, "Không thể đồng bộ danh sách vai trò lúc khởi động.");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -105,6 +126,8 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseAuthorization();
+app.UseMiddleware<ManagementAccessMiddleware>();
+app.UseMiddleware<AuditTrailMiddleware>();
 
 app.MapHub<GoldManagementSystem.Hubs.NotificationHub>("/notificationHub");
 

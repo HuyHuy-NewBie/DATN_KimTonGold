@@ -1,6 +1,7 @@
 using GoldManagementSystem.Data;
 using GoldManagementSystem.Models;
 using GoldManagementSystem.Models.ViewModels;
+using GoldManagementSystem.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -99,19 +100,21 @@ namespace GoldManagementSystem.Controllers
         private const string DuplicateActionUpdateExistingPrefix = "UpdateExisting:";
 
         private readonly ApplicationDbContext _context;
+        private readonly IManagementPermissionService _permissions;
 
-        public ProductsController(ApplicationDbContext context)
+        public ProductsController(ApplicationDbContext context, IManagementPermissionService permissions)
         {
             _context = context;
+            _permissions = permissions;
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public IActionResult AdminIndex(string searchString, string category, string goldType, int? branchId)
         {
             return RedirectToAction(nameof(AdminGold), new { searchString, category, goldType, branchId });
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> AdminGold(string searchString, string category, string goldType, int? branchId)
         {
             var query = ApplyCatalogFilters(GoldProducts(_context.Products.Include(product => product.Branch)), searchString, category, goldType, branchId);
@@ -127,10 +130,10 @@ namespace GoldManagementSystem.Controllers
             ViewBag.CatalogAdminAddLabel = "Thêm sản phẩm vàng";
             ViewBag.CatalogSearchPlaceholder = "Tên, loại vàng, trạng thái...";
 
-            return View("AdminIndex", await query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id).ToListAsync());
+            return View("AdminIndex", await OrderProducts(query).ToListAsync());
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> AdminSilver(string searchString, string category, string goldType, int? branchId)
         {
             var query = ApplyCatalogFilters(SilverProducts(_context.Products.Include(product => product.Branch)), searchString, category, goldType, branchId);
@@ -146,10 +149,10 @@ namespace GoldManagementSystem.Controllers
             ViewBag.CatalogAdminAddLabel = "Thêm sản phẩm bạc";
             ViewBag.CatalogSearchPlaceholder = "Tên, chất liệu bạc, trạng thái...";
 
-            return View("AdminIndex", await query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id).ToListAsync());
+            return View("AdminIndex", await OrderProducts(query).ToListAsync());
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> AdminDiamond(
             string searchString,
             string category,
@@ -197,19 +200,19 @@ namespace GoldManagementSystem.Controllers
             ViewBag.DiamondColors = new SelectList(DiamondColorList, diamondColor);
             ViewBag.DiamondClarities = new SelectList(DiamondClarityList, diamondClarity);
 
-            return View("AdminIndex", await query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id).ToListAsync());
+            return View("AdminIndex", await OrderProducts(query).ToListAsync());
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         [HttpGet]
-        public async Task<IActionResult> Create(string line = null)
+        public async Task<IActionResult> Create(string line = null, int? branchId = null)
         {
             var primaryLine = ResolveRequestedLine(line);
             var model = new ProductFormViewModel
             {
                 ProductLine = primaryLine,
                 CatalogMode = ProductCatalogModeOptions.Single,
-                BranchId = await GetDefaultBranchIdAsync(),
+                BranchId = branchId ?? await GetDefaultBranchIdAsync(),
                 Status = "Còn hàng",
                 AssignedProductLines = new List<string> { primaryLine }
             };
@@ -222,11 +225,12 @@ namespace GoldManagementSystem.Controllers
             return View(model);
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(ProductFormViewModel model)
         {
+            if (!await _permissions.CanAsync(User, ManagementFeatureCatalog.ProductsEdit, model.BranchId)) return Forbid();
             NormalizeProductForm(model);
             model.ProductLine = ResolveRequestedLine(model.ProductLine);
             model.CatalogMode = ResolveCatalogMode(model.CatalogMode);
@@ -331,7 +335,7 @@ namespace GoldManagementSystem.Controllers
             return int.TryParse(idPart, out productId) && productId > 0;
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
@@ -348,6 +352,7 @@ namespace GoldManagementSystem.Controllers
             {
                 return NotFound();
             }
+            if (!await _permissions.CanAsync(User, ManagementFeatureCatalog.ProductsEdit, product.BranchId)) return Forbid();
 
             var model = BuildProductForm(product);
             await PopulateProductFormSelectionsAsync(model);
@@ -357,7 +362,7 @@ namespace GoldManagementSystem.Controllers
             return View(model);
         }
 
-        [Authorize(Roles = "Admin,Manager,Staff,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, ProductFormViewModel model)
@@ -386,6 +391,7 @@ namespace GoldManagementSystem.Controllers
             {
                 return NotFound();
             }
+            if (!await _permissions.CanAsync(User, ManagementFeatureCatalog.ProductsEdit, product.BranchId)) return Forbid();
 
             if (!await BranchExistsAsync(model.BranchId))
             {
@@ -420,7 +426,7 @@ namespace GoldManagementSystem.Controllers
             ViewBag.CollectionType = "All";
             ViewBag.SubmitAction = "Index";
 
-            return View(await query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id).ToListAsync());
+            return View(await OrderProducts(query).ToListAsync());
         }
 
         public async Task<IActionResult> New(string searchString, string category, string goldType, int? branchId)
@@ -449,7 +455,7 @@ namespace GoldManagementSystem.Controllers
             ViewBag.CollectionType = "Gold";
             ViewBag.SubmitAction = "Gold";
 
-            return View("Index", await query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id).ToListAsync());
+            return View("Index", await OrderProducts(query).ToListAsync());
         }
 
         public async Task<IActionResult> Silver(string searchString, string category, string goldType, int? branchId)
@@ -463,7 +469,7 @@ namespace GoldManagementSystem.Controllers
             ViewBag.CollectionType = "Silver";
             ViewBag.SubmitAction = "Silver";
 
-            return View("Index", await query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id).ToListAsync());
+            return View("Index", await OrderProducts(query).ToListAsync());
         }
 
         public async Task<IActionResult> Diamond(
@@ -522,7 +528,7 @@ namespace GoldManagementSystem.Controllers
             ViewBag.DiamondColors = new SelectList(DiamondColorList, diamondColor);
             ViewBag.DiamondClarities = new SelectList(DiamondClarityList, diamondClarity);
 
-            return View("Index", await query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id).ToListAsync());
+            return View("Index", await OrderProducts(query).ToListAsync());
         }
 
         public async Task<IActionResult> Details(int id)
@@ -610,6 +616,7 @@ namespace GoldManagementSystem.Controllers
 
         private static IQueryable<Product> ApplyCatalogFilters(IQueryable<Product> query, string searchString, string category, string goldType, int? branchId)
         {
+            query = query.Where(product => product.Status != "Đã xóa");
             if (!string.IsNullOrWhiteSpace(searchString))
             {
                 query = query.Where(product =>
@@ -643,6 +650,12 @@ namespace GoldManagementSystem.Controllers
 
             return query;
         }
+
+        private static IOrderedQueryable<Product> OrderProducts(IQueryable<Product> query) => query
+            .OrderByDescending(product => product.IsPriority)
+            .ThenBy(product => product.PriorityOrder)
+            .ThenByDescending(product => product.CreatedAt)
+            .ThenByDescending(product => product.Id);
 
         private static IQueryable<Product> ApplyDiamondFilters(
             IQueryable<Product> query,

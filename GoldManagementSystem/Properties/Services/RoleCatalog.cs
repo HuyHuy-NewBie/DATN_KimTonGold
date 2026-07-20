@@ -6,9 +6,13 @@ namespace GoldManagementSystem.Services
 {
     public static class RoleCatalog
     {
+        public const string ManagementRoles = "Admin,Branch Owner,Manager,Warehouse Manager,Sales,Customer Care,Accountant,Staff";
         public const string Admin = "Admin";
         public const string BranchOwner = "Branch Owner";
         public const string Manager = "Manager";
+        public const string WarehouseManager = "Warehouse Manager";
+        public const string Sales = "Sales";
+        public const string CustomerCare = "Customer Care";
         public const string Staff = "Staff";
         public const string Accountant = "Accountant";
         public const string Customer = "Khách hàng";
@@ -19,7 +23,10 @@ namespace GoldManagementSystem.Services
                 [Admin] = new("Quản trị viên", "Admin", 600),
                 [BranchOwner] = new("Chủ chi nhánh", "Branch owner", 500),
                 [Manager] = new("Quản lí", "Manager", 400),
+                [WarehouseManager] = new("Quản lí kho", "Warehouse manager", 350),
                 [Accountant] = new("Kế toán", "Accountant", 300),
+                [Sales] = new("Nhân viên sale", "Sales", 240),
+                [CustomerCare] = new("Chăm sóc khách hàng", "Customer care", 220),
                 [Staff] = new("Nhân viên", "Staff", 200),
                 [Customer] = new("Khách hàng", "Customer", 100)
             };
@@ -58,6 +65,10 @@ namespace GoldManagementSystem.Services
                 string.Equals(role, Admin, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(role, BranchOwner, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(role, Manager, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, WarehouseManager, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, Sales, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, CustomerCare, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, Accountant, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(role, Staff, StringComparison.OrdinalIgnoreCase)) == true;
         }
 

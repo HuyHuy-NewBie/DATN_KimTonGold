@@ -33,6 +33,14 @@ namespace GoldManagementSystem.Data
         public DbSet<InventoryItem> InventoryItems { get; set; }
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
         public DbSet<ChatSettings> ChatSettings { get; set; }
+        public DbSet<WorkShift> WorkShifts { get; set; }
+        public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
+        public DbSet<ShiftChangeLog> ShiftChangeLogs { get; set; }
+        public DbSet<UserFeaturePermission> UserFeaturePermissions { get; set; }
+        public DbSet<EmployeeManagementNote> EmployeeManagementNotes { get; set; }
+        public DbSet<SystemNotification> SystemNotifications { get; set; }
+        public DbSet<ManagementAuditLog> ManagementAuditLogs { get; set; }
+        public DbSet<BranchWarehouseAccess> BranchWarehouseAccesses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -250,6 +258,74 @@ namespace GoldManagementSystem.Data
                 .HasOne(transaction => transaction.CreatedByUser)
                 .WithMany()
                 .HasForeignKey(transaction => transaction.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<UserFeaturePermission>()
+                .HasIndex(permission => new { permission.UserId, permission.FeatureKey, permission.BranchId })
+                .IsUnique();
+
+            builder.Entity<UserFeaturePermission>()
+                .HasOne(permission => permission.Branch)
+                .WithMany()
+                .HasForeignKey(permission => permission.BranchId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<WorkShift>()
+                .HasIndex(shift => new { shift.BranchId, shift.ShiftDate, shift.ShiftType })
+                .IsUnique();
+
+            builder.Entity<ShiftAssignment>()
+                .HasIndex(assignment => new { assignment.WorkShiftId, assignment.UserId })
+                .IsUnique();
+
+            builder.Entity<ShiftChangeLog>()
+                .HasOne<WorkShift>()
+                .WithMany()
+                .HasForeignKey(log => log.WorkShiftId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<EmployeeManagementNote>()
+                .HasIndex(note => new { note.UserId, note.BranchId })
+                .IsUnique();
+
+            builder.Entity<EmployeeManagementNote>()
+                .HasOne(note => note.User)
+                .WithMany()
+                .HasForeignKey(note => note.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<EmployeeManagementNote>()
+                .HasOne(note => note.Branch)
+                .WithMany()
+                .HasForeignKey(note => note.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SystemNotification>()
+                .HasOne(notification => notification.User)
+                .WithMany()
+                .HasForeignKey(notification => notification.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<SystemNotification>()
+                .HasIndex(notification => new { notification.UserId, notification.IsRead, notification.CreatedAt });
+
+            builder.Entity<ManagementAuditLog>()
+                .HasIndex(log => new { log.Area, log.CreatedAt });
+
+            builder.Entity<BranchWarehouseAccess>()
+                .HasIndex(access => new { access.BranchId, access.WarehouseId })
+                .IsUnique();
+
+            builder.Entity<BranchWarehouseAccess>()
+                .HasOne(access => access.Branch)
+                .WithMany(branch => branch.WarehouseAccesses)
+                .HasForeignKey(access => access.BranchId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<BranchWarehouseAccess>()
+                .HasOne(access => access.Warehouse)
+                .WithMany(warehouse => warehouse.BranchAccesses)
+                .HasForeignKey(access => access.WarehouseId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }

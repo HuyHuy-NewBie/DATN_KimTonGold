@@ -16,7 +16,7 @@ using System.Globalization;
 
 namespace GoldManagementSystem.Controllers
 {
-    [Authorize(Roles = "Admin,Manager,Branch Owner,Staff")]
+    [Authorize(Roles = RoleCatalog.ManagementRoles)]
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -41,7 +41,7 @@ namespace GoldManagementSystem.Controllers
         //2//
  
         // 1. Dashboard Quản lý
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> Dashboard()
         {
             var totalOrders = await _context.Orders.CountAsync();
@@ -66,10 +66,15 @@ namespace GoldManagementSystem.Controllers
 
             return View();
         }
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+
+        // Giữ URL cũ nhưng chuyển sang cổng quản trị riêng.
+        public IActionResult Management(string tab = "overview", int? branchId = null)
+            => RedirectToAction("Index", "Management", new { tab, branchId });
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> SupplierManagement(
             string searchTerm = null,
-            string statusFilter = null)
+            string statusFilter = null,
+            int? branchId = null)
         {
             ViewBag.ActiveSuppliersForEdit = await _context.Suppliers
                 .Where(item => item.IsActive)
@@ -97,12 +102,17 @@ namespace GoldManagementSystem.Controllers
             */
             if (!User.IsInRole(RoleCatalog.Admin))
             {
-                if (currentUser?.BranchId != null)
+                var scopedBranchId = branchId ?? currentUser?.BranchId;
+                if (scopedBranchId.HasValue)
                 {
+                    var accessibleWarehouseIds = await _context.BranchWarehouseAccesses
+                        .Where(access => access.BranchId == scopedBranchId.Value)
+                        .Select(access => access.WarehouseId)
+                        .Concat(_context.Warehouses.Where(warehouse => warehouse.BranchId == scopedBranchId.Value).Select(warehouse => warehouse.Id))
+                        .Distinct().ToListAsync();
                     warehouseQuery = warehouseQuery.Where(
                         warehouse =>
-                            warehouse.BranchId
-                            == currentUser.BranchId.Value);
+                            accessibleWarehouseIds.Contains(warehouse.Id));
                 }
                 else
                 {
@@ -127,7 +137,7 @@ namespace GoldManagementSystem.Controllers
                 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> CreateSupplier(
             string Name,
             string TaxCode,
@@ -296,7 +306,7 @@ namespace GoldManagementSystem.Controllers
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> CreateSupplierPurchaseOrder(
             int SupplierId,
             int BranchId,
@@ -547,7 +557,7 @@ namespace GoldManagementSystem.Controllers
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> UpdateSupplierPurchaseOrder(
             int PurchaseOrderId,
             int SupplierId,
@@ -653,7 +663,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> CancelSupplierPurchaseOrder(int purchaseOrderId)
         {
             var order = await _context.SupplierPurchaseOrders
@@ -688,7 +698,7 @@ namespace GoldManagementSystem.Controllers
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> CreateSupplierGoodsReceipt(
             int PurchaseOrderId,
             int WarehouseId,
@@ -1158,7 +1168,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> ApproveSupplierGoodsReceipt(
             int ReceiptId,
             Dictionary<int, string> QualityResults,
@@ -1542,7 +1552,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> UpdateSupplier(
             int SupplierId,
             string Name,
@@ -1619,7 +1629,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> ToggleSupplierStatus(int supplierId)
         {
             var supplier = await _context.Suppliers
@@ -1668,7 +1678,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> ToggleSupplierStatusAjax(int supplierId)
         {
             var supplier = await _context.Suppliers
@@ -1739,7 +1749,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> DeleteSupplier(int supplierId)
         {
             var supplier = await _context.Suppliers
@@ -1769,18 +1779,19 @@ namespace GoldManagementSystem.Controllers
             return RedirectToAction(nameof(SupplierManagement));
         }
 
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> BranchManagement()
         {
             return View(await BuildBranchManagementViewModelAsync());
         }
 
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> CreateBranch(BranchManagementViewModel model)
         {
             model.BranchName = NormalizeOrEmpty(model.BranchName);
             model.Address = NormalizeOrEmpty(model.Address);
-            model.OwnerUserId = NormalizeOrEmpty(model.OwnerUserId);
             model.ManagerUserId = NormalizeOrEmpty(model.ManagerUserId);
 
             var hasExistingBranch = await _context.Branches.AnyAsync(branch =>
@@ -1791,11 +1802,20 @@ namespace GoldManagementSystem.Controllers
                 ModelState.AddModelError(nameof(model.BranchName), "Tên chi nhánh này đã tồn tại.");
             }
 
-            if (!string.IsNullOrWhiteSpace(model.OwnerUserId)
-                && string.Equals(model.OwnerUserId, model.ManagerUserId, StringComparison.Ordinal))
-            {
-                ModelState.AddModelError(nameof(model.ManagerUserId), "Chủ chi nhánh và quản lí không thể là cùng một tài khoản.");
-            }
+            var selectedWarehouse = model.WarehouseId.HasValue
+                ? await _context.Warehouses.FirstOrDefaultAsync(warehouse =>
+                    warehouse.Id == model.WarehouseId.Value && warehouse.IsActive)
+                : null;
+            if (selectedWarehouse == null)
+                ModelState.AddModelError(nameof(model.WarehouseId), "Vui lòng chọn một kho đang hoạt động.");
+
+            var selectedManager = string.IsNullOrWhiteSpace(model.ManagerUserId)
+                ? null
+                : await _userManager.FindByIdAsync(model.ManagerUserId);
+            if (selectedManager == null
+                || !selectedManager.IsActive
+                || !(await _userManager.GetRolesAsync(selectedManager)).Contains(RoleCatalog.Manager))
+                ModelState.AddModelError(nameof(model.ManagerUserId), "Chủ quản lí chi nhánh không hợp lệ hoặc đã bị khóa.");
 
             if (!ModelState.IsValid)
             {
@@ -1803,34 +1823,48 @@ namespace GoldManagementSystem.Controllers
                 return View(nameof(BranchManagement), viewModel);
             }
 
-            _context.Branches.Add(new Branch
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                BranchName = model.BranchName,
-                Address = model.Address,
-                PhoneNumber = string.Empty,
-                ProductPriceInfo = model.ProductPriceInfo,
-                SizeSelectionInfo = model.SizeSelectionInfo,
-                WarrantyInfo = model.WarrantyInfo,
-                TradeInPolicyInfo = model.TradeInPolicyInfo,
-                OrderProcessInfo = model.OrderProcessInfo,
-                IsActive = true
-            });
+                var createdBranch = new Branch
+                {
+                    BranchName = model.BranchName,
+                    Address = model.Address,
+                    PhoneNumber = string.Empty,
+                    IsActive = true
+                };
+                _context.Branches.Add(createdBranch);
+                await _context.SaveChangesAsync();
 
-            await _context.SaveChangesAsync();
-            var createdBranch = await _context.Branches
-                .OrderByDescending(branch => branch.Id)
-                .FirstAsync(branch => branch.BranchName == model.BranchName);
+                _context.BranchWarehouseAccesses.Add(new BranchWarehouseAccess
+                {
+                    BranchId = createdBranch.Id,
+                    WarehouseId = selectedWarehouse.Id,
+                    IsPrimary = true
+                });
 
-            await AssignBranchToUserIfSelectedAsync(model.OwnerUserId, createdBranch.Id, RoleCatalog.BranchOwner);
-            await AssignBranchToUserIfSelectedAsync(model.ManagerUserId, createdBranch.Id, RoleCatalog.Manager);
+                selectedManager.BranchId = createdBranch.Id;
+                var managerUpdate = await _userManager.UpdateAsync(selectedManager);
+                if (!managerUpdate.Succeeded)
+                    throw new InvalidOperationException(string.Join(" ", managerUpdate.Errors.Select(error => error.Description)));
 
-            TempData["SuccessMessage"] = $"Đã thêm chi nhánh {model.BranchName}.";
-            return RedirectToAction(nameof(BranchManagement));
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                TempData["SuccessMessage"] = $"Đã thêm chi nhánh {model.BranchName} và gán kho {selectedWarehouse.Name}.";
+                return RedirectToAction(nameof(BranchManagement));
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                ModelState.AddModelError(string.Empty, "Không thể tạo chi nhánh. Vui lòng kiểm tra dữ liệu và thử lại.");
+                return View(nameof(BranchManagement), await BuildBranchManagementViewModelAsync(model));
+            }
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> ToggleBranchStatus(int branchId)
         {
             var branch = await _context.Branches.FindAsync(branchId);
@@ -1849,7 +1883,7 @@ namespace GoldManagementSystem.Controllers
             return RedirectToAction(nameof(BranchManagement));
         }
 
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> BranchTeam(int branchId)
         {
             var actor = await GetCurrentActorAsync();
@@ -1870,7 +1904,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> AddExistingMember(int branchId, BranchTeamViewModel model)
         {
             var actor = await GetCurrentActorAsync();
@@ -1921,7 +1955,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> CreateBranchMember(int branchId, BranchTeamViewModel model)
         {
             model.NewMemberFullName = NormalizeOrEmpty(model.NewMemberFullName);
@@ -1992,7 +2026,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> RemoveBranchMember(int branchId, string userId)
         {
             var actor = await GetCurrentActorAsync();
@@ -2189,7 +2223,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         // 3. Quản lý Người dùng
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> UserManagement()
         {
             var users = await _userManager.Users.ToListAsync();
@@ -2216,7 +2250,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> ToggleUserStatus(string userId)
         {
             var targetUser = await _userManager.FindByIdAsync(userId);
@@ -2262,7 +2296,7 @@ namespace GoldManagementSystem.Controllers
                 : $"Đã khóa tài khoản {targetUser.Email}. Tài khoản này sẽ tự bị đăng xuất ở lần tải trang tiếp theo.";
             return RedirectToAction(nameof(UserManagement));
         }
-        [Authorize(Roles = "Admin,Manager,Branch Owner,Staff")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> InventoryManagement(
             string searchTerm = null,
             int? branchId = null,
@@ -2280,7 +2314,7 @@ namespace GoldManagementSystem.Controllers
 
             if (!isAdmin)
             {
-                scopedBranchId = currentUser?.BranchId;
+                scopedBranchId = branchId ?? currentUser?.BranchId;
             }
 
             var warehouseQuery = _context.Warehouses
@@ -2303,11 +2337,16 @@ namespace GoldManagementSystem.Controllers
             {
                 if (scopedBranchId.HasValue)
                 {
+                    var accessibleWarehouseIds = await _context.BranchWarehouseAccesses
+                        .Where(access => access.BranchId == scopedBranchId.Value)
+                        .Select(access => access.WarehouseId)
+                        .Concat(_context.Warehouses.Where(warehouse => warehouse.BranchId == scopedBranchId.Value).Select(warehouse => warehouse.Id))
+                        .Distinct().ToListAsync();
                     warehouseQuery = warehouseQuery.Where(
-                        warehouse => warehouse.BranchId == scopedBranchId.Value);
+                        warehouse => accessibleWarehouseIds.Contains(warehouse.Id));
 
                     inventoryQuery = inventoryQuery.Where(
-                        item => item.Warehouse.BranchId == scopedBranchId.Value);
+                        item => accessibleWarehouseIds.Contains(item.WarehouseId));
 
                     branchId = scopedBranchId.Value;
                 }
@@ -2334,8 +2373,13 @@ namespace GoldManagementSystem.Controllers
 
             if (branchId.HasValue)
             {
+                var selectedWarehouseIds = await _context.BranchWarehouseAccesses
+                    .Where(access => access.BranchId == branchId.Value)
+                    .Select(access => access.WarehouseId)
+                    .Concat(_context.Warehouses.Where(warehouse => warehouse.BranchId == branchId.Value).Select(warehouse => warehouse.Id))
+                    .Distinct().ToListAsync();
                 inventoryQuery = inventoryQuery.Where(
-                    item => item.Warehouse.BranchId == branchId.Value);
+                    item => selectedWarehouseIds.Contains(item.WarehouseId));
             }
 
             if (warehouseId.HasValue)
@@ -2490,7 +2534,7 @@ namespace GoldManagementSystem.Controllers
 
             return View(model);
         }
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> InventoryHistory(
             string searchTerm = null,
             int? branchId = null,
@@ -2510,7 +2554,7 @@ namespace GoldManagementSystem.Controllers
 
             if (!isAdmin)
             {
-                scopedBranchId = currentUser?.BranchId;
+                scopedBranchId = branchId ?? currentUser?.BranchId;
 
                 /*
                 * Manager và Branch Owner bắt buộc chỉ được xem
@@ -2537,15 +2581,18 @@ namespace GoldManagementSystem.Controllers
             {
                 if (scopedBranchId.HasValue)
                 {
+                    var accessibleWarehouseIds = await _context.BranchWarehouseAccesses
+                        .Where(access => access.BranchId == scopedBranchId.Value)
+                        .Select(access => access.WarehouseId)
+                        .Concat(_context.Warehouses.Where(warehouse => warehouse.BranchId == scopedBranchId.Value).Select(warehouse => warehouse.Id))
+                        .Distinct().ToListAsync();
                     scopedTransactionQuery = scopedTransactionQuery.Where(
                         transaction =>
-                            transaction.Warehouse.BranchId
-                            == scopedBranchId.Value);
+                            accessibleWarehouseIds.Contains(transaction.WarehouseId));
 
                     accessibleWarehouseQuery = accessibleWarehouseQuery.Where(
                         warehouse =>
-                            warehouse.BranchId
-                            == scopedBranchId.Value);
+                            accessibleWarehouseIds.Contains(warehouse.Id));
                 }
                 else
                 {
@@ -2610,11 +2657,15 @@ namespace GoldManagementSystem.Controllers
 
             if (branchId.HasValue)
             {
+                var selectedWarehouseIds = await _context.BranchWarehouseAccesses
+                    .Where(access => access.BranchId == branchId.Value)
+                    .Select(access => access.WarehouseId)
+                    .Concat(_context.Warehouses.Where(warehouse => warehouse.BranchId == branchId.Value).Select(warehouse => warehouse.Id))
+                    .Distinct().ToListAsync();
                 filteredTransactionQuery =
                     filteredTransactionQuery.Where(
                         transaction =>
-                            transaction.Warehouse.BranchId
-                            == branchId.Value);
+                            selectedWarehouseIds.Contains(transaction.WarehouseId));
             }
 
             if (warehouseId.HasValue)
@@ -2974,7 +3025,7 @@ namespace GoldManagementSystem.Controllers
             return RedirectToAction(nameof(InventoryManagement));
         }
         [HttpPost]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> UpdateUserRole(string userId, string newRole)
         {
             var targetUser = await _userManager.FindByIdAsync(userId);
@@ -3014,7 +3065,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin,Manager,Branch Owner")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> CreateUser(string FullName, string Email, string Password, string Role)
         {
             FullName = NormalizeOrEmpty(FullName);
@@ -3732,17 +3783,26 @@ namespace GoldManagementSystem.Controllers
                 branch.CanManageMembers = true;
             }
 
-            var ownerOptions = await BuildRoleOptionsAsync(RoleCatalog.BranchOwner, source?.OwnerUserId);
             var managerOptions = await BuildRoleOptionsAsync(RoleCatalog.Manager, source?.ManagerUserId);
+            var warehouseOptions = await _context.Warehouses.AsNoTracking()
+                .Include(warehouse => warehouse.Branch)
+                .Where(warehouse => warehouse.IsActive)
+                .OrderBy(warehouse => warehouse.Branch.BranchName).ThenBy(warehouse => warehouse.Name)
+                .Select(warehouse => new SelectListItem
+                {
+                    Value = warehouse.Id.ToString(),
+                    Text = warehouse.Branch.BranchName + " · " + warehouse.Code + " - " + warehouse.Name,
+                    Selected = source != null && source.WarehouseId == warehouse.Id
+                }).ToListAsync();
 
             return new BranchManagementViewModel
             {
                 BranchName = source?.BranchName ?? string.Empty,
                 Address = source?.Address ?? string.Empty,
-                OwnerUserId = source?.OwnerUserId ?? string.Empty,
                 ManagerUserId = source?.ManagerUserId ?? string.Empty,
-                OwnerOptions = ownerOptions,
+                WarehouseId = source?.WarehouseId,
                 ManagerOptions = managerOptions,
+                WarehouseOptions = warehouseOptions,
                 Branches = branches
             };
         }
@@ -4136,7 +4196,7 @@ namespace GoldManagementSystem.Controllers
         }
 
         // ── Cài đặt AI Chatbot ──────────────────────────────────────────────
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> ChatSettings()
         {
             var settings = await _context.ChatSettings.FirstOrDefaultAsync()
@@ -4146,7 +4206,7 @@ namespace GoldManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles = RoleCatalog.Admin)]
         public async Task<IActionResult> ChatSettings(ChatSettings model)
         {
             var existing = await _context.ChatSettings.FirstOrDefaultAsync();

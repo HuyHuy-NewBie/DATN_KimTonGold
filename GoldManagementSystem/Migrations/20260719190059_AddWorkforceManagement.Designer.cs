@@ -4,6 +4,7 @@ using GoldManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoldManagementSystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719190059_AddWorkforceManagement")]
+    partial class AddWorkforceManagement
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -575,119 +578,6 @@ namespace GoldManagementSystem.Migrations
                     b.ToTable("OrderDetails");
                 });
 
-            modelBuilder.Entity("GoldManagementSystem.Models.BranchWarehouseAccess", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsPrimary")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("WarehouseId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BranchId", "WarehouseId")
-                        .IsUnique();
-
-                    b.HasIndex("WarehouseId");
-
-                    b.ToTable("BranchWarehouseAccesses");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.EmployeeManagementNote", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ManagerNote")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("SystemNote")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("UserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("UserId", "BranchId")
-                        .IsUnique()
-                        .HasFilter("[UserId] IS NOT NULL");
-
-                    b.ToTable("EmployeeManagementNotes");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.ManagementAuditLog", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Action").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<string>("Area").IsRequired().HasMaxLength(30).HasColumnType("nvarchar(30)");
-                    b.Property<int?>("BranchId").HasColumnType("int");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<string>("Details").HasMaxLength(1000).HasColumnType("nvarchar(1000)");
-                    b.Property<string>("EntityId").HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<string>("EntityType").HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<string>("HttpMethod").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
-                    b.Property<string>("IpAddress").HasMaxLength(64).HasColumnType("nvarchar(64)");
-                    b.Property<bool>("Succeeded").HasColumnType("bit");
-                    b.Property<string>("UserId").HasMaxLength(450).HasColumnType("nvarchar(450)");
-                    b.Property<string>("UserName").HasMaxLength(120).HasColumnType("nvarchar(120)");
-
-                    b.HasKey("Id");
-                    b.HasIndex("Area", "CreatedAt");
-                    b.ToTable("ManagementAuditLogs");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.SystemNotification", b =>
-                {
-                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<bool>("IsRead").HasColumnType("bit");
-                    b.Property<string>("Link").HasMaxLength(500).HasColumnType("nvarchar(500)");
-                    b.Property<string>("Message").IsRequired().HasMaxLength(1000).HasColumnType("nvarchar(1000)");
-                    b.Property<string>("Title").IsRequired().HasMaxLength(160).HasColumnType("nvarchar(160)");
-                    b.Property<string>("Type").HasMaxLength(40).HasColumnType("nvarchar(40)");
-                    b.Property<string>("UserId").IsRequired().HasMaxLength(450).HasColumnType("nvarchar(450)");
-                    b.HasKey("Id");
-                    b.HasIndex("UserId", "IsRead", "CreatedAt");
-                    b.ToTable("SystemNotifications");
-                });
-
             modelBuilder.Entity("GoldManagementSystem.Models.Product", b =>
                 {
                     b.Property<int>("Id")
@@ -748,9 +638,6 @@ namespace GoldManagementSystem.Migrations
                     b.Property<string>("ImagesUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsPriority")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -758,9 +645,6 @@ namespace GoldManagementSystem.Migrations
 
                     b.Property<decimal>("ProcessingFee")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("PriorityOrder")
-                        .HasColumnType("int");
 
                     b.Property<string>("ProductLine")
                         .IsRequired()
@@ -824,9 +708,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("WorkShiftId", "UserId")
-                        .IsUnique()
-                        .HasFilter("[UserId] IS NOT NULL");
+                    b.HasIndex("WorkShiftId");
 
                     b.ToTable("ShiftAssignments");
                 });
@@ -843,10 +725,6 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("ChangeType")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -858,8 +736,6 @@ namespace GoldManagementSystem.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("WorkShiftId");
 
                     b.ToTable("ShiftChangeLogs");
                 });
@@ -1268,9 +1144,6 @@ namespace GoldManagementSystem.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("BranchId")
-                        .HasColumnType("int");
-
                     b.Property<string>("FeatureKey")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1278,24 +1151,11 @@ namespace GoldManagementSystem.Migrations
                     b.Property<bool>("IsGranted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("GrantedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("UserId")
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("UserId", "FeatureKey", "BranchId")
-                        .IsUnique()
-                        .HasFilter("[UserId] IS NOT NULL AND [FeatureKey] IS NOT NULL AND [BranchId] IS NOT NULL");
 
                     b.ToTable("UserFeaturePermissions");
                 });
@@ -1355,10 +1215,6 @@ namespace GoldManagementSystem.Migrations
                     b.Property<DateTime>("EndsAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("ManagerNote")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
                     b.Property<DateTime>("ShiftDate")
                         .HasColumnType("datetime2");
 
@@ -1369,14 +1225,9 @@ namespace GoldManagementSystem.Migrations
                     b.Property<DateTime>("StartsAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId", "ShiftDate", "ShiftType")
-                        .IsUnique()
-                        .HasFilter("[ShiftType] IS NOT NULL");
+                    b.HasIndex("BranchId");
 
                     b.ToTable("WorkShifts");
                 });
@@ -1683,52 +1534,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("GoldManagementSystem.Models.BranchWarehouseAccess", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
-                        .WithMany("WarehouseAccesses")
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GoldManagementSystem.Models.Warehouse", "Warehouse")
-                        .WithMany("BranchAccesses")
-                        .HasForeignKey("WarehouseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
-                    b.Navigation("Warehouse");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.EmployeeManagementNote", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("Branch");
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.SystemNotification", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("GoldManagementSystem.Models.Product", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
@@ -1755,15 +1560,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("User");
 
                     b.Navigation("WorkShift");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.ShiftChangeLog", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.WorkShift", null)
-                        .WithMany()
-                        .HasForeignKey("WorkShiftId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SilverDiamondProductCatalogEntry", b =>
@@ -1899,16 +1695,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("SupplierPurchaseOrder");
                 });
 
-            modelBuilder.Entity("GoldManagementSystem.Models.UserFeaturePermission", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("Branch");
-                });
-
             modelBuilder.Entity("GoldManagementSystem.Models.Warehouse", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
@@ -1991,8 +1777,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Products");
 
                     b.Navigation("Warehouses");
-
-                    b.Navigation("WarehouseAccesses");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Order", b =>
@@ -2038,8 +1822,6 @@ namespace GoldManagementSystem.Migrations
 
             modelBuilder.Entity("GoldManagementSystem.Models.Warehouse", b =>
                 {
-                    b.Navigation("BranchAccesses");
-
                     b.Navigation("InventoryItems");
 
                     b.Navigation("Transactions");

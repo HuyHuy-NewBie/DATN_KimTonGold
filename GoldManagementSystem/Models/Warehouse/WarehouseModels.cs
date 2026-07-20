@@ -34,6 +34,9 @@ namespace GoldManagementSystem.Models
 
         public virtual ICollection<InventoryTransaction> Transactions { get; set; }
             = new List<InventoryTransaction>();
+
+        public virtual ICollection<BranchWarehouseAccess> BranchAccesses { get; set; }
+            = new List<BranchWarehouseAccess>();
     }
 
     public class InventoryItem

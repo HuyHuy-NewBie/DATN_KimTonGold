@@ -84,6 +84,10 @@ namespace GoldManagementSystem.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        // Sản phẩm ưu tiên được đưa lên đầu các dashboard và danh mục bán hàng.
+        public bool IsPriority { get; set; }
+        public int PriorityOrder { get; set; }
+
         public virtual GoldProductCatalogEntry GoldCatalogEntry { get; set; }
         public virtual SilverProductCatalogEntry SilverCatalogEntry { get; set; }
         public virtual DiamondProductCatalogEntry DiamondCatalogEntry { get; set; }

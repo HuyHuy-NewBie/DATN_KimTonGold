@@ -1,0 +1,283 @@
+@model GoldManagementSystem.Models.ViewModels.ManagementPortalViewModel
+@using GoldManagementSystem.Services
+@using GoldManagementSystem.Models
+@using System.Linq
+@{
+    var branchId = Model.SelectedBranch?.Id;
+    var maxRevenue = Model.RevenuePoints.Any() ? Math.Max(1m, Model.RevenuePoints.Max(point => point.Amount)) : 1m;
+    string Active(string value, string current) => value == current ? "is-active" : string.Empty;
+    string RoleLabel(string role) => RoleCatalog.GetVietnameseLabel(role);
+}
+
+<section class="management-page" data-management-content data-permission-updated="@(Model.PermissionUpdated ? "true" : "false")">
+    <header class="management-hero">
+        <div>
+            <p>TRUNG TÂM ĐIỀU HÀNH</p>
+            <h1>@(Model.SelectedBranch?.BranchName ?? "Hệ thống KimTon")</h1>
+            <span>Phân quyền theo chi nhánh · Dữ liệu đồng bộ với giao diện bán hàng</span>
+        </div>
+        <a class="management-back" href="/">← Về giao diện bán hàng</a>
+    </header>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="management-alert management-alert--success">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="management-alert management-alert--danger">@TempData["ErrorMessage"]</div>
+    }
+
+    @if (Model.Tab == "overview")
+    {
+        <div class="management-kpis">
+            @if (Model.Can(ManagementFeatureCatalog.RevenueView))
+            {
+                <article><span>Doanh thu hôm nay</span><strong>@Model.TodayRevenue.ToString("N0") ₫</strong></article>
+                <article><span>Doanh thu tháng</span><strong>@Model.MonthRevenue.ToString("N0") ₫</strong></article>
+                <article><span>Doanh thu năm</span><strong>@Model.YearRevenue.ToString("N0") ₫</strong></article>
+            }
+            @if (Model.Can(ManagementFeatureCatalog.PeopleView))
+            {
+                <article><span>Nhân sự hoạt động</span><strong>@Model.EmployeeCount</strong></article>
+            }
+        </div>
+        <div class="management-grid">
+            @if (Model.GrantedFeatures.Overlaps(new[] { ManagementFeatureCatalog.WarehouseSuppliers, ManagementFeatureCatalog.WarehouseReceipts, ManagementFeatureCatalog.WarehouseApproval }))
+            {
+                <article class="management-card">
+                    <span class="management-card__index">01</span><h2>Quản lí kho</h2><p>Nhà cung cấp, nhập hàng, tồn kho và kiểm duyệt của chi nhánh.</p>
+                    <div class="management-actions">
+                        @if (Model.Can(ManagementFeatureCatalog.WarehouseSuppliers)) { <a href="/Management?tab=warehouse&subtab=suppliers&branchId=@branchId" data-dashboard-link>Nhà cung cấp</a> }
+                        @if (Model.Can(ManagementFeatureCatalog.WarehouseReceipts)) { <a href="/Management?tab=warehouse&subtab=receipts&branchId=@branchId" data-dashboard-link>Nhập hàng</a> }
+                        @if (Model.Can(ManagementFeatureCatalog.WarehouseApproval)) { <button disabled>Kiểm duyệt · đang phát triển</button> }
+                    </div>
+                </article>
+            }
+            @if (Model.GrantedFeatures.Overlaps(new[] { ManagementFeatureCatalog.PeopleView, ManagementFeatureCatalog.PeopleShifts, ManagementFeatureCatalog.PeoplePayroll }))
+            {
+                <article class="management-card"><span class="management-card__index">02</span><h2>Quản lí nhân sự</h2><p>Nhân viên, ca làm, chấm công, lương và ghi chú.</p><a href="/Management?tab=people&branchId=@branchId" data-dashboard-link>Mở dashboard</a></article>
+            }
+            @if (Model.GrantedFeatures.Overlaps(new[] { ManagementFeatureCatalog.ProductsView, ManagementFeatureCatalog.ProductsEdit }))
+            {
+                <article class="management-card"><span class="management-card__index">03</span><h2>Quản lí sản phẩm</h2><p>Vàng, bạc, kim cương; thêm, sửa, xóa và ưu tiên.</p><a href="/Management?tab=products&branchId=@branchId" data-dashboard-link>Mở dashboard</a></article>
+            }
+            @if (Model.Can(ManagementFeatureCatalog.RevenueView))
+            {
+                <article class="management-card"><span class="management-card__index">04</span><h2>Doanh thu</h2><p>Tổng hợp linh hoạt theo ngày, tháng hoặc năm.</p><a href="/Management?tab=revenue&branchId=@branchId" data-dashboard-link>Mở dashboard</a></article>
+            }
+        </div>
+    }
+    else if (Model.Tab == "warehouse")
+    {
+        <div class="dashboard-switcher" role="navigation" aria-label="Dashboard kho">
+            @if (Model.Can(ManagementFeatureCatalog.WarehouseSuppliers))
+            {
+                <a class="@Active("suppliers", Model.Subtab)" href="/Management?tab=warehouse&subtab=suppliers&branchId=@branchId" data-dashboard-link>Nhà cung cấp</a>
+            }
+            @if (Model.Can(ManagementFeatureCatalog.WarehouseReceipts))
+            {
+                <a class="@Active("receipts", Model.Subtab)" href="/Management?tab=warehouse&subtab=receipts&branchId=@branchId" data-dashboard-link>Nhập hàng & tồn kho</a>
+            }
+            @if (Model.Can(ManagementFeatureCatalog.WarehouseApproval))
+            {
+                <button type="button" disabled>Kiểm duyệt · đang phát triển</button>
+            }
+        </div>
+
+        @if (Model.Subtab == "suppliers" && Model.Can(ManagementFeatureCatalog.WarehouseSuppliers))
+        {
+            <div class="management-kpis">
+                <article><span>Nhà cung cấp</span><strong>@Model.Suppliers.Count</strong></article>
+                <article><span>Đang hoạt động</span><strong>@Model.Suppliers.Count(supplier => supplier.IsActive)</strong></article>
+                <article><span>Đơn nhập của chi nhánh</span><strong>@Model.PurchaseOrders.Count</strong></article>
+            </div>
+            <article class="management-card management-card--wide">
+                <div class="management-section-heading">
+                    <div><p>QUẢN LÍ KHO / NHÀ CUNG CẤP</p><h2>Danh sách nhà cung cấp</h2></div>
+                    <a href="/Admin/SupplierManagement?branchId=@branchId">Mở công cụ chi tiết</a>
+                </div>
+                <div class="management-table-wrap"><table class="management-table"><thead><tr><th>Nhà cung cấp</th><th>Liên hệ</th><th>Nhóm hàng</th><th>Công nợ</th><th>Trạng thái</th></tr></thead><tbody>
+                @foreach (var supplier in Model.Suppliers)
+                {
+                    <tr><td><strong>@supplier.Name</strong><small>@supplier.TaxCode</small></td><td>@supplier.ContactPerson<small>@supplier.Phone · @supplier.Email</small></td><td>@supplier.SupplierType</td><td>@supplier.PaymentTermDays ngày</td><td><span class="status-dot @(supplier.IsActive ? "is-good" : "is-bad")">@(supplier.IsActive ? "Hoạt động" : "Tạm ngưng")</span></td></tr>
+                }
+                </tbody></table></div>
+            </article>
+        }
+        else if (Model.Subtab == "receipts" && Model.Can(ManagementFeatureCatalog.WarehouseReceipts))
+        {
+            <div class="management-kpis">
+                <article><span>Kho đang dùng</span><strong>@Model.Warehouses.Count</strong></article>
+                <article><span>Mặt hàng tồn</span><strong>@Model.InventoryItems.Count</strong></article>
+                <article><span>Tổng số lượng</span><strong>@Model.InventoryItems.Sum(item => item.QuantityOnHand).ToString("N0")</strong></article>
+                <article><span>Giá trị tồn</span><strong>@Model.InventoryItems.Sum(item => item.InventoryValue).ToString("N0") ₫</strong></article>
+            </div>
+            <article class="management-card management-card--wide">
+                <div class="management-section-heading">
+                    <div><p>QUẢN LÍ KHO / NHẬP HÀNG</p><h2>Phiếu nhận hàng gần đây</h2></div>
+                    <a href="/Admin/InventoryManagement?branchId=@branchId">Mở công cụ chi tiết</a>
+                </div>
+                <div class="management-table-wrap"><table class="management-table"><thead><tr><th>Phiếu nhận</th><th>Nhà cung cấp</th><th>Kho</th><th>Ngày nhận</th><th>Trạng thái</th></tr></thead><tbody>
+                @foreach (var receipt in Model.GoodsReceipts)
+                {
+                    <tr><td><strong>@receipt.ReceiptCode</strong><small>@receipt.SupplierPurchaseOrder?.OrderCode</small></td><td>@receipt.SupplierPurchaseOrder?.Supplier?.Name</td><td>@receipt.Warehouse?.Name</td><td>@receipt.ReceivedAt.ToString("dd/MM/yyyy HH:mm")</td><td><span class="status-dot">@receipt.Status</span></td></tr>
+                }
+                </tbody></table></div>
+            </article>
+            <article class="management-card management-card--wide">
+                <div class="management-section-heading"><div><p>TỒN KHO HIỆN TẠI</p><h2>@Model.SelectedBranch.BranchName</h2></div><strong>@Model.InventoryItems.Count dòng hàng</strong></div>
+                <div class="management-table-wrap"><table class="management-table"><thead><tr><th>Mã tồn</th><th>Sản phẩm</th><th>Kho</th><th>Số lượng</th><th>Trạng thái</th></tr></thead><tbody>
+                @foreach (var item in Model.InventoryItems)
+                {
+                    <tr><td><strong>@item.StockCode</strong></td><td>@item.ProductName<small>@item.ProductLine · @item.MaterialType</small></td><td>@item.Warehouse?.Name</td><td>@item.QuantityOnHand</td><td>@item.Status</td></tr>
+                }
+                </tbody></table></div>
+            </article>
+        }
+    }
+    else if (Model.Tab == "people")
+    {
+        <div class="dashboard-switcher" role="navigation" aria-label="Dashboard nhân sự">
+            @if (Model.Can(ManagementFeatureCatalog.PeopleView)) { <a class="@Active("employees", Model.Subtab)" href="/Management?tab=people&subtab=employees&branchId=@branchId" data-dashboard-link>Nhân viên</a> }
+            @if (Model.Can(ManagementFeatureCatalog.PeopleShifts)) { <a class="@Active("shifts", Model.Subtab)" href="/Management?tab=people&subtab=shifts&branchId=@branchId&date=@Model.SelectedDate.ToString("yyyy-MM-dd")" data-dashboard-link>Ca làm & điểm danh</a> }
+            @if (Model.Can(ManagementFeatureCatalog.PeoplePayroll)) { <a class="@Active("payroll", Model.Subtab)" href="/Management?tab=people&subtab=payroll&branchId=@branchId" data-dashboard-link>Lương & ghi chú</a> }
+        </div>
+
+        @if (Model.Subtab == "employees" && Model.Can(ManagementFeatureCatalog.PeopleView))
+        {
+            <article class="management-card management-card--wide">
+                <div class="management-section-heading"><div><p>NHÂN SỰ TRỰC THUỘC</p><h2>@Model.SelectedBranch.BranchName</h2></div><strong>@Model.Employees.Count nhân viên</strong></div>
+                <div class="management-table-wrap"><table class="management-table"><thead><tr><th>Nhân viên</th><th>Vai trò</th><th>Liên hệ</th><th>Trạng thái</th></tr></thead><tbody>
+                @foreach (var employee in Model.Employees)
+                {
+                    <tr><td><strong>@employee.FullName</strong></td><td>@RoleLabel(employee.Role)</td><td>@employee.Email</td><td><span class="status-dot @(employee.IsActive ? "is-good" : "is-bad")">@(employee.IsActive ? "Hoạt động" : "Đã khóa")</span></td></tr>
+                }
+                </tbody></table></div>
+            </article>
+        }
+        else if (Model.Subtab == "shifts" && Model.Can(ManagementFeatureCatalog.PeopleShifts))
+        {
+            <article class="management-card management-card--wide">
+                <div class="management-section-heading"><div><p>LỊCH LÀM VIỆC</p><h2>2 ca/ngày · mỗi ca 8 tiếng</h2></div>
+                    <form method="get" action="/Management" class="management-inline-filter" data-dashboard-form><input type="hidden" name="tab" value="people"/><input type="hidden" name="subtab" value="shifts"/><input type="hidden" name="branchId" value="@branchId"/><input type="date" name="date" value="@Model.SelectedDate.ToString("yyyy-MM-dd")"/><button>Xem ngày</button></form>
+                </div>
+                <div class="shift-grid">
+                @foreach (var shiftType in new[] { "Morning", "Afternoon" })
+                {
+                    var shift = Model.Shifts.FirstOrDefault(item => item.ShiftType == shiftType);
+                    var label = shiftType == "Morning" ? "Ca sáng · 08:00–16:00" : "Ca chiều · 16:00–00:00";
+                    <section class="shift-card">
+                        <header><div><span>@Model.SelectedDate.ToString("dd/MM/yyyy")</span><h3>@label</h3></div>@if (shift?.IsLockedWindow == true) { <em>Sát giờ · cần lý do bổ sung</em> }</header>
+                        <div class="shift-assignees">
+                        @if (shift == null || !shift.Assignments.Any()) { <p class="empty-line">Chưa có nhân viên trong ca.</p> }
+                        else foreach (var assignment in shift.Assignments)
+                        {
+                            <div class="shift-person"><div><strong>@assignment.User.FullName</strong>@foreach (var attendanceStatus in (assignment.AttendanceStatus ?? "Scheduled").Split('|', StringSplitOptions.RemoveEmptyEntries)) { <span class="attendance-state attendance-state--@attendanceStatus.ToLowerInvariant()">@attendanceStatus</span> }@if (!string.IsNullOrWhiteSpace(assignment.SystemNote)) { <small>@assignment.SystemNote</small> }</div>
+                                <form method="post" action="/Management/RemoveShiftAssignment" class="shift-remove-form">@Html.AntiForgeryToken()<input type="hidden" name="assignmentId" value="@assignment.Id"/><input name="reason" placeholder="Lý do nếu sát giờ"/><button type="submit">Gỡ</button></form>
+                            </div>
+                        }
+                        </div>
+                        <form method="post" action="/Management/AssignShift" class="shift-assign-form">@Html.AntiForgeryToken()<input type="hidden" name="branchId" value="@branchId"/><input type="hidden" name="shiftDate" value="@Model.SelectedDate.ToString("yyyy-MM-dd")"/><input type="hidden" name="shiftType" value="@shiftType"/>
+                            <select name="userId" required><option value="">Chọn nhân viên (có thể khác chi nhánh)</option>@foreach (var employee in Model.AvailableEmployees) { <option value="@employee.UserId">@employee.FullName · @RoleLabel(employee.Role)</option> }</select><input name="reason" placeholder="Lý do bổ sung (nếu sát giờ)"/><button type="submit">Xếp vào ca</button>
+                        </form>
+                        @if (shift?.SupplementalChanges.Any() == true)
+                        {
+                            <details class="supplement-log"><summary>Bảng chỉnh sửa bổ sung (@shift.SupplementalChanges.Count)</summary>@foreach (var log in shift.SupplementalChanges) { <p><time>@log.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</time> · @log.Details</p> }</details>
+                        }
+                    </section>
+                }
+                </div>
+            </article>
+        }
+        else if (Model.Subtab == "payroll" && Model.Can(ManagementFeatureCatalog.PeoplePayroll))
+        {
+            <article class="management-card management-card--wide">
+                <div class="management-section-heading"><div><p>LƯƠNG THÁNG @Model.SelectedDate.ToString("MM/yyyy")</p><h2>Tự động theo vai trò, KPI và chuyên cần</h2></div></div>
+                <div class="management-table-wrap"><table class="management-table payroll-table"><thead><tr><th>Nhân viên</th><th>Lương cứng</th><th>Trách nhiệm</th><th>KPI</th><th>Chuyên cần</th><th>Tổng</th><th>Ghi chú</th></tr></thead><tbody>
+                @foreach (var salary in Model.Payroll)
+                {
+                    var employee = Model.Employees.First(item => item.UserId == salary.UserId);
+                    <tr><td><strong>@salary.FullName</strong><small>@RoleLabel(salary.Role)</small></td><td>@salary.BaseSalary.ToString("N0") ₫</td><td>@salary.ResponsibilityBonus.ToString("N0") ₫</td><td>@salary.KpiBonus.ToString("N0") ₫</td><td class="@(salary.HasAttendanceViolation ? "text-danger" : "")">@salary.AttendanceBonus.ToString("N0") ₫</td><td><strong>@salary.TotalSalary.ToString("N0") ₫</strong></td><td><details class="note-editor"><summary>Xem / sửa</summary><p><b>Hệ thống:</b> @(string.IsNullOrWhiteSpace(employee.SystemNote) ? (salary.HasAttendanceViolation ? "Có vi phạm chấm công trong tháng." : "Chấm công hợp lệ, đủ điều kiện chuyên cần.") : employee.SystemNote)</p><form method="post" action="/Management/UpdateEmployeeNote">@Html.AntiForgeryToken()<input type="hidden" name="branchId" value="@branchId"/><input type="hidden" name="userId" value="@salary.UserId"/><textarea name="managerNote" placeholder="Ghi chú của quản lí">@employee.ManagerNote</textarea><button>Lưu ghi chú</button></form></details></td></tr>
+                }
+                </tbody></table></div>
+            </article>
+        }
+    }
+    else if (Model.Tab == "products")
+    {
+        <div class="dashboard-switcher"><a href="/Products/AdminGold?branchId=@branchId">Vàng</a><a href="/Products/AdminSilver?branchId=@branchId">Bạc</a><a href="/Products/AdminDiamond?branchId=@branchId">Kim cương</a>@if (Model.Can(ManagementFeatureCatalog.ProductsEdit)) { <a href="/Products/Create?branchId=@branchId" class="switcher-primary">+ Thêm sản phẩm</a> }</div>
+        <article class="management-card management-card--wide">
+            <div class="management-section-heading"><div><p>DANH MỤC ĐỒNG BỘ</p><h2>Vàng · Bạc · Kim cương</h2></div><strong>@Model.Products.Count sản phẩm</strong></div>
+            <div class="product-admin-grid">
+            @foreach (var product in Model.Products)
+            {
+                <article class="product-admin-card @(product.IsPriority ? "is-priority" : "")"><span class="product-admin-card__line">@product.ProductLine</span><h3>@product.Name</h3><p>@product.Category · @product.GoldType</p><strong>@product.SellPrice.ToString("N0") ₫</strong><small>@product.Status · @(product.IsPriority ? "Đang ưu tiên" : "Thứ tự thường")</small>
+                    <div>@if (Model.Can(ManagementFeatureCatalog.ProductsEdit)) { <a href="/Products/Edit/@product.Id">Sửa</a><form method="post" action="/Management/ToggleProductPriority">@Html.AntiForgeryToken()<input type="hidden" name="productId" value="@product.Id"/><input type="hidden" name="branchId" value="@branchId"/><button>@(product.IsPriority ? "Bỏ ưu tiên" : "Ưu tiên")</button></form><form method="post" action="/Management/DeleteProduct" onsubmit="return confirm('Xóa sản phẩm này?')">@Html.AntiForgeryToken()<input type="hidden" name="productId" value="@product.Id"/><input type="hidden" name="branchId" value="@branchId"/><button class="danger">Xóa</button></form> } else { <a href="/Products/Details/@product.Id">Xem</a> }</div>
+                </article>
+            }
+            </div>
+        </article>
+    }
+    else if (Model.Tab == "revenue")
+    {
+        <div class="dashboard-switcher"><a class="@Active("day", Model.Period)" href="/Management?tab=revenue&period=day&branchId=@branchId&date=@Model.SelectedDate.ToString("yyyy-MM-dd")" data-dashboard-link>Theo ngày</a><a class="@Active("month", Model.Period)" href="/Management?tab=revenue&period=month&branchId=@branchId&date=@Model.SelectedDate.ToString("yyyy-MM-dd")" data-dashboard-link>Theo tháng</a><a class="@Active("year", Model.Period)" href="/Management?tab=revenue&period=year&branchId=@branchId&date=@Model.SelectedDate.ToString("yyyy-MM-dd")" data-dashboard-link>Theo năm</a></div>
+        <div class="management-kpis"><article><span>Ngày</span><strong>@Model.TodayRevenue.ToString("N0") ₫</strong></article><article><span>Tháng</span><strong>@Model.MonthRevenue.ToString("N0") ₫</strong></article><article><span>Năm</span><strong>@Model.YearRevenue.ToString("N0") ₫</strong></article></div>
+        <article class="management-card management-card--wide"><div class="management-section-heading"><div><p>BIỂU ĐỒ DOANH THU</p><h2>@(Model.Period == "day" ? Model.SelectedDate.ToString("dd/MM/yyyy") : Model.Period == "year" ? Model.SelectedDate.ToString("yyyy") : Model.SelectedDate.ToString("MM/yyyy"))</h2></div><form method="get" action="/Management" class="management-inline-filter" data-dashboard-form><input type="hidden" name="tab" value="revenue"/><input type="hidden" name="period" value="@Model.Period"/><input type="hidden" name="branchId" value="@branchId"/><input type="date" name="date" value="@Model.SelectedDate.ToString("yyyy-MM-dd")"/><button>Áp dụng</button></form></div>
+            <div class="revenue-chart">@foreach (var point in Model.RevenuePoints) { var width = point.Amount <= 0 ? 0 : Math.Max(2, (double)(point.Amount / maxRevenue * 100)); <div class="revenue-row"><span>@point.Label</span><div><i style="width:@width.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></i></div><strong>@point.Amount.ToString("N0") ₫ <small>@point.OrderCount đơn</small></strong></div> }</div>
+        </article>
+    }
+    else if (Model.Tab == "users" && Model.IsAdmin)
+    {
+        <article class="management-card management-card--wide"><div class="management-section-heading"><div><p>HỆ THỐNG / USER</p><h2>Tất cả tài khoản</h2></div><details class="management-create"><summary>+ Thêm người dùng</summary><form method="post" action="/Management/CreateAccount">@Html.AntiForgeryToken()<input name="fullName" required placeholder="Họ tên"/><input type="email" name="email" required placeholder="Email"/><input name="phoneNumber" placeholder="Số điện thoại"/><input type="password" name="password" required placeholder="Mật khẩu"/><select name="role">@foreach (var role in RoleCatalog.AllOrderedRoles) { <option value="@role">@RoleLabel(role)</option> }</select><select name="branchId"><option value="">Không thuộc chi nhánh</option>@foreach (var branch in Model.Branches) { <option value="@branch.Id">@branch.BranchName</option> }</select><button>Tạo tài khoản</button></form></details></div>
+            <div class="management-table-wrap"><table class="management-table"><thead><tr><th>Người dùng</th><th>Vai trò</th><th>Chi nhánh</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>@foreach (var user in Model.Users) { <tr><td><strong>@user.FullName</strong><small>@user.Email · @user.PhoneNumber</small></td><td>@RoleLabel(user.Role)</td><td>@(user.BranchName ?? "—")</td><td><span class="status-dot @(user.IsActive ? "is-good" : "is-bad")">@(user.IsActive ? "Hoạt động" : "Đã khóa")</span></td><td><details class="note-editor"><summary>Sửa</summary><form method="post" action="/Management/UpdateAccount">@Html.AntiForgeryToken()<input type="hidden" name="userId" value="@user.Id"/><input name="fullName" value="@user.FullName" required/><input type="email" name="email" value="@user.Email" required/><input name="phoneNumber" value="@user.PhoneNumber"/><select name="role">@foreach (var role in RoleCatalog.AllOrderedRoles) { <option value="@role" selected="@(role == user.Role)">@RoleLabel(role)</option> }</select><select name="branchId"><option value="">Không thuộc chi nhánh</option>@foreach (var branch in Model.Branches) { <option value="@branch.Id" selected="@(branch.Id == user.BranchId)">@branch.BranchName</option> }</select><button>Lưu</button></form><form method="post" action="/Management/ToggleAccount">@Html.AntiForgeryToken()<input type="hidden" name="userId" value="@user.Id"/><button>@(user.IsActive ? "Khóa tài khoản" : "Kích hoạt lại")</button></form><form method="post" action="/Management/DeleteAccount" onsubmit="return confirm('Xóa tài khoản @user.Email?')">@Html.AntiForgeryToken()<input type="hidden" name="userId" value="@user.Id"/><button class="danger">Xóa tài khoản</button></form></details></td></tr> }</tbody></table></div>
+        </article>
+    }
+    else if (Model.Tab == "permissions" && Model.IsAdmin)
+    {
+        <article class="management-card management-card--wide"><div class="management-section-heading"><div><p>HỆ THỐNG / USER / PHÂN QUYỀN</p><h2>Cấp quyền bằng card theo từng chi nhánh</h2></div></div>
+            <form method="get" action="/Management" class="permission-filter" data-dashboard-form><input type="hidden" name="tab" value="permissions"/><label>Tài khoản<select name="permissionUserId">@foreach (var user in Model.Users) { <option value="@user.Id" selected="@(user.Id == Model.PermissionUserId)">@user.FullName · @RoleLabel(user.Role)</option> }</select></label><label>Chi nhánh<select name="permissionBranchId">@foreach (var branch in Model.Branches) { <option value="@branch.Id" selected="@(branch.Id == Model.PermissionBranchId)">@branch.BranchName</option> }</select></label><button>Xem quyền</button></form>
+            @if (!string.IsNullOrWhiteSpace(Model.PermissionUserId) && Model.PermissionBranchId.HasValue)
+            {
+                <form method="post" action="/Management/UpdatePermissions">@Html.AntiForgeryToken()<input type="hidden" name="userId" value="@Model.PermissionUserId"/><input type="hidden" name="branchId" value="@Model.PermissionBranchId"/>
+                    @foreach (var group in Model.BranchFeatureCards.GroupBy(feature => feature.Group)) { <section class="permission-group"><h3>@group.Key</h3><div class="permission-card-grid">@foreach (var feature in group) { <label class="permission-card"><input type="checkbox" name="featureKeys" value="@feature.Key" checked="@Model.PermissionSelection.Contains(feature.Key)"/><span><b>@feature.Name</b><small>@feature.Description</small></span></label> }</div></section> }
+                    <section class="permission-group permission-group--locked"><h3>Hệ thống · chỉ Admin</h3><div class="permission-card-grid">@foreach (var feature in Model.SystemFeatureCards) { <label class="permission-card"><input type="checkbox" checked disabled/><span><b>@feature.Name</b><small>@feature.Description</small></span></label> }</div></section><button class="management-save-button">Hoàn tất cấp quyền</button>
+                </form>
+            }
+        </article>
+    }
+    else if (Model.Tab == "branches" && Model.IsAdmin)
+    {
+        <article class="management-card management-card--wide">
+            <div class="management-section-heading">
+                <div><p>HỆ THỐNG / CHI NHÁNH</p><h2>Danh sách chi nhánh và kho tương ứng</h2></div>
+                <details class="management-create">
+                    <summary>+ Tạo chi nhánh</summary>
+                    <form method="post" action="/Management/CreateBranch">
+                        @Html.AntiForgeryToken()
+                        <input name="branchName" required maxlength="150" placeholder="Tên chi nhánh" />
+                        <input name="address" required maxlength="300" placeholder="Địa chỉ chi nhánh" />
+                        <select name="warehouseId" required><option value="">-- Chọn kho --</option>@foreach (var option in Model.WarehouseOptions) { <option value="@option.Value">@option.Label</option> }</select>
+                        <select name="managerUserId" required><option value="">-- Chọn chủ quản lí --</option>@foreach (var option in Model.BranchManagerOptions) { <option value="@option.Value">@option.Label</option> }</select>
+                        <button type="submit">Tạo chi nhánh</button>
+                    </form>
+                </details>
+            </div>
+            @if (!Model.WarehouseOptions.Any() || !Model.BranchManagerOptions.Any())
+            {
+                <div class="management-alert management-alert--danger">Cần có ít nhất một kho đang hoạt động và một tài khoản vai trò Quản lí trước khi tạo chi nhánh.</div>
+            }
+            <div class="branch-card-grid">
+            @foreach (var branch in Model.Branches)
+            {
+                <article><span>CHI NHÁNH @branch.Id</span><h3>@branch.BranchName</h3><p>@branch.Address</p><div><a href="/Management?tab=overview&branchId=@branch.Id" data-dashboard-link>Dashboard</a><a href="/Management?tab=people&branchId=@branch.Id" data-dashboard-link>Nhân sự</a><a href="/Management?tab=warehouse&subtab=receipts&branchId=@branch.Id" data-dashboard-link>Kho</a></div></article>
+            }
+            </div>
+        </article>
+    }
+    else if (Model.Tab == "audit" && Model.IsAdmin)
+    {
+        <div class="dashboard-switcher"><button class="is-active" type="button" data-audit-switch="sales">Lịch sử bán hàng hôm nay</button><button type="button" data-audit-switch="management">Lịch sử quản lí hôm nay</button></div>
+        @foreach (var area in new[] { "sales", "management" }) { var logs = area == "sales" ? Model.SalesAuditLogs : Model.ManagementAuditLogs; <article class="management-card management-card--wide audit-panel @(area == "sales" ? "is-active" : "")" data-audit-panel="@area"><div class="management-section-heading"><div><p>@(area == "sales" ? "GIAO DIỆN BÁN HÀNG" : "GIAO DIỆN QUẢN LÍ")</p><h2>@Model.SelectedDate.ToString("dd/MM/yyyy")</h2></div><strong>@logs.Count thao tác</strong></div><div class="management-table-wrap"><table class="management-table"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Thao tác</th><th>Phương thức</th><th>Kết quả</th></tr></thead><tbody>@foreach (var log in logs) { <tr><td>@log.CreatedAt.ToLocalTime().ToString("HH:mm:ss")</td><td>@(log.UserName ?? "—")</td><td>@log.Action</td><td>@log.HttpMethod</td><td><span class="status-dot @(log.Succeeded ? "is-good" : "is-bad")">@(log.Succeeded ? "Thành công" : "Lỗi")</span></td></tr> }</tbody></table></div></article> }
+    }
+</section>

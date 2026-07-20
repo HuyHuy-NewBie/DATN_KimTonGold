@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GoldManagementSystem.Models
 {
@@ -15,7 +16,10 @@ namespace GoldManagementSystem.Models
         public string DisplayName { get; set; }
         public string MarketType { get; set; } // "Gold", "Silver", "Currency"
 
+        [Column(TypeName = "decimal(18,2)")]
         public decimal BuyPrice { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
         public decimal SellPrice { get; set; }
         public string Unit { get; set; }
 
