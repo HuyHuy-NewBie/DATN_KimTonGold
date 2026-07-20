@@ -185,8 +185,8 @@
         #supportWidgetPanel {
             position: fixed;
             right: 20px;
-            bottom: 92px;
-            width: 340px;
+            bottom: 24px;
+            width: 390px;
             max-width: calc(100vw - 32px);
             max-height: min(92vh, 650px);
             border-radius: 22px;
@@ -471,7 +471,7 @@
             }
             #supportWidgetPanel {
                 right: 12px;
-                bottom: 84px;
+                bottom: 16px;
                 width: min(100vw - 24px, 100%);
                 border-radius: 22px;
             }
@@ -1222,6 +1222,7 @@
     <script>
         (function() {
             const chatToggleButton = document.getElementById('chatToggleButton');
+            const floatingChatLauncher = document.getElementById('floatingChatLauncher');
             const supportWidgetPanel = document.getElementById('supportWidgetPanel');
             const supportCloseButton = document.getElementById('supportCloseButton');
             const supportOptions = document.querySelectorAll('.support-pill');
@@ -1234,9 +1235,18 @@
                 if (open) {
                     supportWidgetPanel.classList.add('active');
                     supportWidgetPanel.setAttribute('aria-hidden', 'false');
+                    if (floatingChatLauncher) {
+                        floatingChatLauncher.style.display = 'none';
+                    }
+                    if (quickChips) {
+                        quickChips.style.display = 'flex';
+                    }
                 } else {
                     supportWidgetPanel.classList.remove('active');
                     supportWidgetPanel.setAttribute('aria-hidden', 'true');
+                    if (floatingChatLauncher) {
+                        floatingChatLauncher.style.display = 'block';
+                    }
                 }
             }
 
@@ -1256,6 +1266,9 @@
                 if (!chip) return;
                 // Gửi ngay khi click chip, không chỉ điền vào input
                 sendMessage(chip.textContent.trim());
+                if (quickChips) {
+                    quickChips.style.display = 'none';
+                }
             }
 
             async function handleSend() {

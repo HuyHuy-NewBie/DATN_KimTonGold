@@ -219,6 +219,7 @@ namespace GoldManagementSystem.Controllers
 
             var payload  = new { system_instruction = new { parts = new[] { new { text = systemPrompt } } }, contents, generationConfig = new { maxOutputTokens = maxTokens, temperature } };
             var httpClient   = _httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(5);
             var response     = await httpClient.PostAsync(url, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
             var responseBody = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode) throw new Exception($"Gemini {response.StatusCode}: {responseBody}");
@@ -240,6 +241,7 @@ namespace GoldManagementSystem.Controllers
 
             var payload  = new { model, messages, max_tokens = maxTokens, temperature };
             var httpClient = _httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(5);
             httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
             httpClient.DefaultRequestHeaders.Add("HTTP-Referer", "https://kimton.vn");
             httpClient.DefaultRequestHeaders.Add("X-Title", "KimTon Chatbot");

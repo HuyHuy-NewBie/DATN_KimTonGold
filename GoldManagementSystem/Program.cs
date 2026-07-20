@@ -75,7 +75,7 @@ builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
-// Bảo đảm đầy đủ cấp bậc nhân sự mà khu quản trị sử dụng.
+// Bảo đảm đầy đủ cấp bậc nhân sự và tài khoản Admin mặc định.
 using (var roleScope = app.Services.CreateScope())
 {
     try
@@ -85,6 +85,34 @@ using (var roleScope = app.Services.CreateScope())
         {
             if (!await roleManager.RoleExistsAsync(roleName))
                 await roleManager.CreateAsync(new IdentityRole(roleName));
+        }
+
+        var userManager = roleScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var adminEmail = "admin@goldsys.com";
+        var adminUser = await userManager.FindByEmailAsync(adminEmail);
+        if (adminUser == null)
+        {
+            adminUser = new AppUser
+            {
+                UserName = adminEmail,
+                Email = adminEmail,
+                FullName = "System Admin",
+                IsActive = true,
+                EmailConfirmed = true,
+                PhoneNumber = "0961137407",
+                PhoneNumberConfirmed = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            var result = await userManager.CreateAsync(adminUser, "Admin@123");
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(adminUser, RoleCatalog.Admin);
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                app.Logger.LogWarning($"Không thể tạo tài khoản Admin mặc định: {errors}");
+            }
         }
     }
     catch (Exception exception)
