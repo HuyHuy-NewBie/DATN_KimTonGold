@@ -3,87 +3,92 @@
 @using System.Linq
 
 @{
-    ViewData["Title"] = "Quản lý kho";
+    ViewData["Title"] = "Danh sách tồn kho";
 
     var isAdmin = User.IsInRole("Admin");
-
-    var isBranchManager =
-        User.IsInRole("Manager")
-        || User.IsInRole("Branch Owner");
-
     var canManageWarehouse = isAdmin;
+
+    var inventoryTab =
+        Context.Request.Query["inventoryTab"]
+            .ToString()
+            .ToLowerInvariant();
+
+    if (inventoryTab != "warehouses")
+    {
+        inventoryTab = "items";
+    }
 
     string GetInventoryStatusClass(string status)
     {
         return status switch
         {
             InventoryItem.StatusAvailable =>
-                "status-chip--success",
+                "inventory-badge--success",
 
             InventoryItem.StatusReserved =>
-                "status-chip--info",
+                "inventory-badge--info",
 
             InventoryItem.StatusQuarantined =>
-                "status-chip--warning",
+                "inventory-badge--warning",
 
             InventoryItem.StatusOutOfStock =>
-                "status-chip--neutral",
+                "inventory-badge--neutral",
 
-            _ => "status-chip--neutral"
+            _ => "inventory-badge--neutral"
         };
+    }
+
+    string GetInventoryMeasurement(InventoryItem item)
+    {
+        if (item.DiamondCarat.HasValue
+            && item.DiamondCarat.Value > 0)
+        {
+            return $"{item.DiamondCarat.Value:N2} ct";
+        }
+
+        if (item.WeightOnHand > 0)
+        {
+            return $"{item.WeightOnHand:N2} g";
+        }
+
+        return "Chưa ghi";
     }
 }
 
-<div class="dashboard-card dashboard-card--flush admin-panel">
-    <section class="admin-hero admin-hero--split">
+<div class="dashboard-card dashboard-card--flush admin-panel inventory-page">
+    <section class="admin-hero admin-hero--split inventory-hero">
         <div>
             <p class="admin-hero__eyebrow">
-                Nghiệp vụ tồn kho
+                Nghiệp vụ kho
             </p>
 
-            <h1>
-                @(isAdmin
-                    ? "Quản lý kho toàn hệ thống"
-                    : "Quản lý kho chi nhánh")
-            </h1>
+            <h1>Danh sách tồn kho</h1>
 
             <p class="admin-hero__text">
-                @if (isAdmin)
-                {
-                    <text>
-                        Theo dõi tồn kho, giá trị hàng hóa và biến động kho
-                        của toàn bộ chi nhánh trong hệ thống.
-                    </text>
-                }
-                else
-                {
-                    <text>
-                        Theo dõi hàng tồn và các giao dịch kho thuộc
-                        chi nhánh đang được phân công.
-                    </text>
-                }
+                Theo dõi toàn bộ hàng đã nhập kho, số lượng còn lại,
+                trọng lượng, nguồn nhập và giá trị tồn hiện tại.
             </p>
         </div>
 
         <div class="admin-hero__actions">
-            @if (canManageWarehouse)
-            {
-                <button type="button"
-                        class="admin-button admin-button--primary"
-                        onclick="openCreateWarehouseModal()">
-                    Thêm kho
-                </button>
-            }
-
-            <a asp-action="SupplierManagement"
+            <a asp-action="WarehouseManagement"
                asp-controller="Admin"
+               asp-route-branchId="@Model.BranchId"
+               asp-route-warehouseTab="receipts"
+               class="admin-button admin-button--primary">
+                Phiếu nhập kho
+            </a>
+
+            <a asp-action="InventoryHistory"
+               asp-controller="Admin"
+               asp-route-branchId="@Model.BranchId"
                class="admin-button admin-button--secondary">
-                Nhà cung cấp
+                Lịch sử nhập - xuất
             </a>
         </div>
     </section>
 
-    <div class="admin-panel__body">
+    <div class="admin-panel__body inventory-body">
         @if (TempData["SuccessMessage"] != null)
         {
             <div class="admin-alert admin-alert--success">
@@ -105,25 +110,25 @@
             </div>
         }
 
-        <section class="admin-stats-grid">
+        <section class="admin-stats-grid inventory-stats">
             <article class="admin-stat-card admin-stat-card--gold">
                 <div class="admin-stat-card__content">
-                    <p>Tổng số kho</p>
-                    <strong>@Model.TotalWarehouses</strong>
+                    <p>Dòng hàng tồn</p>
+                    <strong>@Model.TotalItemLines.ToString("N0")</strong>
                 </div>
             </article>
 
             <article class="admin-stat-card admin-stat-card--green">
                 <div class="admin-stat-card__content">
-                    <p>Kho hoạt động</p>
-                    <strong>@Model.ActiveWarehouses</strong>
+                    <p>Tổng số lượng</p>
+                    <strong>@Model.TotalQuantity.ToString("N0")</strong>
                 </div>
             </article>
 
             <article class="admin-stat-card admin-stat-card--blue">
                 <div class="admin-stat-card__content">
-                    <p>Tổng số lượng tồn</p>
-                    <strong>@Model.TotalQuantity.ToString("N0")</strong>
+                    <p>Tổng trọng lượng</p>
+                    <strong>@Model.TotalWeight.ToString("N2") g</strong>
                 </div>
             </article>
 
@@ -137,354 +142,443 @@
             </article>
         </section>
 
-        <section class="admin-section">
-            <div class="admin-section__header">
-                <div>
-                    <p class="admin-section__eyebrow">
-                        Tra cứu tồn kho
-                    </p>
+        <div class="inventory-flow-note">
+            <span class="inventory-flow-note__icon">✓</span>
 
-                    <h2>Bộ lọc hàng trong kho</h2>
-                </div>
+            <div>
+                <strong>Hàng được cập nhật tự động</strong>
+
+                <p>
+                    Chỉ số lượng kiểm đạt và đã bấm “Nhập kho”
+                    trong phiếu nhập mới xuất hiện tại đây.
+                </p>
             </div>
+        </div>
 
-            <form asp-action="InventoryManagement"
-                  asp-controller="Admin"
-                  method="get"
-                  class="admin-filter-grid">
+        <div class="inventory-tabs"
+             role="tablist"
+             aria-label="Quản lý tồn kho">
 
-                <label class="admin-field">
-                    <span>Từ khóa</span>
+            <button type="button"
+                    class="inventory-tab-button @(inventoryTab == "items" ? "is-active" : string.Empty)"
+                    data-inventory-tab-button="items"
+                    aria-selected="@(inventoryTab == "items" ? "true" : "false")">
+                Hàng tồn kho
 
-                    <input type="text"
-                           name="searchTerm"
-                           value="@Model.SearchTerm"
-                           placeholder="Mã tồn, tên hàng, chất liệu, NCC..." />
-                </label>
+                <span class="inventory-tab-count">
+                    @Model.TotalItemLines
+                </span>
+            </button>
 
-                @if (isAdmin)
-                {
+            <button type="button"
+                    class="inventory-tab-button @(inventoryTab == "warehouses" ? "is-active" : string.Empty)"
+                    data-inventory-tab-button="warehouses"
+                    aria-selected="@(inventoryTab == "warehouses" ? "true" : "false")">
+                Kho lưu trữ
+
+                <span class="inventory-tab-count">
+                    @Model.TotalWarehouses
+                </span>
+            </button>
+        </div>
+
+        <div class="inventory-tab-panel @(inventoryTab == "items" ? "is-active" : string.Empty)"
+             data-inventory-tab-panel="items"
+             role="tabpanel">
+
+            <section class="inventory-filter-card">
+                <div class="inventory-section-heading">
+                    <div>
+                        <p>TRA CỨU</p>
+                        <h2>Lọc danh sách tồn kho</h2>
+                    </div>
+                </div>
+
+                <form asp-action="InventoryManagement"
+                      asp-controller="Admin"
+                      method="get"
+                      class="inventory-filter-grid">
+
+                    <input type="hidden"
+                           name="inventoryTab"
+                           value="items" />
+
+                    <label class="admin-field inventory-search-field">
+                        <span>Từ khóa</span>
+
+                        <input type="text"
+                               name="searchTerm"
+                               value="@Model.SearchTerm"
+                               placeholder="Mã tồn, tên hàng, chất liệu, NCC..." />
+                    </label>
+
+                    @if (isAdmin)
+                    {
+                        <label class="admin-field">
+                            <span>Chi nhánh</span>
+
+                            <select name="branchId"
+                                    asp-items="Model.BranchOptions"
+                                    class="admin-select"
+                                    onchange="this.form.submit()">
+                            </select>
+                        </label>
+                    }
+                    else
+                    {
+                        <input type="hidden"
+                               name="branchId"
+                               value="@Model.BranchId" />
+                    }
+
                     <label class="admin-field">
-                        <span>Chi nhánh</span>
+                        <span>Kho lưu trữ</span>
 
-                        <select name="branchId"
-                                asp-items="Model.BranchOptions"
+                        <select name="warehouseId"
+                                asp-items="Model.WarehouseOptions"
                                 class="admin-select">
                         </select>
                     </label>
+
+                    <label class="admin-field">
+                        <span>Trạng thái</span>
+
+                        <select name="statusFilter"
+                                asp-items="Model.StatusOptions"
+                                class="admin-select">
+                        </select>
+                    </label>
+
+                    <div class="inventory-filter-actions">
+                        <button type="submit"
+                                class="admin-button admin-button--primary">
+                            Áp dụng
+                        </button>
+
+                        <a asp-action="InventoryManagement"
+                           asp-controller="Admin"
+                           asp-route-branchId="@Model.BranchId"
+                           asp-route-inventoryTab="items"
+                           class="admin-button admin-button--secondary">
+                            Xóa lọc
+                        </a>
+                    </div>
+                </form>
+            </section>
+
+            <section class="inventory-list-card">
+                <div class="inventory-section-heading">
+                    <div>
+                        <p>TỒN KHO HIỆN TẠI</p>
+                        <h2>Danh sách hàng đã nhập kho</h2>
+                    </div>
+
+                    <span class="inventory-result-count">
+                        @Model.InventoryItems.Count dòng
+                    </span>
+                </div>
+
+                @if (!Model.InventoryItems.Any())
+                {
+                    <div class="inventory-empty">
+                        <div class="inventory-empty__icon">□</div>
+
+                        <h3>Chưa có hàng trong kho</h3>
+
+                        <p>
+                            Hãy kiểm hàng, xác nhận nhận hàng và bấm
+                            “Nhập kho” tại trang phiếu nhập kho.
+                        </p>
+
+                        <a asp-action="WarehouseManagement"
+                           asp-controller="Admin"
+                           asp-route-branchId="@Model.BranchId"
+                           asp-route-warehouseTab="receipts"
+                           class="admin-button admin-button--primary">
+                            Đi đến phiếu nhập kho
+                        </a>
+                    </div>
                 }
                 else
                 {
-                    <input type="hidden"
-                        name="branchId"
-                        value="@Model.BranchId" />
-                }
-
-                <label class="admin-field">
-                    <span>Kho</span>
-
-                    <select name="warehouseId"
-                            asp-items="Model.WarehouseOptions"
-                            class="admin-select">
-                    </select>
-                </label>
-
-                <label class="admin-field">
-                    <span>Trạng thái hàng</span>
-
-                    <select name="statusFilter"
-                            asp-items="Model.StatusOptions"
-                            class="admin-select">
-                    </select>
-                </label>
-
-                <div class="admin-filter-actions admin-field--wide">
-                    <button type="submit"
-                            class="admin-button admin-button--primary">
-                        Lọc dữ liệu
-                    </button>
-
-                    <a asp-action="InventoryManagement"
-                       asp-controller="Admin"
-                       class="admin-button admin-button--secondary">
-                        Xóa lọc
-                    </a>
-                </div>
-            </form>
-        </section>
-
-        <section class="admin-section" id="warehouse-list">
-            <div class="admin-section__header">
-                <div>
-                    <p class="admin-section__eyebrow">
-                        Danh mục kho
-                    </p>
-
-                    <h2>Kho theo chi nhánh</h2>
-                </div>
-            </div>
-
-            <div class="table-shell">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Kho</th>
-                            <th>Chi nhánh</th>
-                            <th>Vị trí</th>
-                            <th>Dòng hàng</th>
-                            <th>Số lượng tồn</th>
-                            <th>Giá trị tồn</th>
-                            <th>Trạng thái</th>
-
-                            @if (canManageWarehouse)
-                            {
-                                <th>Thao tác</th>
-                            }
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        @if (Model.Warehouses.Any())
-                        {
-                            @foreach (var warehouse in Model.Warehouses)
-                            {
-                                var itemLines =
-                                    warehouse.InventoryItems?.Count ?? 0;
-
-                                var totalQuantity =
-                                    warehouse.InventoryItems?.Sum(
-                                        item => item.QuantityOnHand) ?? 0;
-
-                                var totalValue =
-                                    warehouse.InventoryItems?.Sum(
-                                        item => item.InventoryValue) ?? 0m;
-
+                    <div class="inventory-table-shell">
+                        <table class="inventory-table">
+                            <thead>
                                 <tr>
-                                    <td>
-                                        <div class="data-table__stack">
-                                            <strong>@warehouse.Name</strong>
-                                            <span>@warehouse.Code</span>
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        @warehouse.Branch?.BranchName
-                                    </td>
-
-                                    <td>
-                                        @(string.IsNullOrWhiteSpace(
-                                            warehouse.Location)
-                                            ? "Chưa cập nhật"
-                                            : warehouse.Location)
-                                    </td>
-
-                                    <td>@itemLines.ToString("N0")</td>
-
-                                    <td>@totalQuantity.ToString("N0")</td>
-
-                                    <td class="data-table__accent">
-                                        @totalValue.ToString("N0") ₫
-                                    </td>
-
-                                    <td>
-                                        @if (warehouse.IsActive)
-                                        {
-                                            <span class="status-chip status-chip--success">
-                                                Đang hoạt động
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="status-chip status-chip--neutral">
-                                                Tạm ngưng
-                                            </span>
-                                        }
-                                    </td>
-
-                                    @if (canManageWarehouse)
-                                    {
-                                        <td>
-                                            <form asp-action="ToggleWarehouseStatus"
-                                                  asp-controller="Admin"
-                                                  method="post"
-                                                  onsubmit="return confirmWarehouseStatus('@warehouse.IsActive');">
-
-                                                <input type="hidden"
-                                                       name="warehouseId"
-                                                       value="@warehouse.Id" />
-
-                                                @if (warehouse.IsActive)
-                                                {
-                                                    <button type="submit"
-                                                            class="admin-button admin-button--danger admin-button--small">
-                                                        Tạm ngưng
-                                                    </button>
-                                                }
-                                                else
-                                                {
-                                                    <button type="submit"
-                                                            class="admin-button admin-button--secondary admin-button--small">
-                                                        Kích hoạt
-                                                    </button>
-                                                }
-                                            </form>
-                                        </td>
-                                    }
+                                    <th>Mã tồn</th>
+                                    <th>Hàng hóa</th>
+                                    <th>Kho</th>
+                                    <th>Nguồn nhập</th>
+                                    <th>Tồn thực tế</th>
+                                    <th>Giá vốn</th>
+                                    <th>Trạng thái</th>
                                 </tr>
-                            }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="8">
-                                    Chưa có kho nào. Hãy tạo kho đầu tiên
-                                    cho chi nhánh trước khi duyệt nhập hàng.
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                            </thead>
 
-        <section class="admin-section" id="inventory-list">
-            <div class="admin-section__header">
-                <div>
-                    <p class="admin-section__eyebrow">
-                        Tồn kho hiện tại
-                    </p>
+                            <tbody>
+                                @foreach (var item in Model.InventoryItems)
+                                {
+                                    var receiptCode =
+                                        item.SupplierGoodsReceiptDetail?
+                                            .SupplierGoodsReceipt?
+                                            .ReceiptCode;
 
-                    <h2>Danh sách hàng đã nhập kho</h2>
-                </div>
+                                    <tr>
+                                        <td data-label="Mã tồn">
+                                            <div class="inventory-stock-code">
+                                                <strong>@item.StockCode</strong>
 
-                <span class="status-chip status-chip--info">
-                    @Model.InventoryItems.Count dòng hiển thị
-                </span>
-            </div>
-
-            <div class="admin-alert admin-alert--success">
-                Hiện tại không thêm hàng thủ công tại trang này.
-                Khi chức năng kiểm hàng hoàn thiện, các dòng đạt
-                sẽ tự tạo mã tồn kho và phiếu nhập kho.
-            </div>
-
-            <div class="table-shell">
-                <table class="data-table data-table--products">
-                    <thead>
-                        <tr>
-                            <th>Mã tồn</th>
-                            <th>Hàng hóa</th>
-                            <th>Kho</th>
-                            <th>Nguồn nhập</th>
-                            <th>Số lượng</th>
-                            <th>Trọng lượng</th>
-                            <th>Đơn giá nhập</th>
-                            <th>Thành tiền</th>
-                            <th>Trạng thái</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        @if (Model.InventoryItems.Any())
-                        {
-                            @foreach (var item in Model.InventoryItems)
-                            {
-                                <tr>
-                                    <td>
-                                        <div class="data-table__stack">
-                                            <strong>
-                                                @item.StockCode
-                                            </strong>
-
-                                            <span>
-                                                @(item.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))
-                                            </span>
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        <div class="data-table__stack">
-                                            <strong>
-                                                @item.ProductName
-                                            </strong>
-
-                                            <span>
-                                                @item.ProductLine
-                                                · @item.Category
-                                                · @item.MaterialType
-                                            </span>
-
-                                            @if (!string.IsNullOrWhiteSpace(item.CertificateCode))
-                                            {
                                                 <span>
-                                                    Kiểm định: @item.CertificateCode
+                                                    Cập nhật
+                                                    @item.UpdatedAt
+                                                        .ToLocalTime()
+                                                        .ToString("dd/MM/yyyy HH:mm")
                                                 </span>
-                                            }
-                                        </div>
-                                    </td>
+                                            </div>
+                                        </td>
 
-                                    <td>
-                                        <div class="data-table__stack">
-                                            <strong>
-                                                @(item.Warehouse?.Name ?? "--")
-                                            </strong>
+                                        <td data-label="Hàng hóa">
+                                            <div class="inventory-product">
+                                                <strong>@item.ProductName</strong>
 
-                                            <span>
-                                                @(item.Warehouse?.Branch?.BranchName ?? "--")
+                                                <span>
+                                                    @item.ProductLine
+                                                    · @item.Category
+                                                </span>
+
+                                                <span>
+                                                    @item.MaterialType
+                                                </span>
+
+                                                @if (!string.IsNullOrWhiteSpace(
+                                                    item.CertificateCode))
+                                                {
+                                                    <span>
+                                                        Kiểm định:
+                                                        @item.CertificateCode
+                                                    </span>
+                                                }
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Kho">
+                                            <div class="inventory-cell-stack">
+                                                <strong>
+                                                    @(item.Warehouse?.Name ?? "--")
+                                                </strong>
+
+                                                <span>
+                                                    @(item.Warehouse?.Branch?
+                                                        .BranchName ?? "--")
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Nguồn nhập">
+                                            <div class="inventory-cell-stack">
+                                                <strong>
+                                                    @(item.Supplier?.Name
+                                                        ?? "Không xác định")
+                                                </strong>
+
+                                                <span>
+                                                    Đơn:
+                                                    @(item.SupplierPurchaseOrder?
+                                                        .OrderCode ?? "--")
+                                                </span>
+
+                                                @if (!string.IsNullOrWhiteSpace(
+                                                    receiptCode))
+                                                {
+                                                    <span>
+                                                        Phiếu: @receiptCode
+                                                    </span>
+                                                }
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Tồn thực tế">
+                                            <div class="inventory-quantity">
+                                                <strong>
+                                                    @item.QuantityOnHand
+                                                        .ToString("N0")
+                                                </strong>
+
+                                                <span>Sản phẩm</span>
+
+                                                <small>
+                                                    @GetInventoryMeasurement(item)
+                                                </small>
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Giá vốn">
+                                            <div class="inventory-cell-stack">
+                                                <strong>
+                                                    @item.InventoryValue
+                                                        .ToString("N0") ₫
+                                                </strong>
+
+                                                <span>
+                                                    @item.UnitCost.ToString("N0")
+                                                    ₫ / sản phẩm
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Trạng thái">
+                                            <span class="inventory-badge @GetInventoryStatusClass(item.Status)">
+                                                @item.Status
                                             </span>
-                                        </div>
-                                    </td>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
 
-                                    <td>
-                                        <div class="data-table__stack">
+        <div class="inventory-tab-panel @(inventoryTab == "warehouses" ? "is-active" : string.Empty)"
+             data-inventory-tab-panel="warehouses"
+             role="tabpanel">
+
+            <section class="inventory-list-card">
+                <div class="inventory-section-heading">
+                    <div>
+                        <p>KHO LƯU TRỮ</p>
+                        <h2>Danh sách kho theo chi nhánh</h2>
+                    </div>
+
+                    @if (canManageWarehouse)
+                    {
+                        <button type="button"
+                                class="admin-button admin-button--primary"
+                                onclick="openCreateWarehouseModal()">
+                            + Thêm kho
+                        </button>
+                    }
+                </div>
+
+                <div class="inventory-table-shell">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>Kho</th>
+                                <th>Chi nhánh</th>
+                                <th>Vị trí</th>
+                                <th>Dòng hàng</th>
+                                <th>Số lượng</th>
+                                <th>Giá trị tồn</th>
+                                <th>Trạng thái</th>
+
+                                @if (canManageWarehouse)
+                                {
+                                    <th>Thao tác</th>
+                                }
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @if (Model.Warehouses.Any())
+                            {
+                                @foreach (var warehouse in Model.Warehouses)
+                                {
+                                    var itemLines =
+                                        warehouse.InventoryItems?.Count ?? 0;
+
+                                    var totalQuantity =
+                                        warehouse.InventoryItems?.Sum(
+                                            item => item.QuantityOnHand) ?? 0;
+
+                                    var totalValue =
+                                        warehouse.InventoryItems?.Sum(
+                                            item => item.InventoryValue) ?? 0m;
+
+                                    <tr>
+                                        <td data-label="Kho">
+                                            <div class="inventory-cell-stack">
+                                                <strong>@warehouse.Name</strong>
+                                                <span>@warehouse.Code</span>
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Chi nhánh">
+                                            @warehouse.Branch?.BranchName
+                                        </td>
+
+                                        <td data-label="Vị trí">
+                                            @(string.IsNullOrWhiteSpace(
+                                                warehouse.Location)
+                                                ? "Chưa cập nhật"
+                                                : warehouse.Location)
+                                        </td>
+
+                                        <td data-label="Dòng hàng">
+                                            @itemLines.ToString("N0")
+                                        </td>
+
+                                        <td data-label="Số lượng">
+                                            @totalQuantity.ToString("N0")
+                                        </td>
+
+                                        <td data-label="Giá trị tồn">
                                             <strong>
-                                                @(item.Supplier?.Name ?? "Không xác định")
+                                                @totalValue.ToString("N0") ₫
                                             </strong>
+                                        </td>
 
-                                            <span>
-                                                @(item.SupplierPurchaseOrder?.OrderCode
-                                                    ?? "Chưa liên kết đơn")
+                                        <td data-label="Trạng thái">
+                                            <span class="inventory-badge @(warehouse.IsActive
+                                                ? "inventory-badge--success"
+                                                : "inventory-badge--neutral")">
+
+                                                @(warehouse.IsActive
+                                                    ? "Đang hoạt động"
+                                                    : "Tạm ngưng")
                                             </span>
-                                        </div>
-                                    </td>
+                                        </td>
 
-                                    <td>
-                                        @(item.QuantityOnHand.ToString("N0"))
-                                    </td>
+                                        @if (canManageWarehouse)
+                                        {
+                                            <td data-label="Thao tác">
+                                                <form asp-action="ToggleWarehouseStatus"
+                                                      asp-controller="Admin"
+                                                      method="post"
+                                                      onsubmit="return confirmWarehouseStatus('@warehouse.IsActive');">
 
-                                    <td>
-                                        @(item.WeightOnHand.ToString("N2")) g
-                                    </td>
+                                                    <input type="hidden"
+                                                           name="warehouseId"
+                                                           value="@warehouse.Id" />
 
-                                    <td>
-                                        @(item.UnitCost.ToString("N0")) ₫
-                                    </td>
-
-                                    <td class="data-table__accent">
-                                        @(item.InventoryValue.ToString("N0")) ₫
-                                    </td>
-
-                                    <td>
-                                        <span class="status-chip @GetInventoryStatusClass(item.Status)">
-                                            @item.Status
-                                        </span>
+                                                    <button type="submit"
+                                                            class="admin-button @(warehouse.IsActive
+                                                                ? "admin-button--danger"
+                                                                : "admin-button--secondary") admin-button--small">
+                                                        @(warehouse.IsActive
+                                                            ? "Tạm ngưng"
+                                                            : "Kích hoạt")
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="@(canManageWarehouse ? 8 : 7)">
+                                        Chưa có kho nào trong phạm vi được xem.
                                     </td>
                                 </tr>
                             }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="9">
-                                    Chưa có hàng trong kho hoặc không có
-                                    dữ liệu phù hợp với bộ lọc.
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
     </div>
 </div>
 
@@ -509,8 +603,7 @@
 
                 <button type="button"
                         class="admin-modal__close"
-                        onclick="closeCreateWarehouseModal()"
-                        aria-label="Đóng">
+                        onclick="closeCreateWarehouseModal()">
                     &times;
                 </button>
             </div>
@@ -526,7 +619,6 @@
                     <input type="text"
                            name="Code"
                            required
-                           minlength="3"
                            maxlength="30"
                            placeholder="VD: KHO-HCM-01" />
                 </label>
@@ -537,7 +629,6 @@
                     <input type="text"
                            name="Name"
                            required
-                           minlength="3"
                            maxlength="150"
                            placeholder="VD: Kho chính chi nhánh HCM" />
                 </label>
@@ -553,14 +644,14 @@
                             -- Chọn chi nhánh --
                         </option>
 
-                        @foreach (var branchOption in
+                        @foreach (var option in
                             Model.BranchOptions.Where(
-                                option =>
+                                item =>
                                     !string.IsNullOrWhiteSpace(
-                                        option.Value)))
+                                        item.Value)))
                         {
-                            <option value="@branchOption.Value">
-                                @branchOption.Text
+                            <option value="@option.Value">
+                                @option.Text
                             </option>
                         }
                     </select>
@@ -572,7 +663,7 @@
                     <input type="text"
                            name="Location"
                            maxlength="300"
-                           placeholder="VD: Tầng 2, khu vực bảo quản" />
+                           placeholder="VD: Tầng 2, khu bảo quản" />
                 </label>
 
                 <div class="admin-form-actions">
@@ -594,9 +685,86 @@
 
 @section Scripts {
     <script>
+        (function () {
+            const tabButtons =
+                document.querySelectorAll(
+                    "[data-inventory-tab-button]"
+                );
+
+            const tabPanels =
+                document.querySelectorAll(
+                    "[data-inventory-tab-panel]"
+                );
+
+            function activateInventoryTab(
+                tabName,
+                updateAddress
+            ) {
+                tabButtons.forEach(function (button) {
+                    const active =
+                        button.dataset.inventoryTabButton
+                            === tabName;
+
+                    button.classList.toggle(
+                        "is-active",
+                        active
+                    );
+
+                    button.setAttribute(
+                        "aria-selected",
+                        active ? "true" : "false"
+                    );
+                });
+
+                tabPanels.forEach(function (panel) {
+                    panel.classList.toggle(
+                        "is-active",
+                        panel.dataset.inventoryTabPanel
+                            === tabName
+                    );
+                });
+
+                if (updateAddress) {
+                    const url =
+                        new URL(window.location.href);
+
+                    url.searchParams.set(
+                        "inventoryTab",
+                        tabName
+                    );
+
+                    window.history.replaceState(
+                        {},
+                        "",
+                        url
+                    );
+                }
+            }
+
+            tabButtons.forEach(function (button) {
+                button.addEventListener(
+                    "click",
+                    function () {
+                        activateInventoryTab(
+                            button.dataset
+                                .inventoryTabButton,
+                            true
+                        );
+                    }
+                );
+            });
+
+            activateInventoryTab(
+                "@inventoryTab",
+                false
+            );
+        })();
+
         function openCreateWarehouseModal() {
             const modal =
-                document.getElementById("createWarehouseModal");
+                document.getElementById(
+                    "createWarehouseModal"
+                );
 
             if (modal) {
                 modal.classList.remove("is-hidden");
@@ -605,7 +773,9 @@
 
         function closeCreateWarehouseModal() {
             const modal =
-                document.getElementById("createWarehouseModal");
+                document.getElementById(
+                    "createWarehouseModal"
+                );
 
             if (modal) {
                 modal.classList.add("is-hidden");
@@ -616,14 +786,10 @@
             const isActive =
                 isActiveText.toLowerCase() === "true";
 
-            if (isActive) {
-                return confirm(
-                    "Bạn chắc chắn muốn tạm ngưng kho này?"
-                );
-            }
-
             return confirm(
-                "Bạn muốn kích hoạt lại kho này?"
+                isActive
+                    ? "Bạn chắc chắn muốn tạm ngưng kho này?"
+                    : "Bạn muốn kích hoạt lại kho này?"
             );
         }
 

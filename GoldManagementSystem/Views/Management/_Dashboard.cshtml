@@ -43,15 +43,44 @@
             }
         </div>
         <div class="management-grid">
-            @if (Model.GrantedFeatures.Overlaps(new[] { ManagementFeatureCatalog.WarehouseSuppliers, ManagementFeatureCatalog.WarehouseReceipts, ManagementFeatureCatalog.WarehouseApproval }))
+            @if (Model.Can(
+                ManagementFeatureCatalog.WarehouseSuppliers))
             {
                 <article class="management-card">
-                    <span class="management-card__index">01</span><h2>Quản lí kho</h2><p>Nhà cung cấp, nhập hàng, tồn kho và kiểm duyệt của chi nhánh.</p>
-                    <div class="management-actions">
-                        @if (Model.Can(ManagementFeatureCatalog.WarehouseSuppliers)) { <a href="/Management?tab=warehouse&subtab=suppliers&branchId=@branchId" data-dashboard-link>Nhà cung cấp</a> }
-                        @if (Model.Can(ManagementFeatureCatalog.WarehouseReceipts)) { <a href="/Management?tab=warehouse&subtab=receipts&branchId=@branchId" data-dashboard-link>Nhập hàng</a> }
-                        @if (Model.Can(ManagementFeatureCatalog.WarehouseApproval)) { <button disabled>Kiểm duyệt · đang phát triển</button> }
-                    </div>
+                    <span class="management-card__index">01</span>
+
+                    <h2>Quản lí nhà cung cấp</h2>
+
+                    <p>
+                        Thêm mới, xem chi tiết, tra cứu
+                        và cập nhật hồ sơ nhà cung cấp.
+                    </p>
+
+                    <a href="/Admin/SupplierManagement?branchId=@branchId">
+                        Mở quản lí nhà cung cấp
+                    </a>
+                </article>
+            }
+
+            @if (Model.GrantedFeatures.Overlaps(new[]
+            {
+                ManagementFeatureCatalog.WarehouseReceipts,
+                ManagementFeatureCatalog.WarehouseApproval
+            }))
+            {
+                <article class="management-card">
+                    <span class="management-card__index">02</span>
+
+                    <h2>Quản lí kho</h2>
+
+                    <p>
+                        Đặt hàng, nhập kho, theo dõi tồn kho
+                        và kiểm duyệt hàng hóa.
+                    </p>
+
+                    <a href="/Admin/WarehouseManagement?branchId=@branchId">
+                        Mở quản lí kho
+                    </a>
                 </article>
             }
             @if (Model.GrantedFeatures.Overlaps(new[] { ManagementFeatureCatalog.PeopleView, ManagementFeatureCatalog.PeopleShifts, ManagementFeatureCatalog.PeoplePayroll }))
@@ -71,10 +100,7 @@
     else if (Model.Tab == "warehouse")
     {
         <div class="dashboard-switcher" role="navigation" aria-label="Dashboard kho">
-            @if (Model.Can(ManagementFeatureCatalog.WarehouseSuppliers))
-            {
-                <a class="@Active("suppliers", Model.Subtab)" href="/Management?tab=warehouse&subtab=suppliers&branchId=@branchId" data-dashboard-link>Nhà cung cấp</a>
-            }
+            
             @if (Model.Can(ManagementFeatureCatalog.WarehouseReceipts))
             {
                 <a class="@Active("receipts", Model.Subtab)" href="/Management?tab=warehouse&subtab=receipts&branchId=@branchId" data-dashboard-link>Nhập hàng & tồn kho</a>
@@ -85,27 +111,10 @@
             }
         </div>
 
-        @if (Model.Subtab == "suppliers" && Model.Can(ManagementFeatureCatalog.WarehouseSuppliers))
-        {
-            <div class="management-kpis">
-                <article><span>Nhà cung cấp</span><strong>@Model.Suppliers.Count</strong></article>
-                <article><span>Đang hoạt động</span><strong>@Model.Suppliers.Count(supplier => supplier.IsActive)</strong></article>
-                <article><span>Đơn nhập của chi nhánh</span><strong>@Model.PurchaseOrders.Count</strong></article>
-            </div>
-            <article class="management-card management-card--wide">
-                <div class="management-section-heading">
-                    <div><p>QUẢN LÍ KHO / NHÀ CUNG CẤP</p><h2>Danh sách nhà cung cấp</h2></div>
-                    <a href="/Admin/SupplierManagement?branchId=@branchId">Mở công cụ chi tiết</a>
-                </div>
-                <div class="management-table-wrap"><table class="management-table"><thead><tr><th>Nhà cung cấp</th><th>Liên hệ</th><th>Nhóm hàng</th><th>Công nợ</th><th>Trạng thái</th></tr></thead><tbody>
-                @foreach (var supplier in Model.Suppliers)
-                {
-                    <tr><td><strong>@supplier.Name</strong><small>@supplier.TaxCode</small></td><td>@supplier.ContactPerson<small>@supplier.Phone · @supplier.Email</small></td><td>@supplier.SupplierType</td><td>@supplier.PaymentTermDays ngày</td><td><span class="status-dot @(supplier.IsActive ? "is-good" : "is-bad")">@(supplier.IsActive ? "Hoạt động" : "Tạm ngưng")</span></td></tr>
-                }
-                </tbody></table></div>
-            </article>
-        }
-        else if (Model.Subtab == "receipts" && Model.Can(ManagementFeatureCatalog.WarehouseReceipts))
+        
+        @if (Model.Subtab == "receipts"
+            && Model.Can(
+                ManagementFeatureCatalog.WarehouseReceipts))
         {
             <div class="management-kpis">
                 <article><span>Kho đang dùng</span><strong>@Model.Warehouses.Count</strong></article>

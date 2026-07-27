@@ -779,7 +779,11 @@ namespace GoldManagementSystem.Controllers
         private static bool CanOpenTab(string tab, HashSet<string> grants) => tab switch
         {
             "people" => grants.Overlaps(new[] { ManagementFeatureCatalog.PeopleView, ManagementFeatureCatalog.PeopleShifts, ManagementFeatureCatalog.PeoplePayroll }),
-            "warehouse" => grants.Overlaps(new[] { ManagementFeatureCatalog.WarehouseSuppliers, ManagementFeatureCatalog.WarehouseReceipts, ManagementFeatureCatalog.WarehouseApproval }),
+            "warehouse" => grants.Overlaps(new[]
+            {
+                ManagementFeatureCatalog.WarehouseReceipts,
+                ManagementFeatureCatalog.WarehouseApproval
+            }),
             "products" => grants.Overlaps(new[] { ManagementFeatureCatalog.ProductsView, ManagementFeatureCatalog.ProductsEdit }),
             "revenue" => grants.Contains(ManagementFeatureCatalog.RevenueView),
             "overview" => grants.Count > 0,
@@ -787,10 +791,16 @@ namespace GoldManagementSystem.Controllers
         };
         private static bool IsSystemTab(string tab) => tab is "users" or "permissions" or "branches" or "audit";
         private static string NormalizeTab(string tab) => (tab ?? "overview").ToLowerInvariant() switch { "warehouse" => "warehouse", "people" => "people", "products" => "products", "revenue" => "revenue", "users" => "users", "permissions" => "permissions", "branches" => "branches", "audit" => "audit", _ => "overview" };
-        private static string NormalizeSubtab(string tab, string subtab) => tab switch
+        private static string NormalizeSubtab(
+            string tab,
+            string subtab) => tab switch
         {
-            "people" => subtab is "shifts" or "payroll" ? subtab : "employees",
-            "warehouse" => subtab == "receipts" ? "receipts" : "suppliers",
+            "people" => subtab is "shifts" or "payroll"
+                ? subtab
+                : "employees",
+
+            "warehouse" => "receipts",
+
             _ => string.Empty
         };
         private static string ShiftLabel(string type) => type == "Afternoon" ? "ca chiều (16:00–00:00)" : "ca sáng (08:00–16:00)";

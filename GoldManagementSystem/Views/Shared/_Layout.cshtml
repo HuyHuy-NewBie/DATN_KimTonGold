@@ -526,7 +526,8 @@
             pathMatches("/products", "/products/index");
 
         string navClass(bool isActive) => isActive ? "is-active" : string.Empty;
-
+        var isSupplierPurchaseOrdersPage =
+            pathMatches("/admin/supplierpurchaseorders");
         var isDashboardPath = requestPath.StartsWith("/user/")
             || requestPath.StartsWith("/management")
             || requestPath.StartsWith("/admin/")
@@ -811,28 +812,122 @@
                                 @foreach (var branch in managementBranches)
                                 {
                                     var branchGrants = managementGrants[branch.Id];
-                                    var hasWarehouse = branchGrants.Overlaps(new[] { ManagementFeatureCatalog.WarehouseSuppliers, ManagementFeatureCatalog.WarehouseReceipts, ManagementFeatureCatalog.WarehouseApproval });
-                                    var hasPeople = branchGrants.Overlaps(new[] { ManagementFeatureCatalog.PeopleView, ManagementFeatureCatalog.PeopleShifts, ManagementFeatureCatalog.PeoplePayroll });
+
+                                    var canManageSuppliers =
+                                        branchGrants.Contains(
+                                            ManagementFeatureCatalog.WarehouseSuppliers);
+
+                                    var hasWarehouse =
+                                        branchGrants.Overlaps(new[]
+                                        {
+                                            ManagementFeatureCatalog.WarehouseReceipts,
+                                            ManagementFeatureCatalog.WarehouseApproval
+                                        });
+
+                                    var hasPeople =
+                                        branchGrants.Overlaps(new[]
+                                        {
+                                            ManagementFeatureCatalog.PeopleView,
+                                            ManagementFeatureCatalog.PeopleShifts,
+                                            ManagementFeatureCatalog.PeoplePayroll
+                                        });
                                     var hasProducts = branchGrants.Overlaps(new[] { ManagementFeatureCatalog.ProductsView, ManagementFeatureCatalog.ProductsEdit });
                                     var isActiveManagementBranch = selectedManagementBranch?.Id == branch.Id;
+                                    var isWarehousePurchasingPage =
+                                        pathMatches("/admin/warehousemanagement");
+
+                                    var isInventoryManagementPage =
+                                        pathMatches("/admin/inventorymanagement");
+
+                                    var isInventoryHistoryPage =
+                                        pathMatches("/admin/inventoryhistory");
                                     <details class="management-menu @(isActiveManagementBranch ? "management-menu--active" : string.Empty)" @(isActiveManagementBranch ? "open" : null)>
                                         <summary>@branch.BranchName</summary>
-                                        <a class="@(requestManagementTab == "overview" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=overview&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Tổng quan chi nhánh</a>
+                                        
+                                        @if (canManageSuppliers)
+                                        {
+                                            <a class="@(pathMatches("/admin/suppliermanagement")
+                                                        && isActiveManagementBranch
+                                                            ? "is-active"
+                                                            : string.Empty)"
+                                            href="/Admin/SupplierManagement?branchId=@branch.Id">
+                                                Quản lí nhà cung cấp
+                                            </a>
+                                        }
+
                                         @if (hasWarehouse)
                                         {
-                                            <details class="management-menu__nested" @(requestManagementTab == "warehouse" && isActiveManagementBranch ? "open" : null)>
+                                            <details class="management-menu__nested"
+                                                    @(
+                                                        isActiveManagementBranch
+                                                        && (
+                                                            requestManagementTab == "warehouse"
+                                                            || isWarehousePurchasingPage
+                                                            || isSupplierPurchaseOrdersPage
+                                                            || isInventoryManagementPage
+                                                            || isInventoryHistoryPage
+                                                        )
+                                                            ? "open"
+                                                            : null
+                                                    )>
+
                                                 <summary>Quản lí kho</summary>
-                                                @if (branchGrants.Contains(ManagementFeatureCatalog.WarehouseSuppliers))
+
+                                                @if (branchGrants.Contains(
+                                                    ManagementFeatureCatalog.WarehouseReceipts))
                                                 {
-                                                    <a class="@(requestManagementTab == "warehouse" && Context.Request.Query["subtab"] != "receipts" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=warehouse&subtab=suppliers&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Quản lí nhà cung cấp</a>
+                                                    <a class="@(
+                                                            isSupplierPurchaseOrdersPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                        href="/Admin/SupplierPurchaseOrders?branchId=@branch.Id">
+                                                        Đặt hàng từ nhà cung cấp
+                                                    </a>
+
+                                                    <a class="@(
+                                                            isWarehousePurchasingPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                        href="/Admin/WarehouseManagement?branchId=@branch.Id&warehouseTab=orders">
+                                                        Phiếu nhập kho
+                                                    </a>
+
+                                                    <span>
+                                                        Phiếu xuất kho · đang phát triển
+                                                    </span>
+
+                                                    <a class="@(
+                                                            isInventoryManagementPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                    href="/Admin/InventoryManagement?branchId=@branch.Id">
+                                                        Danh sách tồn kho
+                                                    </a>
+
+                                                    <span>
+                                                        Kiểm kê kho · đang phát triển
+                                                    </span>
+
+                                                    <a class="@(
+                                                            isInventoryHistoryPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                    href="/Admin/InventoryHistory?branchId=@branch.Id">
+                                                        Lịch sử nhập - xuất
+                                                    </a>
                                                 }
-                                                @if (branchGrants.Contains(ManagementFeatureCatalog.WarehouseReceipts))
+
+                                                @if (branchGrants.Contains(
+                                                    ManagementFeatureCatalog.WarehouseApproval))
                                                 {
-                                                    <a class="@(requestManagementTab == "warehouse" && Context.Request.Query["subtab"] == "receipts" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=warehouse&subtab=receipts&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Quản lí nhập hàng</a>
-                                                }
-                                                @if (branchGrants.Contains(ManagementFeatureCatalog.WarehouseApproval))
-                                                {
-                                                    <span>Kiểm duyệt · đang phát triển</span>
+                                                    @*
+                                                        Sau này khi tách quyền duyệt riêng,
+                                                        có thể đặt menu duyệt phiếu tại đây.
+                                                    *@
                                                 }
                                             </details>
                                         }

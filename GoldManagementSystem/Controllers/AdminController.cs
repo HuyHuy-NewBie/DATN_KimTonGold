@@ -76,63 +76,221 @@ namespace GoldManagementSystem.Controllers
             string statusFilter = null,
             int? branchId = null)
         {
-            ViewBag.ActiveSuppliersForEdit = await _context.Suppliers
-                .Where(item => item.IsActive)
-                .OrderBy(item => item.Name)
-                .ToListAsync();
-
-            ViewBag.ActiveBranchesForEdit = await _context.Branches
-                .Where(item => item.IsActive)
-                .OrderBy(item => item.BranchName)
-                .ToListAsync();
-
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            var warehouseQuery = _context.Warehouses
-                .AsNoTracking()
-                .Include(warehouse => warehouse.Branch)
-                .Where(warehouse =>
-                    warehouse.IsActive
-                    && warehouse.Branch.IsActive)
-                .AsQueryable();
-
-            /*
-            * Admin nhìn thấy kho của toàn hệ thống.
-            * Manager và Branch Owner chỉ thấy kho thuộc chi nhánh mình.
-            */
-            if (!User.IsInRole(RoleCatalog.Admin))
-            {
-                var scopedBranchId = branchId ?? currentUser?.BranchId;
-                if (scopedBranchId.HasValue)
-                {
-                    var accessibleWarehouseIds = await _context.BranchWarehouseAccesses
-                        .Where(access => access.BranchId == scopedBranchId.Value)
-                        .Select(access => access.WarehouseId)
-                        .Concat(_context.Warehouses.Where(warehouse => warehouse.BranchId == scopedBranchId.Value).Select(warehouse => warehouse.Id))
-                        .Distinct().ToListAsync();
-                    warehouseQuery = warehouseQuery.Where(
-                        warehouse =>
-                            accessibleWarehouseIds.Contains(warehouse.Id));
-                }
-                else
-                {
-                    warehouseQuery = warehouseQuery.Where(
-                        warehouse => false);
-                }
-            }
-
-            ViewBag.ActiveWarehousesForReceipt =
-                await warehouseQuery
-                    .OrderBy(warehouse =>
-                        warehouse.Branch.BranchName)
-                    .ThenBy(warehouse =>
-                        warehouse.Name)
-                    .ToListAsync();
+            ViewBag.SelectedBranchId = branchId;
 
             return View(
                 await BuildSupplierManagementViewModelAsync(
                     searchTerm,
                     statusFilter));
+        }
+
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult> SupplierPurchaseOrders(
+            int? branchId = null)
+        {
+            ViewBag.SelectedBranchId = branchId;
+
+            ViewBag.ActiveSuppliersForEdit = await _context.Suppliers
+                .Where(supplier => supplier.IsActive)
+                .OrderBy(supplier => supplier.Name)
+                .ToListAsync();
+
+            ViewBag.ActiveBranchesForEdit = await _context.Branches
+                .Where(branch => branch.IsActive)
+                .OrderBy(branch => branch.BranchName)
+                .ToListAsync();
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            var scopedBranchId = branchId;
+
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && !scopedBranchId.HasValue)
+            {
+                scopedBranchId = currentUser?.BranchId;
+            }
+            
+            var purchaseOrderQuery = _context.SupplierPurchaseOrders
+                .AsNoTracking()
+                .Include(order => order.Supplier)
+                .Include(order => order.Branch)
+                .Include(order => order.Details)
+                .Include(order => order.Receipts)
+                .Include(order => order.Payments)
+                .AsQueryable();
+
+            if (scopedBranchId.HasValue)
+            {
+                purchaseOrderQuery = purchaseOrderQuery.Where(order =>
+                    order.BranchId == scopedBranchId.Value);
+            }
+            var warehouseQuery =
+                _context.Warehouses
+                    .AsNoTracking()
+                    .Include(warehouse => warehouse.Branch)
+                    .Where(warehouse =>
+                        warehouse.IsActive
+                        && warehouse.Branch.IsActive)
+                    .AsQueryable();
+
+            if (scopedBranchId.HasValue)
+            {
+                warehouseQuery = warehouseQuery.Where(warehouse =>
+                    warehouse.BranchId == scopedBranchId.Value);
+            }
+
+            ViewBag.ActiveWarehousesForReceipt =
+                await warehouseQuery
+                    .OrderBy(warehouse => warehouse.Name)
+                    .ToListAsync();
+            var model = new SupplierManagementViewModel
+            {
+                PurchaseOrders = await purchaseOrderQuery
+                    .OrderByDescending(order => order.CreatedAt)
+                    .ToListAsync(),
+
+                SupplierOptions = await BuildActiveSupplierOptionsAsync(),
+                BranchOptions = await BuildActiveBranchOptionsAsync(),
+                ProductLineOptions = BuildSupplierProductLineOptions()
+            };
+
+            return View(model);
+        }
+
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult> WarehouseManagement(
+            int? branchId = null)
+        {
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            /*
+            * Admin được xem chi nhánh đang chọn.
+            * Các vai trò khác chỉ xem chi nhánh được phân công.
+            */
+            int? scopedBranchId =
+                User.IsInRole(RoleCatalog.Admin)
+                    ? branchId
+                    : currentUser.BranchId;
+
+            ViewBag.SelectedBranchId =
+                scopedBranchId;
+
+            var warehouseQuery =
+                _context.Warehouses
+                    .AsNoTracking()
+                    .Include(warehouse => warehouse.Branch)
+                    .Where(warehouse =>
+                        warehouse.IsActive
+                        && warehouse.Branch.IsActive)
+                    .AsQueryable();
+
+            var purchaseOrderQuery =
+                _context.SupplierPurchaseOrders
+                    .AsNoTracking()
+                    .Include(order => order.Supplier)
+                    .Include(order => order.Branch)
+                    .Include(order => order.Details)
+                    .Include(order => order.Receipts)
+                    .Include(order => order.Payments)
+                    .Where(order =>
+                        order.Status
+                            != SupplierPurchaseOrder.StatusCancelled)
+                    .AsQueryable();
+
+            var receiptQuery =
+                _context.SupplierGoodsReceipts
+                    .AsNoTracking()
+                    .Include(receipt =>
+                        receipt.SupplierPurchaseOrder)
+                        .ThenInclude(order =>
+                            order.Supplier)
+                    .Include(receipt =>
+                        receipt.SupplierPurchaseOrder)
+                        .ThenInclude(order =>
+                            order.Branch)
+                    .Include(receipt =>
+                        receipt.Warehouse)
+                    .Include(receipt =>
+                        receipt.CreatedByUser)
+                    .Include(receipt =>
+                        receipt.Details)
+                        .ThenInclude(detail =>
+                            detail.SupplierPurchaseOrderDetail)
+                    .AsQueryable();
+
+            if (scopedBranchId.HasValue)
+            {
+                warehouseQuery =
+                    warehouseQuery.Where(warehouse =>
+                        warehouse.BranchId
+                            == scopedBranchId.Value);
+
+                purchaseOrderQuery =
+                    purchaseOrderQuery.Where(order =>
+                        order.BranchId
+                            == scopedBranchId.Value);
+
+                receiptQuery =
+                    receiptQuery.Where(receipt =>
+                        receipt.SupplierPurchaseOrder.BranchId
+                            == scopedBranchId.Value);
+            }
+            else if (!User.IsInRole(RoleCatalog.Admin))
+            {
+                warehouseQuery =
+                    warehouseQuery.Where(item => false);
+
+                purchaseOrderQuery =
+                    purchaseOrderQuery.Where(item => false);
+
+                receiptQuery =
+                    receiptQuery.Where(item => false);
+            }
+
+            ViewBag.ActiveWarehousesForReceipt =
+                await warehouseQuery
+                    .OrderBy(warehouse =>
+                        warehouse.Name)
+                    .ToListAsync();
+
+            var purchaseOrders =
+                await purchaseOrderQuery
+                    .OrderByDescending(order =>
+                        order.CreatedAt)
+                    .ToListAsync();
+
+            var receipts =
+                await receiptQuery
+                    .OrderByDescending(receipt =>
+                        receipt.ReceivedAt)
+                    .ToListAsync();
+
+            var model =
+                new SupplierManagementViewModel
+                {
+                    PurchaseOrders =
+                        purchaseOrders,
+
+                    RecentReceipts =
+                        receipts,
+
+                    ActivePurchaseOrders =
+                        purchaseOrders.Count(order =>
+                            order.Status
+                                != SupplierPurchaseOrder.StatusReceived),
+
+                    PendingReceiptCount =
+                        receipts.Count(receipt =>
+                            receipt.Status
+                                == SupplierGoodsReceipt.StatusPendingApproval)
+                };
+
+            return View(model);
         }
                 
         [HttpPost]
@@ -333,7 +491,7 @@ namespace GoldManagementSystem.Controllers
             if (supplier == null)
             {
                 TempData["ErrorMessage"] = "Nhà cung cấp không tồn tại hoặc đã tạm ngưng.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             var branch = await _context.Branches
@@ -342,13 +500,13 @@ namespace GoldManagementSystem.Controllers
             if (branch == null)
             {
                 TempData["ErrorMessage"] = "Chi nhánh nhận hàng không tồn tại hoặc đã tạm khóa.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             if (!ExpectedDeliveryDate.HasValue || ExpectedDeliveryDate.Value.Date < DateTime.Today)
             {
                 TempData["ErrorMessage"] = "Ngày dự kiến giao hàng không được nhỏ hơn ngày hiện tại.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             string GetValue(string[] values, int index)
@@ -436,55 +594,55 @@ namespace GoldManagementSystem.Controllers
                 if (!AllowedPurchaseOrderProductLines.Any(item => string.Equals(item, productLine, StringComparison.OrdinalIgnoreCase)))
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng chọn nhóm hàng hợp lệ.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (!SupplierSupportsPurchaseProductLine(supplier, productLine))
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Nhà cung cấp không có nhóm cung ứng phù hợp với dòng hàng {productLine}.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (string.IsNullOrWhiteSpace(category))
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng chọn hoặc nhập danh mục hàng.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (string.IsNullOrWhiteSpace(productName))
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng nhập tên sản phẩm dự kiến nhập.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (string.IsNullOrWhiteSpace(goldType))
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Vui lòng chọn hoặc nhập chất liệu / phân loại.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (quantity <= 0)
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Số lượng đặt hàng phải lớn hơn 0.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (unitCost <= 0)
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Đơn giá nhập phải lớn hơn 0.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (IsWeightRequiredPurchaseLine(productLine) && weight <= 0)
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Trọng lượng phải lớn hơn 0 đối với vàng hoặc bạc.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (IsCaratRequiredPurchaseLine(productLine) && (!diamondCarat.HasValue || diamondCarat.Value <= 0))
                 {
                     TempData["ErrorMessage"] = $"Dòng {rowNumber}: Carat phải lớn hơn 0 đối với kim cương hoặc đá quý.";
-                    return RedirectToAction(nameof(SupplierManagement));
+                    return RedirectToAction(nameof(SupplierPurchaseOrders));
                 }
 
                 if (!IsWeightRequiredPurchaseLine(productLine))
@@ -521,7 +679,7 @@ namespace GoldManagementSystem.Controllers
             if (!details.Any())
             {
                 TempData["ErrorMessage"] = "Vui lòng thêm ít nhất một dòng hàng hợp lệ cho đơn đặt hàng.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             var currentUser = await _userManager.GetUserAsync(User);
@@ -553,7 +711,7 @@ namespace GoldManagementSystem.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Đã tạo đơn đặt hàng NCC {purchaseOrder.OrderCode}.";
-            return RedirectToAction(nameof(SupplierManagement));
+            return RedirectToAction(nameof(SupplierPurchaseOrders));
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -584,19 +742,19 @@ namespace GoldManagementSystem.Controllers
             if (order == null)
             {
                 TempData["ErrorMessage"] = "Không tìm thấy đơn đặt hàng nhà cung cấp.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             if (order.Status != SupplierPurchaseOrder.StatusOrdered)
             {
                 TempData["ErrorMessage"] = "Chỉ được sửa đơn đặt hàng đang ở trạng thái Đã đặt hàng.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             if ((order.Receipts != null && order.Receipts.Any()) || (order.Payments != null && order.Payments.Any()))
             {
                 TempData["ErrorMessage"] = "Không thể sửa đơn đã phát sinh kiểm hàng hoặc thanh toán.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             var supplier = await _context.Suppliers
@@ -605,7 +763,7 @@ namespace GoldManagementSystem.Controllers
             if (supplier == null)
             {
                 TempData["ErrorMessage"] = "Nhà cung cấp không tồn tại hoặc đã tạm ngưng.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             var branch = await _context.Branches
@@ -614,13 +772,13 @@ namespace GoldManagementSystem.Controllers
             if (branch == null)
             {
                 TempData["ErrorMessage"] = "Chi nhánh nhận hàng không tồn tại hoặc đã tạm khóa.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             if (!ExpectedDeliveryDate.HasValue || ExpectedDeliveryDate.Value.Date < DateTime.Today)
             {
                 TempData["ErrorMessage"] = "Ngày dự kiến giao hàng không được nhỏ hơn ngày hiện tại.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             var detailResult = BuildSupplierPurchaseOrderDetails(
@@ -639,7 +797,7 @@ namespace GoldManagementSystem.Controllers
             if (!detailResult.IsValid)
             {
                 TempData["ErrorMessage"] = detailResult.ErrorMessage;
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             order.SupplierId = supplier.Id;
@@ -658,7 +816,7 @@ namespace GoldManagementSystem.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Đã cập nhật đơn đặt hàng NCC {order.OrderCode}.";
-            return RedirectToAction(nameof(SupplierManagement));
+            return RedirectToAction(nameof(SupplierPurchaseOrders));
         }
 
         [HttpPost]
@@ -674,19 +832,19 @@ namespace GoldManagementSystem.Controllers
             if (order == null)
             {
                 TempData["ErrorMessage"] = "Không tìm thấy đơn đặt hàng nhà cung cấp.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             if (order.Status != SupplierPurchaseOrder.StatusOrdered)
             {
                 TempData["ErrorMessage"] = "Chỉ được hủy đơn đặt hàng đang ở trạng thái Đã đặt hàng.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             if ((order.Receipts != null && order.Receipts.Any()) || (order.Payments != null && order.Payments.Any()))
             {
                 TempData["ErrorMessage"] = "Không thể hủy đơn đã phát sinh kiểm hàng hoặc thanh toán.";
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(SupplierPurchaseOrders));
             }
 
             order.Status = SupplierPurchaseOrder.StatusCancelled;
@@ -694,7 +852,7 @@ namespace GoldManagementSystem.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Đã hủy đơn đặt hàng NCC {order.OrderCode}.";
-            return RedirectToAction(nameof(SupplierManagement));
+            return RedirectToAction(nameof(SupplierPurchaseOrders));
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -727,7 +885,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Số chứng từ giao hàng không được vượt quá 100 ký tự.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (DeliveredBy.Length > 150)
@@ -735,7 +893,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Tên người giao hàng không được vượt quá 150 ký tự.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (ReceiptNote.Length > 1000)
@@ -743,7 +901,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Ghi chú phiếu nhận không được vượt quá 1000 ký tự.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             var order = await _context.SupplierPurchaseOrders
@@ -760,7 +918,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Không tìm thấy đơn đặt hàng nhà cung cấp.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (order.Status == SupplierPurchaseOrder.StatusCancelled)
@@ -768,7 +926,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Không thể nhận hàng cho đơn đã bị hủy.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (order.Status == SupplierPurchaseOrder.StatusReceived)
@@ -776,7 +934,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Đơn đặt hàng này đã được nhận đủ.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (order.Status != SupplierPurchaseOrder.StatusOrdered
@@ -786,7 +944,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Trạng thái đơn đặt hàng không cho phép tạo phiếu nhận.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             var currentUser =
@@ -807,7 +965,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Bạn không có quyền nhận hàng cho chi nhánh này.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             var warehouse = await _context.Warehouses
@@ -821,7 +979,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Kho nhận hàng không tồn tại hoặc đang tạm ngưng.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (warehouse.BranchId != order.BranchId)
@@ -829,7 +987,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Kho được chọn không thuộc chi nhánh nhận hàng của đơn đặt hàng.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (!ReceivedAt.HasValue)
@@ -837,7 +995,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Vui lòng nhập thời điểm nhận hàng.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (ReceivedAt.Value > DateTime.Now.AddMinutes(5))
@@ -845,7 +1003,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Thời điểm nhận hàng không được lớn hơn thời điểm hiện tại.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (ReceivedAt.Value.Date < order.CreatedAt.Date)
@@ -853,7 +1011,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Thời điểm nhận hàng không được trước ngày tạo đơn.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             if (PurchaseOrderDetailIds == null
@@ -862,7 +1020,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Đơn đặt hàng không có dòng hàng để nhận.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
 
             var orderDetailDictionary =
@@ -891,7 +1049,7 @@ namespace GoldManagementSystem.Controllers
                         "Dữ liệu dòng hàng nhận bị trùng.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 if (!orderDetailDictionary.TryGetValue(
@@ -902,7 +1060,7 @@ namespace GoldManagementSystem.Controllers
                         "Có dòng hàng không thuộc đơn đặt hàng.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 var receivedQuantity =
@@ -953,7 +1111,7 @@ namespace GoldManagementSystem.Controllers
                         + "Số lượng nhận không được nhỏ hơn 0.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 var remainingQuantity =
@@ -967,7 +1125,7 @@ namespace GoldManagementSystem.Controllers
                         + "Hàng này đã được nhận đủ.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 if (receivedQuantity > remainingQuantity)
@@ -977,7 +1135,7 @@ namespace GoldManagementSystem.Controllers
                         + $"Chỉ còn được nhận tối đa {remainingQuantity} sản phẩm.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 if (IsWeightRequiredPurchaseLine(
@@ -989,7 +1147,7 @@ namespace GoldManagementSystem.Controllers
                         + "Vui lòng nhập trọng lượng thực nhận.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 if (IsCaratRequiredPurchaseLine(
@@ -1002,7 +1160,7 @@ namespace GoldManagementSystem.Controllers
                         + "Vui lòng nhập carat thực nhận.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 if (!IsWeightRequiredPurchaseLine(
@@ -1065,7 +1223,7 @@ namespace GoldManagementSystem.Controllers
                 TempData["ErrorMessage"] =
                     "Vui lòng nhập số lượng nhận cho ít nhất một dòng hàng.";
 
-                return RedirectToAction(nameof(SupplierManagement));
+                return RedirectToAction(nameof(WarehouseManagement));
             }
             try
             {
@@ -1144,7 +1302,7 @@ namespace GoldManagementSystem.Controllers
                     + "Hàng đang chờ kiểm tra và chưa được nhập kho.";
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }
             catch (Exception exception)
             {
@@ -1162,8 +1320,814 @@ namespace GoldManagementSystem.Controllers
                     + errorMessage;
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }           
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult> MarkSupplierPurchaseOrderAsShipping(
+            int purchaseOrderId)
+        {
+            var order = await _context.SupplierPurchaseOrders
+                .Include(item => item.Details)
+                .FirstOrDefaultAsync(item =>
+                    item.Id == purchaseOrderId);
+
+            if (order == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Không tìm thấy đơn đặt hàng nhà cung cấp.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement));
+            }
+
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && currentUser.BranchId != order.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Bạn không có quyền cập nhật đơn của chi nhánh này.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            var canStartShipping =
+                order.Status == SupplierPurchaseOrder.StatusOrdered
+                || order.Status
+                    == SupplierPurchaseOrder.StatusPartiallyReceived
+                || order.Status
+                    == SupplierPurchaseOrder.StatusAwaitingReplacement;
+
+            if (!canStartShipping)
+            {
+                TempData["ErrorMessage"] =
+                    "Trạng thái hiện tại không cho phép chuyển sang Đang giao.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            order.Status =
+                SupplierPurchaseOrder.StatusShipping;
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] =
+                $"Đơn {order.OrderCode} đã chuyển sang trạng thái Đang giao.";
+
+            return RedirectToAction(
+                nameof(WarehouseManagement),
+                new { branchId = order.BranchId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult> ConfirmSupplierDeliveryInspection(
+            int PurchaseOrderId,
+            int WarehouseId,
+            DateTime? ReceivedAt,
+            string DeliveryDocumentNumber,
+            string DeliveredBy,
+            string ReceiptNote,
+            int[] PurchaseOrderDetailIds,
+            string[] DeliveredQuantities,
+            string[] AcceptedQuantities,
+            string[] AcceptedWeights,
+            string[] AcceptedDiamondCarats,
+            string[] AcceptedDiamondCertificates,
+            string[] RejectionReasons)
+        {
+            DeliveryDocumentNumber =
+                NormalizeOrEmpty(DeliveryDocumentNumber);
+
+            DeliveredBy =
+                NormalizeOrEmpty(DeliveredBy);
+
+            ReceiptNote =
+                NormalizeOrEmpty(ReceiptNote);
+
+            if (DeliveryDocumentNumber.Length > 100)
+            {
+                TempData["ErrorMessage"] =
+                    "Số chứng từ giao hàng không được vượt quá 100 ký tự.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement));
+            }
+
+            if (DeliveredBy.Length > 150)
+            {
+                TempData["ErrorMessage"] =
+                    "Tên người giao hàng không được vượt quá 150 ký tự.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement));
+            }
+
+            if (ReceiptNote.Length > 1000)
+            {
+                TempData["ErrorMessage"] =
+                    "Ghi chú không được vượt quá 1000 ký tự.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement));
+            }
+
+            var order = await _context.SupplierPurchaseOrders
+                .Include(item => item.Supplier)
+                .Include(item => item.Branch)
+                .Include(item => item.Details)
+                .FirstOrDefaultAsync(item =>
+                    item.Id == PurchaseOrderId);
+
+            if (order == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Không tìm thấy đơn đặt hàng.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement));
+            }
+
+            if (order.Status != SupplierPurchaseOrder.StatusShipping)
+            {
+                TempData["ErrorMessage"] =
+                    "Chỉ được kiểm hàng khi đơn đang ở trạng thái Đang giao.";
+
+                return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new
+                        {
+                            branchId = order.BranchId,
+                            warehouseTab = "receipts"
+                        });
+            }
+
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && currentUser.BranchId != order.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Bạn không có quyền kiểm hàng của chi nhánh này.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            var warehouse = await _context.Warehouses
+                .FirstOrDefaultAsync(item =>
+                    item.Id == WarehouseId
+                    && item.IsActive);
+
+            if (warehouse == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Kho nhận hàng không tồn tại hoặc đang tạm ngưng.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            if (warehouse.BranchId != order.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Kho nhận không thuộc chi nhánh của đơn đặt hàng.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            if (!ReceivedAt.HasValue)
+            {
+                TempData["ErrorMessage"] =
+                    "Vui lòng nhập thời điểm hàng tới kho.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            if (ReceivedAt.Value > DateTime.Now.AddMinutes(5))
+            {
+                TempData["ErrorMessage"] =
+                    "Thời điểm hàng tới không được lớn hơn hiện tại.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            if (PurchaseOrderDetailIds == null
+                || PurchaseOrderDetailIds.Length == 0)
+            {
+                TempData["ErrorMessage"] =
+                    "Đơn đặt hàng không có hàng để kiểm tra.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            var orderDetailDictionary =
+                order.Details.ToDictionary(detail => detail.Id);
+
+            var receiptDetails =
+                new List<SupplierGoodsReceiptDetail>();
+
+            var submittedDetailIds =
+                new HashSet<int>();
+
+            var totalDeliveredQuantity = 0;
+            var totalAcceptedQuantity = 0;
+            var totalRejectedQuantity = 0;
+
+            for (var index = 0;
+                index < PurchaseOrderDetailIds.Length;
+                index++)
+            {
+                var detailId =
+                    PurchaseOrderDetailIds[index];
+
+                if (!submittedDetailIds.Add(detailId))
+                {
+                    TempData["ErrorMessage"] =
+                        "Dữ liệu dòng hàng bị trùng.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (!orderDetailDictionary.TryGetValue(
+                    detailId,
+                    out var orderDetail))
+                {
+                    TempData["ErrorMessage"] =
+                        "Có dòng hàng không thuộc đơn đặt hàng.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                var deliveredQuantity =
+                    ParseSupplierInt(
+                        GetArrayValue(
+                            DeliveredQuantities,
+                            index));
+
+                var acceptedQuantity =
+                    ParseSupplierInt(
+                        GetArrayValue(
+                            AcceptedQuantities,
+                            index));
+
+                /*
+                * Cho phép nhập 0 để bỏ qua một dòng
+                * trong lần giao hàng hiện tại.
+                */
+                if (deliveredQuantity == 0
+                    && acceptedQuantity == 0)
+                {
+                    continue;
+                }
+
+                if (deliveredQuantity <= 0)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Số lượng giao phải lớn hơn 0.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (acceptedQuantity < 0)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Số lượng đạt không được nhỏ hơn 0.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (acceptedQuantity > deliveredQuantity)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Số lượng đạt không được lớn hơn số lượng giao.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                var remainingQuantity =
+                    orderDetail.Quantity
+                    - orderDetail.AcceptedQuantity;
+
+                if (remainingQuantity <= 0)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Sản phẩm này đã được nhận đủ.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (deliveredQuantity > remainingQuantity)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + $"Nhà cung cấp chỉ còn phải giao "
+                        + $"{remainingQuantity} sản phẩm.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                var rejectedQuantity =
+                    deliveredQuantity - acceptedQuantity;
+
+                var acceptedWeight =
+                    ParseSupplierDecimal(
+                        GetArrayValue(
+                            AcceptedWeights,
+                            index));
+
+                var acceptedCaratValue =
+                    ParseSupplierDecimal(
+                        GetArrayValue(
+                            AcceptedDiamondCarats,
+                            index));
+
+                var acceptedCarat =
+                    acceptedCaratValue > 0
+                        ? acceptedCaratValue
+                        : (decimal?)null;
+
+                var acceptedCertificate =
+                    NormalizeOrEmpty(
+                        GetArrayValue(
+                            AcceptedDiamondCertificates,
+                            index));
+
+                var rejectionReason =
+                    NormalizeOrEmpty(
+                        GetArrayValue(
+                            RejectionReasons,
+                            index));
+
+                if (acceptedCertificate.Length > 120)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Mã kiểm định không được vượt quá 120 ký tự.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (rejectionReason.Length > 500)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Lý do không đạt không được vượt quá 500 ký tự.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (rejectedQuantity > 0
+                    && string.IsNullOrWhiteSpace(rejectionReason))
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Vui lòng nhập lý do cho số lượng không đạt.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (acceptedQuantity > 0
+                    && IsWeightRequiredPurchaseLine(
+                        orderDetail.ProductLine)
+                    && acceptedWeight <= 0)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Vui lòng nhập trọng lượng của hàng đạt.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (acceptedQuantity > 0
+                    && IsCaratRequiredPurchaseLine(
+                        orderDetail.ProductLine)
+                    && (!acceptedCarat.HasValue
+                        || acceptedCarat.Value <= 0))
+                {
+                    TempData["ErrorMessage"] =
+                        $"Dòng {index + 1}: "
+                        + "Vui lòng nhập carat của hàng đạt.";
+
+                    return RedirectToAction(
+                        nameof(WarehouseManagement),
+                        new { branchId = order.BranchId });
+                }
+
+                if (acceptedQuantity == 0
+                    || !IsWeightRequiredPurchaseLine(
+                        orderDetail.ProductLine))
+                {
+                    acceptedWeight = 0;
+                }
+
+                if (acceptedQuantity == 0
+                    || !IsCaratRequiredPurchaseLine(
+                        orderDetail.ProductLine))
+                {
+                    acceptedCarat = null;
+                    acceptedCertificate = string.Empty;
+                }
+
+                var qualityStatus =
+                    acceptedQuantity == 0
+                        ? SupplierGoodsReceiptDetail.QualityFailed
+                        : rejectedQuantity == 0
+                            ? SupplierGoodsReceiptDetail.QualityPassed
+                            : SupplierGoodsReceiptDetail
+                                .QualityPartiallyPassed;
+
+                var receiptDetail =
+                    new SupplierGoodsReceiptDetail
+                    {
+                        SupplierPurchaseOrderDetailId =
+                            orderDetail.Id,
+
+                        ReceivedQuantity =
+                            deliveredQuantity,
+
+                        AcceptedQuantity =
+                            acceptedQuantity,
+
+                        RejectedQuantity =
+                            rejectedQuantity,
+
+                        ActualWeight =
+                            acceptedWeight,
+
+                        ActualDiamondCarat =
+                            acceptedCarat,
+
+                        ActualDiamondCertificate =
+                            acceptedCertificate,
+
+                        ActualUnitCost =
+                            orderDetail.UnitCost,
+
+                        LineValue =
+                            acceptedQuantity
+                            * orderDetail.UnitCost,
+
+                        QualityStatus =
+                            qualityStatus,
+
+                        RejectionReason =
+                            rejectedQuantity > 0
+                                ? rejectionReason
+                                : string.Empty,
+
+                        Resolution =
+                            SupplierGoodsReceiptDetail
+                                .ResolutionNone
+                    };
+
+                receiptDetails.Add(receiptDetail);
+
+                /*
+                * ReceivedQuantity trên đơn được hiểu là
+                * số lượng cửa hàng thực sự chấp nhận nhận.
+                */
+                orderDetail.ReceivedQuantity +=
+                    acceptedQuantity;
+
+                orderDetail.AcceptedQuantity +=
+                    acceptedQuantity;
+
+                orderDetail.RejectedQuantity +=
+                    rejectedQuantity;
+
+                totalDeliveredQuantity +=
+                    deliveredQuantity;
+
+                totalAcceptedQuantity +=
+                    acceptedQuantity;
+
+                totalRejectedQuantity +=
+                    rejectedQuantity;
+            }
+
+            if (!receiptDetails.Any())
+            {
+                TempData["ErrorMessage"] =
+                    "Vui lòng nhập số lượng giao cho ít nhất một dòng.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new { branchId = order.BranchId });
+            }
+
+            var receipt = new SupplierGoodsReceipt
+            {
+                ReceiptCode =
+                    BuildSupplierGoodsReceiptCode(),
+
+                SupplierPurchaseOrderId =
+                    order.Id,
+
+                WarehouseId =
+                    warehouse.Id,
+
+                CreatedByUserId =
+                    currentUser.Id,
+
+                ReceivedAt =
+                    ReceivedAt.Value,
+
+                /*
+                * Có hàng đạt thì chờ nhập kho.
+                * Không có hàng đạt thì lưu kết quả không đạt.
+                */
+                Status =
+                    totalAcceptedQuantity > 0
+                        ? SupplierGoodsReceipt.StatusPendingApproval
+                        : SupplierGoodsReceipt.StatusRejected,
+
+                DeliveryDocumentNumber =
+                    DeliveryDocumentNumber,
+
+                DeliveredBy =
+                    DeliveredBy,
+
+                TotalAcceptedValue =
+                    receiptDetails.Sum(detail =>
+                        detail.LineValue),
+
+                Note =
+                    ReceiptNote
+            };
+
+            foreach (var receiptDetail in receiptDetails)
+            {
+                receipt.Details.Add(receiptDetail);
+            }
+
+            var allItemsAccepted =
+                order.Details.All(detail =>
+                    detail.AcceptedQuantity
+                    >= detail.Quantity);
+
+            var hasAcceptedItems =
+                order.Details.Any(detail =>
+                    detail.AcceptedQuantity > 0);
+
+            if (allItemsAccepted)
+            {
+                order.Status =
+                    SupplierPurchaseOrder.StatusReceived;
+            }
+            else if (hasAcceptedItems)
+            {
+                order.Status =
+                    SupplierPurchaseOrder
+                        .StatusPartiallyReceived;
+            }
+            else
+            {
+                order.Status =
+                    SupplierPurchaseOrder
+                        .StatusAwaitingReplacement;
+            }
+
+            _context.SupplierGoodsReceipts.Add(receipt);
+
+            await _context.SaveChangesAsync();
+
+            if (totalAcceptedQuantity == 0)
+            {
+                TempData["SuccessMessage"] =
+                    $"Đã lưu kết quả kiểm hàng {receipt.ReceiptCode}. "
+                    + $"Toàn bộ {totalRejectedQuantity} sản phẩm không đạt; "
+                    + "không có hàng nào được nhận.";
+            }
+            else
+            {
+                TempData["SuccessMessage"] =
+                    $"Đã xác nhận nhận {totalAcceptedQuantity}/"
+                    + $"{totalDeliveredQuantity} sản phẩm. "
+                    + $"Phiếu {receipt.ReceiptCode} đang chờ nhập kho.";
+            }
+
+            return RedirectToAction(
+                nameof(WarehouseManagement),
+                new { branchId = order.BranchId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult>
+            PostSupplierGoodsReceiptToInventory(
+                int receiptId)
+        {
+            var receipt = await _context.SupplierGoodsReceipts
+                .Include(item => item.Warehouse)
+                .Include(item => item.SupplierPurchaseOrder)
+                    .ThenInclude(order => order.Details)
+                .Include(item => item.Details)
+                    .ThenInclude(detail =>
+                        detail.SupplierPurchaseOrderDetail)
+                .FirstOrDefaultAsync(item =>
+                    item.Id == receiptId);
+
+            if (receipt == null)
+            {
+                TempData["ErrorMessage"] =
+                    "Không tìm thấy phiếu nhập kho.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement));
+            }
+
+            if (receipt.Status
+                != SupplierGoodsReceipt.StatusPendingApproval)
+            {
+                TempData["ErrorMessage"] =
+                    "Phiếu này không ở trạng thái Chờ nhập kho.";
+
+                return RedirectToAction(
+                    nameof(InventoryManagement),
+                    new
+                    {
+                        branchId =
+                            receipt.SupplierPurchaseOrder.BranchId,
+
+                        inventoryTab = "items"
+                    });
+            }
+
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            if (!User.IsInRole(RoleCatalog.Admin)
+                && currentUser.BranchId
+                    != receipt.SupplierPurchaseOrder.BranchId)
+            {
+                TempData["ErrorMessage"] =
+                    "Bạn không có quyền nhập kho phiếu này.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new
+                    {
+                        branchId =
+                            receipt.SupplierPurchaseOrder.BranchId
+                    });
+            }
+
+            var acceptedDetails =
+                receipt.Details
+                    .Where(detail =>
+                        detail.AcceptedQuantity > 0)
+                    .ToList();
+
+            if (!acceptedDetails.Any())
+            {
+                TempData["ErrorMessage"] =
+                    "Phiếu không có hàng đạt để nhập kho.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new
+                    {
+                        branchId =
+                            receipt.SupplierPurchaseOrder.BranchId
+                    });
+            }
+
+            try
+            {
+                foreach (var detail in acceptedDetails)
+                {
+                    await _inventoryStockService
+                        .PrepareSupplierReceiptEntryAsync(
+                            receiptDetailId:
+                                detail.Id,
+
+                            warehouseId:
+                                receipt.WarehouseId,
+
+                            acceptedQuantity:
+                                detail.AcceptedQuantity,
+
+                            acceptedWeight:
+                                detail.ActualWeight,
+
+                            acceptedCarat:
+                                detail.ActualDiamondCarat,
+
+                            approvedUnitCost:
+                                detail.ActualUnitCost,
+
+                            createdByUserId:
+                                currentUser.Id,
+
+                            note:
+                                $"Nhập kho từ phiếu {receipt.ReceiptCode}.");
+                }
+
+                var hasRejectedItems =
+                    receipt.Details.Any(detail =>
+                        detail.RejectedQuantity > 0);
+
+                receipt.Status =
+                    hasRejectedItems
+                        ? SupplierGoodsReceipt
+                            .StatusPartiallyApproved
+                        : SupplierGoodsReceipt
+                            .StatusApproved;
+
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] =
+                    $"Đã nhập {acceptedDetails.Sum(detail => detail.AcceptedQuantity)} "
+                    + $"sản phẩm từ phiếu {receipt.ReceiptCode} vào kho.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new
+                    {
+                        branchId =
+                            receipt.SupplierPurchaseOrder.BranchId
+                    });
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception);
+
+                TempData["ErrorMessage"] =
+                    "Không thể nhập hàng vào tồn kho. "
+                    + "Vui lòng kiểm tra lại dữ liệu phiếu.";
+
+                return RedirectToAction(
+                    nameof(WarehouseManagement),
+                    new
+                    {
+                        branchId =
+                            receipt.SupplierPurchaseOrder.BranchId
+                    });
+            }
         }
 
         [HttpPost]
@@ -1180,6 +2144,7 @@ namespace GoldManagementSystem.Controllers
             var receipt = await _context.SupplierGoodsReceipts
                 .Include(item => item.Warehouse)
                 .Include(item => item.SupplierPurchaseOrder)
+                .ThenInclude(order => order.Details)
                 .Include(item => item.Details)
                     .ThenInclude(detail =>
                         detail.SupplierPurchaseOrderDetail)
@@ -1192,7 +2157,7 @@ namespace GoldManagementSystem.Controllers
                     "Không tìm thấy phiếu nhận hàng.";
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }
 
             /*
@@ -1213,7 +2178,7 @@ namespace GoldManagementSystem.Controllers
                     "Phiếu này đã được duyệt hoặc không còn ở trạng thái cho phép kiểm hàng.";
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }
 
             if (receipt.Details == null
@@ -1223,7 +2188,7 @@ namespace GoldManagementSystem.Controllers
                     "Phiếu nhận hàng không có dòng hàng.";
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }
 
             var currentUser =
@@ -1246,7 +2211,7 @@ namespace GoldManagementSystem.Controllers
                     "Bạn không có quyền duyệt phiếu nhận hàng của chi nhánh này.";
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }
 
             /*
@@ -1264,7 +2229,7 @@ namespace GoldManagementSystem.Controllers
                         + $"{detail.SupplierPurchaseOrderDetail?.ProductName ?? detail.Id.ToString()}.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 result = NormalizeOrEmpty(result);
@@ -1278,7 +2243,7 @@ namespace GoldManagementSystem.Controllers
                         "Kết quả kiểm hàng không hợp lệ.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 var rejectionReason =
@@ -1297,7 +2262,7 @@ namespace GoldManagementSystem.Controllers
                         + $"{detail.SupplierPurchaseOrderDetail?.ProductName ?? "dòng hàng"}.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 if (rejectionReason.Length > 500)
@@ -1306,7 +2271,7 @@ namespace GoldManagementSystem.Controllers
                         "Lý do không đạt không được vượt quá 500 ký tự.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
 
                 if (result
@@ -1317,7 +2282,7 @@ namespace GoldManagementSystem.Controllers
                         "Số lượng hàng đạt phải lớn hơn 0.";
 
                     return RedirectToAction(
-                        nameof(SupplierManagement));
+                        nameof(WarehouseManagement));
                 }
             }
 
@@ -1459,11 +2424,39 @@ namespace GoldManagementSystem.Controllers
                         purchaseOrderDetail.RejectedQuantity +=
                             detail.ReceivedQuantity;
 
+                        /*
+                        * Hàng không đạt không được tính là đã hoàn thành nhận hàng.
+                        * Trả lại số lượng để có thể nhận hàng thay thế từ nhà cung cấp.
+                        */
+                        purchaseOrderDetail.ReceivedQuantity =
+                            Math.Max(
+                                0,
+                                purchaseOrderDetail.ReceivedQuantity
+                                - detail.ReceivedQuantity);
+
                         totalRejectedQuantity +=
                             detail.ReceivedQuantity;
                     }
                 }
 
+                var purchaseOrder =
+                    receipt.SupplierPurchaseOrder;
+
+                var allItemsReceived =
+                    purchaseOrder.Details.All(detail =>
+                        detail.ReceivedQuantity >= detail.Quantity);
+
+                var hasReceivedItems =
+                    purchaseOrder.Details.Any(detail =>
+                        detail.ReceivedQuantity > 0);
+
+                purchaseOrder.Status =
+                    allItemsReceived
+                        ? SupplierPurchaseOrder.StatusReceived
+                        : hasReceivedItems
+                            ? SupplierPurchaseOrder.StatusPartiallyReceived
+                            : SupplierPurchaseOrder.StatusOrdered;
+                            
                 receipt.TotalAcceptedValue =
                     receipt.Details.Sum(
                         detail => detail.LineValue);
@@ -1522,7 +2515,7 @@ namespace GoldManagementSystem.Controllers
                 }
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }
             catch (Exception exception)
             {
@@ -1546,7 +2539,7 @@ namespace GoldManagementSystem.Controllers
                     + errorMessage;
 
                 return RedirectToAction(
-                    nameof(SupplierManagement));
+                    nameof(WarehouseManagement));
             }
         }
 
@@ -2310,11 +3303,14 @@ namespace GoldManagementSystem.Controllers
 
             var isAdmin = User.IsInRole(RoleCatalog.Admin);
 
-            int? scopedBranchId = null;
+            int? scopedBranchId =
+                isAdmin
+                    ? branchId
+                    : currentUser?.BranchId;
 
             if (!isAdmin)
             {
-                scopedBranchId = branchId ?? currentUser?.BranchId;
+                branchId = scopedBranchId;
             }
 
             var warehouseQuery = _context.Warehouses
@@ -2323,10 +3319,13 @@ namespace GoldManagementSystem.Controllers
                 .AsQueryable();
 
             var inventoryQuery = _context.InventoryItems
+                .AsNoTracking()
                 .Include(item => item.Warehouse)
                     .ThenInclude(warehouse => warehouse.Branch)
                 .Include(item => item.Supplier)
                 .Include(item => item.SupplierPurchaseOrder)
+                .Include(item => item.SupplierGoodsReceiptDetail)
+                    .ThenInclude(detail => detail.SupplierGoodsReceipt)
                 .AsQueryable();
 
             /*
@@ -2369,7 +3368,7 @@ namespace GoldManagementSystem.Controllers
             * Danh sách này dùng để tính thống kê tổng quan,
             * chưa áp dụng bộ lọc trên giao diện.
             */
-            var overviewItems = await inventoryQuery.ToListAsync();
+            
 
             if (branchId.HasValue)
             {
@@ -2387,6 +3386,10 @@ namespace GoldManagementSystem.Controllers
                 inventoryQuery = inventoryQuery.Where(
                     item => item.WarehouseId == warehouseId.Value);
             }
+
+            var overviewItems = await inventoryQuery
+                .AsNoTracking()
+                .ToListAsync();
 
             if (!string.IsNullOrWhiteSpace(statusFilter))
             {

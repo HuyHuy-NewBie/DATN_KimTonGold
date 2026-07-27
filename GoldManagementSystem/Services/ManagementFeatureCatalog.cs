@@ -21,7 +21,7 @@ namespace GoldManagementSystem.Services
 
         public static IReadOnlyList<ManagementFeature> BranchFeatures { get; } = new[]
         {
-            new ManagementFeature(WarehouseSuppliers, "Quản lí kho", "Nhà cung cấp", "Xem và cập nhật nhà cung cấp."),
+            new ManagementFeature(WarehouseSuppliers, "Quản lí kho", "Nhà cung cấp", "Xem, thêm, sửa, tìm kiếm, kích hoạt và tạm ngưng nhà cung cấp."),
             new ManagementFeature(WarehouseReceipts, "Quản lí kho", "Nhập hàng", "Đơn nhập, phiếu nhận và tồn kho."),
             new ManagementFeature(WarehouseApproval, "Quản lí kho", "Kiểm duyệt", "Quyền kiểm duyệt hàng nhập khi chức năng được phát hành."),
             new ManagementFeature(PeopleView, "Nhân sự", "Danh sách nhân sự", "Xem nhân viên trực thuộc chi nhánh."),

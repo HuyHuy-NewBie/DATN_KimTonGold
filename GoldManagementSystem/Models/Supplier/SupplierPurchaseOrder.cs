@@ -8,7 +8,9 @@ namespace GoldManagementSystem.Models
     public class SupplierPurchaseOrder
     {
         public const string StatusOrdered = "Đã đặt hàng";
+        public const string StatusShipping = "Đang giao";
         public const string StatusPartiallyReceived = "Nhận một phần";
+        public const string StatusAwaitingReplacement = "Chờ giao bù";
         public const string StatusReceived = "Đã nhận đủ";
         public const string StatusCancelled = "Đã hủy";
 

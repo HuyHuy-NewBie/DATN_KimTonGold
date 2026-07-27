@@ -19,11 +19,11 @@
                 warehouse.Name)
             .ToList();
 
-    var receivableDetails =
+    var inspectableDetails =
         Model.Details
             .Where(detail =>
-                detail.ReceivedQuantity
-                < detail.Quantity)
+                detail.AcceptedQuantity
+                    < detail.Quantity)
             .ToList();
 
     var hasAvailableWarehouse =
@@ -55,7 +55,7 @@
 }
 
 <div class="supplier-modal"
-     id="supplierGoodsReceiptCreateModal-@Model.Id"
+     id="supplierDeliveryInspectionModal-@Model.Id"
      aria-hidden="true">
 
     <div class="supplier-modal__backdrop"
@@ -66,38 +66,44 @@
         <div class="supplier-modal__header">
             <div>
                 <p class="admin-section__eyebrow">
-                    Tiếp nhận hàng hóa
+                    Kiểm hàng nhà cung cấp
                 </p>
 
                 <h2>
-                    Tạo phiếu nhận hàng @Model.OrderCode
+                    Kiểm hàng đơn @Model.OrderCode
                 </h2>
+
+                <p>
+                    Nhập số lượng giao thực tế và số lượng đạt.
+                    Hệ thống sẽ tự tính số lượng không đạt.
+                </p>
             </div>
 
             <button type="button"
                     class="supplier-modal__close"
-                    data-close-modal>
+                    data-close-modal
+                    aria-label="Đóng">
                 ×
             </button>
         </div>
 
         <div class="admin-alert admin-alert--success">
-            Phiếu này chỉ xác nhận hàng đã đến kho.
-            Hàng chưa được nhập vào tồn kho và chưa phát sinh
-            công nợ cho đến khi được kiểm tra và duyệt.
+            Hàng chưa được ghi nhận là đã nhận và chưa cộng tồn kho.
+            Chỉ số lượng đạt mới được nhận sau khi bạn xác nhận kết quả.
         </div>
 
         @if (!hasAvailableWarehouse)
         {
             <div class="admin-alert admin-alert--danger">
                 Chi nhánh @Model.Branch?.BranchName chưa có kho
-                đang hoạt động. Hãy tạo kho trước khi nhận hàng.
+                đang hoạt động.
             </div>
         }
 
-        <form asp-action="CreateSupplierGoodsReceipt"
+        <form asp-action="ConfirmSupplierDeliveryInspection"
               asp-controller="Admin"
-              method="post">
+              method="post"
+              class="supplier-inspection-form">
 
             <input type="hidden"
                    name="PurchaseOrderId"
@@ -106,35 +112,24 @@
             <div class="supplier-detail-grid">
                 <div>
                     <span>Nhà cung cấp</span>
-
-                    <strong>
-                        @(Model.Supplier?.Name ?? "--")
-                    </strong>
+                    <strong>@(Model.Supplier?.Name ?? "--")</strong>
                 </div>
 
                 <div>
                     <span>Chi nhánh nhận</span>
-
-                    <strong>
-                        @(Model.Branch?.BranchName ?? "--")
-                    </strong>
+                    <strong>@(Model.Branch?.BranchName ?? "--")</strong>
                 </div>
 
                 <div>
                     <span>Ngày đặt hàng</span>
-
-                    <strong>
-                        @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")
-                    </strong>
+                    <strong>@Model.CreatedAt.ToString("dd/MM/yyyy")</strong>
                 </div>
 
                 <div>
                     <span>Dự kiến giao</span>
-
                     <strong>
                         @(Model.ExpectedDeliveryDate.HasValue
-                            ? Model.ExpectedDeliveryDate.Value
-                                .ToString("dd/MM/yyyy")
+                            ? Model.ExpectedDeliveryDate.Value.ToString("dd/MM/yyyy")
                             : "--")
                     </strong>
                 </div>
@@ -142,19 +137,17 @@
 
             <div class="supplier-order-grid">
                 <label class="admin-field">
-                    <span>Kho nhận hàng *</span>
+                    <span>Kho nhập hàng *</span>
 
                     <select name="WarehouseId"
                             class="admin-select"
                             required
                             disabled="@(!hasAvailableWarehouse)">
-
                         <option value="">
-                            -- Chọn kho nhận hàng --
+                            -- Chọn kho nhập hàng --
                         </option>
 
-                        @foreach (var warehouse
-                            in branchWarehouses)
+                        @foreach (var warehouse in branchWarehouses)
                         {
                             <option value="@warehouse.Id">
                                 @warehouse.Code - @warehouse.Name
@@ -164,7 +157,7 @@
                 </label>
 
                 <label class="admin-field">
-                    <span>Thời điểm nhận hàng *</span>
+                    <span>Thời điểm hàng tới *</span>
 
                     <input type="datetime-local"
                            name="ReceivedAt"
@@ -188,190 +181,187 @@
                     <input type="text"
                            name="DeliveredBy"
                            maxlength="150"
-                           placeholder="Tên người giao bên NCC" />
+                           placeholder="Người giao bên nhà cung cấp" />
                 </label>
 
                 <label class="admin-field admin-field--wide">
-                    <span>Ghi chú phiếu nhận</span>
+                    <span>Ghi chú chung</span>
 
                     <textarea name="ReceiptNote"
                               rows="2"
                               maxlength="1000"
-                              placeholder="Tình trạng bao bì, số kiện hàng...">
-                    </textarea>
+                              placeholder="Tình trạng kiện hàng, bao bì..."></textarea>
                 </label>
             </div>
 
             <div class="purchase-order-line-toolbar">
                 <div>
                     <p class="admin-section__eyebrow">
-                        Hàng thực tế được giao
+                        Kết quả kiểm hàng
                     </p>
 
-                    <h3>Chi tiết nhận hàng</h3>
+                    <h3>Hàng giao thực tế</h3>
                 </div>
             </div>
 
-            <div class="table-shell">
-                <table class="data-table supplier-table">
-                    <thead>
-                        <tr>
-                            <th>Hàng hóa</th>
-                            <th>SL đặt</th>
-                            <th>Đã nhận</th>
-                            <th>Còn lại</th>
-                            <th>SL nhận lần này</th>
-                            <th>Gram thực nhận</th>
-                            <th>Carat thực nhận</th>
-                            <th>Mã kiểm định thực tế</th>
-                            <th>Ghi chú lúc nhận</th>
-                        </tr>
-                    </thead>
+            <div class="supplier-inspection-lines">
+                @foreach (var detail in inspectableDetails)
+                {
+                    var remainingQuantity =
+                        Math.Max(
+                            0,
+                            detail.Quantity
+                            - detail.AcceptedQuantity);
 
-                    <tbody>
-                        @foreach (var detail
-                            in receivableDetails)
-                        {
-                            var remainingQuantity =
-                                Math.Max(
-                                    0,
-                                    detail.Quantity
-                                    - detail.ReceivedQuantity);
+                    var requiresWeight =
+                        RequiresWeight(detail.ProductLine);
 
-                            var requiresWeight =
-                                RequiresWeight(
-                                    detail.ProductLine);
+                    var requiresCarat =
+                        RequiresCarat(detail.ProductLine);
 
-                            var requiresCarat =
-                                RequiresCarat(
-                                    detail.ProductLine);
+                    <article class="supplier-inspection-line js-inspection-line"
+                             data-remaining="@remainingQuantity"
+                             data-requires-weight="@requiresWeight.ToString().ToLowerInvariant()"
+                             data-requires-carat="@requiresCarat.ToString().ToLowerInvariant()">
 
-                            <tr>
-                                <td>
-                                    <input type="hidden"
-                                           name="PurchaseOrderDetailIds"
-                                           value="@detail.Id" />
+                        <input type="hidden"
+                               name="PurchaseOrderDetailIds"
+                               value="@detail.Id" />
 
-                                    <div class="data-table__stack">
-                                        <strong>
-                                            @detail.ProductName
-                                        </strong>
+                        <div class="supplier-inspection-line__header">
+                            <div>
+                                <strong>@detail.ProductName</strong>
 
-                                        <span>
-                                            @detail.ProductLine
-                                            · @detail.Category
-                                            · @detail.GoldType
-                                        </span>
-                                    </div>
-                                </td>
+                                <span>
+                                    @detail.ProductLine ·
+                                    @detail.Category ·
+                                    @detail.GoldType
+                                </span>
+                            </div>
 
-                                <td>
-                                    @detail.Quantity.ToString("N0")
-                                </td>
+                            <div class="supplier-inspection-line__summary">
+                                <span>Đặt: @detail.Quantity</span>
+                                <span>Đã nhận đạt: @detail.AcceptedQuantity</span>
+                                <strong>Còn nhận: @remainingQuantity</strong>
+                            </div>
+                        </div>
 
-                                <td>
-                                    @detail.ReceivedQuantity.ToString("N0")
-                                </td>
+                        <div class="supplier-inspection-line__grid">
+                            <label class="admin-field">
+                                <span>Số lượng giao *</span>
 
-                                <td>
-                                    <strong>
-                                        @remainingQuantity.ToString("N0")
-                                    </strong>
-                                </td>
+                                <input type="number"
+                                       name="DeliveredQuantities"
+                                       class="js-delivered-quantity"
+                                       min="0"
+                                       max="@remainingQuantity"
+                                       step="1"
+                                       value="0"
+                                       required />
+                            </label>
 
-                                <td>
+                            <label class="admin-field">
+                                <span>Số lượng đạt *</span>
+
+                                <input type="number"
+                                       name="AcceptedQuantities"
+                                       class="js-accepted-quantity"
+                                       min="0"
+                                       max="@remainingQuantity"
+                                       step="1"
+                                       value="0"
+                                       required />
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Không đạt</span>
+
+                                <input type="number"
+                                       class="js-rejected-quantity"
+                                       value="0"
+                                       readonly
+                                       tabindex="-1" />
+                            </label>
+
+                            @if (requiresWeight)
+                            {
+                                <label class="admin-field">
+                                    <span>Trọng lượng hàng đạt (g)</span>
+
                                     <input type="number"
-                                           name="ReceivedQuantities"
-                                           value="@remainingQuantity"
+                                           name="AcceptedWeights"
+                                           class="js-accepted-weight"
                                            min="0"
-                                           max="@remainingQuantity"
-                                           step="1"
-                                           required />
-                                </td>
+                                           step="0.01"
+                                           value="0" />
+                                </label>
+                            }
+                            else
+                            {
+                                <input type="hidden"
+                                       name="AcceptedWeights"
+                                       value="0" />
+                            }
 
-                                <td>
-                                    @if (requiresWeight)
-                                    {
-                                        <input type="number"
-                                               name="ActualWeights"
-                                               min="0.01"
-                                               step="0.01"
-                                               placeholder="Gram"
-                                               required />
-                                    }
-                                    else
-                                    {
-                                        <input type="hidden"
-                                               name="ActualWeights"
-                                               value="0" />
+                            @if (requiresCarat)
+                            {
+                                <label class="admin-field">
+                                    <span>Carat hàng đạt</span>
 
-                                        <span>--</span>
-                                    }
-                                </td>
+                                    <input type="number"
+                                           name="AcceptedDiamondCarats"
+                                           class="js-accepted-carat"
+                                           min="0"
+                                           step="0.01"
+                                           value="0" />
+                                </label>
 
-                                <td>
-                                    @if (requiresCarat)
-                                    {
-                                        <input type="number"
-                                               name="ActualDiamondCarats"
-                                               min="0.01"
-                                               step="0.01"
-                                               placeholder="Carat"
-                                               required />
-                                    }
-                                    else
-                                    {
-                                        <input type="hidden"
-                                               name="ActualDiamondCarats"
-                                               value="0" />
+                                <label class="admin-field">
+                                    <span>Mã kiểm định</span>
 
-                                        <span>--</span>
-                                    }
-                                </td>
+                                    <input type="text"
+                                           name="AcceptedDiamondCertificates"
+                                           maxlength="120"
+                                           value="@detail.DiamondCertificate" />
+                                </label>
+                            }
+                            else
+                            {
+                                <input type="hidden"
+                                       name="AcceptedDiamondCarats"
+                                       value="0" />
 
-                                <td>
-                                    @if (requiresCarat)
-                                    {
-                                        <input type="text"
-                                               name="ActualDiamondCertificates"
-                                               maxlength="120"
-                                               value="@detail.DiamondCertificate"
-                                               placeholder="Mã kiểm định" />
-                                    }
-                                    else
-                                    {
-                                        <input type="hidden"
-                                               name="ActualDiamondCertificates"
-                                               value="" />
+                                <input type="hidden"
+                                       name="AcceptedDiamondCertificates"
+                                       value="" />
+                            }
 
-                                        <span>--</span>
-                                    }
-                                </td>
+                            <label class="admin-field supplier-inspection-line__reason">
+                                <span>Lý do không đạt</span>
 
-                                <td>
-                                    <textarea name="ReceivingNotes"
-                                              rows="2"
-                                              maxlength="500"
-                                              placeholder="Bao bì, tình trạng bên ngoài...">
-                                    </textarea>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                                <textarea name="RejectionReasons"
+                                          class="js-rejection-reason"
+                                          rows="2"
+                                          maxlength="500"
+                                          placeholder="Chỉ bắt buộc khi có hàng không đạt"></textarea>
+                            </label>
+                        </div>
+                    </article>
+                }
             </div>
 
             <div class="admin-form-actions">
-                <button type="submit"
-                        class="admin-button admin-button--primary"
-                        disabled="@(!hasAvailableWarehouse)">
-                    Xác nhận nhận hàng
-                </button>
-
                 <button type="button"
-                        class="admin-button admin-button--secondary"
+                        class="admin-button admin-button--ghost"
                         data-close-modal>
                     Hủy
+                </button>
+
+                <button type="submit"
+                        class="admin-button admin-button--primary"
+                        disabled="@(!hasAvailableWarehouse)"
+                        onclick="return confirm('Bạn xác nhận kết quả kiểm hàng và nhận số lượng đạt?');">
+                    Xác nhận kết quả và nhận hàng
                 </button>
             </div>
         </form>

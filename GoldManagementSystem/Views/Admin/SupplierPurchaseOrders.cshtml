@@ -1,0 +1,1113 @@
+@model GoldManagementSystem.Models.ViewModels.SupplierManagementViewModel
+@using GoldManagementSystem.Models
+@using System.Linq
+@using System.Collections.Generic
+
+@{
+    ViewData["Title"] = "Đặt hàng từ nhà cung cấp";
+
+    var selectedBranchId = ViewBag.SelectedBranchId as int?;
+    var purchaseOrders = Model.PurchaseOrders?.ToList()
+        ?? new List<SupplierPurchaseOrder>();
+
+    var totalOrderCount = purchaseOrders.Count;
+    var orderedCount = purchaseOrders.Count(order =>
+        order.Status == SupplierPurchaseOrder.StatusOrdered);
+    var partiallyReceivedCount = purchaseOrders.Count(order =>
+        order.Status == SupplierPurchaseOrder.StatusPartiallyReceived);
+    var receivedCount = purchaseOrders.Count(order =>
+        order.Status == SupplierPurchaseOrder.StatusReceived);
+
+    string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            SupplierPurchaseOrder.StatusOrdered => "status-chip--warning",
+            SupplierPurchaseOrder.StatusPartiallyReceived => "status-chip--info",
+            SupplierPurchaseOrder.StatusReceived => "status-chip--success",
+            SupplierPurchaseOrder.StatusCancelled => "status-chip--neutral",
+            _ => "status-chip--neutral"
+        };
+    }
+}
+
+<div class="dashboard-card dashboard-card--flush admin-panel supplier-purchase-order-page">
+    <section class="admin-hero admin-hero--split supplier-purchase-order-hero">
+        <div>
+            <p class="admin-hero__eyebrow">Nghiệp vụ mua hàng</p>
+            <h1>Đặt hàng từ nhà cung cấp</h1>
+            <p class="admin-hero__text">
+                Tạo và theo dõi đơn đặt hàng với các nhà cung cấp đang hợp tác.
+                Hàng chỉ được cộng vào tồn kho sau khi tiếp nhận và kiểm hàng tại Phiếu nhập kho.
+            </p>
+        </div>
+
+        <div class="admin-hero__actions">
+            <button type="button"
+                    class="admin-button admin-button--primary"
+                    data-open-modal="purchaseOrderCreateModal">
+                + Tạo đơn đặt hàng
+            </button>
+        </div>
+    </section>
+
+    <div class="admin-panel__body supplier-purchase-order-body">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--success">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--danger">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <section class="admin-stats-grid supplier-purchase-order-stats"
+                 aria-label="Tổng quan đơn đặt hàng">
+            <article class="admin-stat-card admin-stat-card--gold">
+                <div class="admin-stat-card__content">
+                    <p>Tổng đơn đặt hàng</p>
+                    <strong>@totalOrderCount</strong>
+                </div>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--rose">
+                <div class="admin-stat-card__content">
+                    <p>Đang chờ giao</p>
+                    <strong>@orderedCount</strong>
+                </div>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--blue">
+                <div class="admin-stat-card__content">
+                    <p>Nhận một phần</p>
+                    <strong>@partiallyReceivedCount</strong>
+                </div>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--green">
+                <div class="admin-stat-card__content">
+                    <p>Đã nhận đủ</p>
+                    <strong>@receivedCount</strong>
+                </div>
+            </article>
+        </section>
+
+        <section class="admin-section supplier-purchase-order-card" id="purchase-order-list">
+            <div class="admin-section__header supplier-purchase-order-heading">
+                <div>
+                    <p class="admin-section__eyebrow">Danh sách đơn đặt hàng</p>
+                    <h2>Theo dõi tiến độ giao hàng</h2>
+                </div>
+
+                <span class="status-chip status-chip--info"
+                      id="purchaseOrderResultCount">
+                    @purchaseOrders.Count kết quả
+                </span>
+            </div>
+
+            <div class="supplier-purchase-order-toolbar">
+                <label class="admin-field supplier-purchase-order-toolbar__search">
+                    <span>Tìm kiếm</span>
+                    <input type="search"
+                           id="purchaseOrderSearchInput"
+                           placeholder="Mã đơn, nhà cung cấp, chi nhánh, sản phẩm..." />
+                </label>
+
+                <label class="admin-field">
+                    <span>Nhà cung cấp</span>
+                    <select id="purchaseOrderSupplierFilter" class="admin-select">
+                        <option value="">Tất cả nhà cung cấp</option>
+                        @foreach (var supplier in purchaseOrders
+                            .Where(order => order.Supplier != null)
+                            .Select(order => order.Supplier)
+                            .DistinctBy(supplier => supplier.Id)
+                            .OrderBy(supplier => supplier.Name))
+                        {
+                            <option value="@supplier.Id">@supplier.Name</option>
+                        }
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Trạng thái</span>
+                    <select id="purchaseOrderStatusFilter" class="admin-select">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="@SupplierPurchaseOrder.StatusOrdered">
+                            @SupplierPurchaseOrder.StatusOrdered
+                        </option>
+                        <option value="@SupplierPurchaseOrder.StatusPartiallyReceived">
+                            @SupplierPurchaseOrder.StatusPartiallyReceived
+                        </option>
+                        <option value="@SupplierPurchaseOrder.StatusReceived">
+                            @SupplierPurchaseOrder.StatusReceived
+                        </option>
+                        <option value="@SupplierPurchaseOrder.StatusCancelled">
+                            @SupplierPurchaseOrder.StatusCancelled
+                        </option>
+                    </select>
+                </label>
+
+                <div class="supplier-purchase-order-toolbar__actions">
+                    <button type="button"
+                            id="purchaseOrderClearFilterButton"
+                            class="admin-button admin-button--ghost">
+                        Xóa lọc
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-shell supplier-purchase-order-table-shell">
+                <table class="data-table supplier-purchase-order-table">
+                    <thead>
+                        <tr>
+                            <th>Đơn đặt hàng</th>
+                            <th>Nhà cung cấp</th>
+                            <th>Chi nhánh nhận</th>
+                            <th>Thời gian</th>
+                            <th>Tiến độ nhận</th>
+                            <th>Tổng giá trị</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @if (purchaseOrders.Any())
+                        {
+                            foreach (var order in purchaseOrders)
+                            {
+                                var canEditOrder =
+                                    order.Status == SupplierPurchaseOrder.StatusOrdered
+                                    && (order.Receipts == null || !order.Receipts.Any())
+                                    && (order.Payments == null || !order.Payments.Any());
+                                var remainingOrderQuantity =
+                                    order.Details?.Sum(detail =>
+                                        Math.Max(
+                                            0,
+                                            detail.Quantity - detail.ReceivedQuantity))
+                                    ?? 0;
+
+                                var canReceiveOrder =
+                                    remainingOrderQuantity > 0
+                                    && (
+                                        order.Status == SupplierPurchaseOrder.StatusOrdered
+                                        || order.Status == SupplierPurchaseOrder.StatusPartiallyReceived
+                                    );
+                                var orderedQuantity = order.Details?
+                                    .Sum(detail => detail.Quantity) ?? 0;
+
+                                var receivedQuantity = order.Details?
+                                    .Sum(detail => detail.ReceivedQuantity) ?? 0;
+
+                                var progressPercent = orderedQuantity > 0
+                                    ? Math.Min(100, (int)Math.Round(
+                                        receivedQuantity * 100m / orderedQuantity))
+                                    : 0;
+
+                                var orderSearchText = string.Join(" ", new[]
+                                {
+                                    order.OrderCode,
+                                    order.Supplier?.Name,
+                                    order.Branch?.BranchName,
+                                    string.Join(" ", order.Details?.Select(detail =>
+                                        $"{detail.ProductName} {detail.ProductLine} {detail.Category} {detail.GoldType}")
+                                        ?? Enumerable.Empty<string>())
+                                }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+                                <tr class="supplier-purchase-order-row js-order-detail-row"
+                                    data-detail-modal="purchaseOrderDetailModal-@order.Id"
+                                    data-order-search="@orderSearchText"
+                                    data-order-status="@order.Status"
+                                    data-order-supplier="@order.SupplierId">
+                                    <td>
+                                        <div class="data-table__stack supplier-purchase-order-code">
+                                            <strong>@order.OrderCode</strong>
+                                            <span>
+                                                @(order.Details?.Count ?? 0) dòng hàng ·
+                                                @orderedQuantity sản phẩm
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <strong>@(order.Supplier?.Name ?? "--")</strong>
+                                            <span>
+                                                @(order.Supplier?.Phone ?? "Chưa cập nhật SĐT")
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>@(order.Branch?.BranchName ?? "--")</td>
+
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <span>
+                                                Tạo: @order.CreatedAt.ToString("dd/MM/yyyy")
+                                            </span>
+                                            <strong>
+                                                Giao: @(order.ExpectedDeliveryDate.HasValue
+                                                    ? order.ExpectedDeliveryDate.Value.ToString("dd/MM/yyyy")
+                                                    : "Chưa xác định")
+                                            </strong>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="supplier-purchase-progress">
+                                            <div class="supplier-purchase-progress__text">
+                                                <strong>@receivedQuantity / @orderedQuantity</strong>
+                                                <span>@progressPercent%</span>
+                                            </div>
+                                            <div class="supplier-purchase-progress__bar"
+                                                 aria-label="Tiến độ nhận hàng @progressPercent%">
+                                                <span style="width: @progressPercent%"></span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="data-table__accent">
+                                        @order.TotalAmount.ToString("N0") ₫
+                                    </td>
+
+                                    <td>
+                                        <span class="status-chip @GetStatusClass(order.Status)">
+                                            @order.Status
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div class="admin-action-group supplier-purchase-order-actions">
+                                            <button type="button"
+                                                    class="admin-button admin-button--secondary"
+                                                    data-open-modal="purchaseOrderDetailModal-@order.Id">
+                                                Xem
+                                            </button>
+                                            @if (canReceiveOrder)
+                                            {
+                                                <button type="button"
+                                                        class="admin-button admin-button--primary"
+                                                        data-open-modal="supplierGoodsReceiptCreateModal-@order.Id">
+                                                    Tiếp nhận hàng
+                                                </button>
+                                            }    
+                                            @if (canEditOrder)
+                                            {
+                                                <button type="button"
+                                                        class="admin-button admin-button--primary"
+                                                        data-open-modal="purchaseOrderEditModal-@order.Id">
+                                                    Sửa
+                                                </button>
+
+                                                <form asp-action="CancelSupplierPurchaseOrder"
+                                                      asp-controller="Admin"
+                                                      method="post"
+                                                      onsubmit="return confirm('Bạn có chắc muốn hủy đơn đặt hàng này không?');">
+                                                    <input type="hidden"
+                                                           name="purchaseOrderId"
+                                                           value="@order.Id" />
+                                                    <button type="submit"
+                                                            class="admin-button admin-button--danger">
+                                                        Hủy
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8">
+                                    <div class="empty-state-card supplier-empty-state">
+                                        <h3>Chưa có đơn đặt hàng</h3>
+                                        <p>
+                                            Nhấn “Tạo đơn đặt hàng” để lập đơn đầu tiên
+                                            từ nhà cung cấp đang hợp tác.
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+
+                        <tr id="purchaseOrderNoResultRow" hidden>
+                            <td colspan="8">
+                                <div class="empty-state-card supplier-empty-state">
+                                    <h3>Không tìm thấy đơn phù hợp</h3>
+                                    <p>Hãy thử đổi từ khóa, nhà cung cấp hoặc trạng thái.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="supplier-modal" id="purchaseOrderCreateModal" aria-hidden="true">
+    <div class="supplier-modal__backdrop" data-close-modal></div>
+
+    <div class="supplier-modal__dialog supplier-modal__dialog--large">
+        <div class="supplier-modal__header">
+            <div>
+                <p class="admin-section__eyebrow">Đặt hàng nhập</p>
+                <h2>Tạo đơn đặt hàng từ nhà cung cấp</h2>
+                <p>Chỉ các nhà cung cấp đang hợp tác mới xuất hiện trong danh sách.</p>
+            </div>
+
+            <button type="button"
+                    class="supplier-modal__close"
+                    data-close-modal
+                    aria-label="Đóng">
+                ×
+            </button>
+        </div>
+
+        <form asp-action="CreateSupplierPurchaseOrder"
+              asp-controller="Admin"
+              method="post"
+              class="supplier-purchase-form"
+              id="supplierPurchaseOrderForm">
+
+            <div class="supplier-order-grid">
+                <label class="admin-field">
+                    <span>Nhà cung cấp *</span>
+                    <select name="SupplierId"
+                            id="purchaseOrderSupplierSelect"
+                            class="admin-select"
+                            required>
+                        <option value="">-- Chọn nhà cung cấp --</option>
+                        @foreach (Supplier supplier in
+                            ViewBag.ActiveSuppliersForEdit as List<Supplier>
+                            ?? new List<Supplier>())
+                        {
+                            <option value="@supplier.Id"
+                                    data-supplier-types="@supplier.SupplierType">
+                                @supplier.Name
+                            </option>
+                        }
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Chi nhánh nhận hàng *</span>
+                    <select name="BranchId"
+                            class="admin-select"
+                            required
+                            asp-items="Model.BranchOptions">
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Ngày dự kiến giao *</span>
+                    <input type="date"
+                           name="ExpectedDeliveryDate"
+                           required
+                           min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                </label>
+
+                <label class="admin-field">
+                    <span>Ghi chú đơn đặt hàng</span>
+                    <textarea name="PurchaseOrderNote"
+                              rows="2"
+                              maxlength="1000"
+                              placeholder="Yêu cầu đóng gói, thời gian giao hoặc lưu ý khác..."></textarea>
+                </label>
+            </div>
+
+            <div class="purchase-order-line-toolbar">
+                <div>
+                    <p class="admin-section__eyebrow">Chi tiết hàng đặt</p>
+                    <h3>Danh sách dòng hàng</h3>
+                </div>
+
+                <button type="button"
+                        class="admin-button admin-button--secondary"
+                        id="addPurchaseOrderLine">
+                    + Thêm dòng hàng
+                </button>
+            </div>
+
+            <div class="purchase-order-lines" id="purchaseOrderLines">
+                <article class="purchase-order-line">
+                    <div class="purchase-order-line__header">
+                        <strong>Dòng hàng <span class="js-line-number">1</span></strong>
+
+                        <button type="button"
+                                class="admin-button admin-button--danger js-remove-purchase-line">
+                            Xóa dòng
+                        </button>
+                    </div>
+
+                    <div class="purchase-order-line__grid">
+                        <label class="admin-field">
+                            <span>Nhóm hàng *</span>
+                            <select name="ProductLines"
+                                    class="admin-select js-purchase-product-line"
+                                    required>
+                                <option value="">-- Chọn nhà cung cấp trước --</option>
+                            </select>
+                        </label>
+
+                        <label class="admin-field">
+                            <span>Danh mục hàng *</span>
+                            <select name="Categories"
+                                    class="admin-select js-purchase-category"
+                                    required>
+                                <option value="">-- Chọn nhóm hàng trước --</option>
+                            </select>
+                        </label>
+
+                        <label class="admin-field">
+                            <span>Chất liệu / phân loại *</span>
+                            <select name="GoldTypes"
+                                    class="admin-select js-purchase-type"
+                                    required>
+                                <option value="">-- Chọn nhóm hàng trước --</option>
+                            </select>
+                        </label>
+
+                        <label class="admin-field">
+                            <span>Tên sản phẩm dự kiến nhập *</span>
+                            <input type="text"
+                                   name="ProductNames"
+                                   required
+                                   maxlength="220" />
+                        </label>
+
+                        <label class="admin-field">
+                            <span>Số lượng *</span>
+                            <input type="number"
+                                   name="Quantities"
+                                   required
+                                   min="1"
+                                   step="1"
+                                   value="1" />
+                        </label>
+
+                        <label class="admin-field">
+                            <span>Đơn giá nhập *</span>
+                            <input type="number"
+                                   name="UnitCosts"
+                                   required
+                                   min="1"
+                                   step="1000" />
+                        </label>
+
+                        <label class="admin-field">
+                            <span class="js-weight-label">Trọng lượng gram</span>
+                            <input type="number"
+                                   name="Weights"
+                                   min="0"
+                                   step="0.01"
+                                   value="0" />
+                        </label>
+
+                        <label class="admin-field">
+                            <span class="js-carat-label">Carat</span>
+                            <input type="number"
+                                   name="DiamondCarats"
+                                   min="0"
+                                   step="0.01" />
+                        </label>
+
+                        <label class="admin-field">
+                            <span>Mã kiểm định</span>
+                            <input type="text"
+                                   name="DiamondCertificates"
+                                   maxlength="120" />
+                        </label>
+
+                        <label class="admin-field">
+                            <span>Ghi chú dòng hàng</span>
+                            <textarea name="DetailNotes"
+                                      rows="2"
+                                      maxlength="500"></textarea>
+                        </label>
+                    </div>
+                </article>
+            </div>
+
+            <div class="admin-form-actions">
+                <button type="button"
+                        class="admin-button admin-button--ghost"
+                        data-close-modal>
+                    Hủy
+                </button>
+
+                <button type="submit"
+                        class="admin-button admin-button--primary">
+                    Tạo đơn đặt hàng
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (purchaseOrders.Any())
+{
+    foreach (var order in purchaseOrders)
+    {
+        var canEditOrder =
+            order.Status == SupplierPurchaseOrder.StatusOrdered
+            && (order.Receipts == null || !order.Receipts.Any())
+            && (order.Payments == null || !order.Payments.Any());
+
+        @await Html.PartialAsync(
+            "_SupplierPurchaseOrderDetailModal",
+            order)
+        var remainingOrderQuantity =
+            order.Details?.Sum(detail =>
+                Math.Max(
+                    0,
+                    detail.Quantity - detail.ReceivedQuantity))
+            ?? 0;
+
+        var canReceiveOrder =
+            remainingOrderQuantity > 0
+            && (
+                order.Status == SupplierPurchaseOrder.StatusOrdered
+                || order.Status == SupplierPurchaseOrder.StatusPartiallyReceived
+            );
+
+        if (canEditOrder)
+        {
+            @await Html.PartialAsync(
+                "_SupplierPurchaseOrderEditModal",
+                order)
+        }
+    }
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const purchaseCategoryOptions = {
+                "Vàng": ["Nhẫn", "Dây chuyền", "Lắc tay", "Lắc chân", "Bông tai", "Mặt dây", "Vòng", "Bộ trang sức"],
+                "Bạc": ["Nhẫn", "Dây chuyền", "Lắc tay", "Lắc chân", "Bông tai", "Mặt dây", "Vòng", "Bộ trang sức"],
+                "Kim cương": ["Nhẫn", "Bông tai", "Mặt dây", "Đá rời", "Bộ trang sức"],
+                "Đá quý": ["Nhẫn", "Bông tai", "Mặt dây", "Đá rời", "Bộ trang sức"],
+                "Phụ kiện / hộp đựng": ["Hộp trang sức", "Túi giấy", "Khăn lau", "Tem / tag", "Hộp quà", "Khay trưng bày"]
+            };
+
+            const purchaseTypeOptions = {
+                "Vàng": ["Vàng 24K", "Vàng 18K", "Vàng 14K", "Vàng 10K", "Vàng trắng 18K", "Vàng hồng 18K"],
+                "Bạc": ["Bạc 999", "Bạc 925", "Bạc 950", "Bạc Thái"],
+                "Kim cương": ["Kim cương thiên nhiên", "Kim cương nhân tạo", "Kim cương GIA", "Kim cương kiểm định PNJ"],
+                "Đá quý": ["Ruby", "Sapphire", "Emerald", "Topaz", "Thạch anh", "CZ"],
+                "Phụ kiện / hộp đựng": ["Loại nhỏ", "Loại vừa", "Loại lớn", "Cao cấp", "Phổ thông"]
+            };
+
+            const allowedPurchaseProductLines = [
+                "Vàng",
+                "Bạc",
+                "Kim cương",
+                "Đá quý",
+                "Phụ kiện / hộp đựng"
+            ];
+
+            const purchaseOrderLines =
+                document.getElementById("purchaseOrderLines");
+            const addPurchaseOrderLineButton =
+                document.getElementById("addPurchaseOrderLine");
+            const purchaseOrderSupplierSelect =
+                document.getElementById("purchaseOrderSupplierSelect");
+
+            function fillSelectOptions(select, values, emptyText, currentValue) {
+                if (!select) return;
+
+                select.innerHTML = "";
+
+                const emptyOption = document.createElement("option");
+                emptyOption.value = "";
+                emptyOption.textContent = emptyText;
+                select.appendChild(emptyOption);
+
+                values.forEach(function (value) {
+                    const option = document.createElement("option");
+                    option.value = value;
+                    option.textContent = value;
+                    option.selected = currentValue === value;
+                    select.appendChild(option);
+                });
+            }
+
+            function updatePurchaseLineFields(line) {
+                const productLineSelect =
+                    line.querySelector(".js-purchase-product-line");
+                const categorySelect =
+                    line.querySelector(".js-purchase-category");
+                const typeSelect =
+                    line.querySelector(".js-purchase-type");
+                const weightInput =
+                    line.querySelector('input[name="Weights"]');
+                const caratInput =
+                    line.querySelector('input[name="DiamondCarats"]');
+                const weightLabel =
+                    line.querySelector(".js-weight-label");
+                const caratLabel =
+                    line.querySelector(".js-carat-label");
+
+                if (!productLineSelect || !categorySelect || !typeSelect) {
+                    return;
+                }
+
+                const selectedLine = productLineSelect.value;
+                const currentCategory = categorySelect.dataset.currentValue || "";
+                const currentType = typeSelect.dataset.currentValue || "";
+
+                fillSelectOptions(
+                    categorySelect,
+                    purchaseCategoryOptions[selectedLine] || [],
+                    selectedLine ? "-- Chọn danh mục --" : "-- Chọn nhóm hàng trước --",
+                    currentCategory
+                );
+
+                fillSelectOptions(
+                    typeSelect,
+                    purchaseTypeOptions[selectedLine] || [],
+                    selectedLine ? "-- Chọn phân loại --" : "-- Chọn nhóm hàng trước --",
+                    currentType
+                );
+
+                categorySelect.disabled = !selectedLine;
+                typeSelect.disabled = !selectedLine;
+
+                if (selectedLine === "Vàng" || selectedLine === "Bạc") {
+                    if (weightInput) weightInput.required = true;
+                    if (caratInput) caratInput.required = false;
+                    if (weightLabel) weightLabel.textContent = "Trọng lượng gram *";
+                    if (caratLabel) caratLabel.textContent = "Carat";
+                } else if (selectedLine === "Kim cương" || selectedLine === "Đá quý") {
+                    if (weightInput) weightInput.required = false;
+                    if (caratInput) caratInput.required = true;
+                    if (weightLabel) weightLabel.textContent = "Trọng lượng gram";
+                    if (caratLabel) caratLabel.textContent = "Carat *";
+                } else {
+                    if (weightInput) weightInput.required = false;
+                    if (caratInput) caratInput.required = false;
+                    if (weightLabel) weightLabel.textContent = "Trọng lượng gram";
+                    if (caratLabel) caratLabel.textContent = "Carat";
+                }
+            }
+
+            function getSelectedSupplierProductLines() {
+                if (!purchaseOrderSupplierSelect) return [];
+
+                const selectedOption =
+                    purchaseOrderSupplierSelect.options[
+                        purchaseOrderSupplierSelect.selectedIndex
+                    ];
+
+                if (!selectedOption || !selectedOption.value) return [];
+
+                const supplierTypeText =
+                    selectedOption.dataset.supplierTypes || "";
+
+                let supplierTypes = supplierTypeText
+                    .split(",")
+                    .map(function (item) { return item.trim(); })
+                    .filter(function (item) { return item !== ""; });
+
+                if (supplierTypeText
+                    .toLocaleLowerCase("vi")
+                    .includes("vàng bạc đá quý")) {
+                    supplierTypes.push("Vàng", "Bạc", "Kim cương", "Đá quý");
+                }
+
+                supplierTypes = supplierTypes.filter(function (supplierType) {
+                    return allowedPurchaseProductLines.some(function (allowedType) {
+                        return allowedType.toLocaleLowerCase("vi")
+                            === supplierType.toLocaleLowerCase("vi");
+                    });
+                });
+
+                return supplierTypes.filter(function (item, index, array) {
+                    return array.findIndex(function (otherItem) {
+                        return otherItem.toLocaleLowerCase("vi")
+                            === item.toLocaleLowerCase("vi");
+                    }) === index;
+                });
+            }
+
+            function fillSupplierProductLineSelect(
+                productLineSelect,
+                supplierProductLines,
+                currentValue
+            ) {
+                if (!productLineSelect) return;
+
+                productLineSelect.innerHTML = "";
+
+                const emptyOption = document.createElement("option");
+                emptyOption.value = "";
+
+                if (!purchaseOrderSupplierSelect
+                    || !purchaseOrderSupplierSelect.value) {
+                    emptyOption.textContent = "-- Chọn nhà cung cấp trước --";
+                } else if (supplierProductLines.length === 0) {
+                    emptyOption.textContent =
+                        "-- Nhà cung cấp không có nhóm hàng phù hợp --";
+                } else {
+                    emptyOption.textContent = "-- Chọn nhóm hàng --";
+                }
+
+                productLineSelect.appendChild(emptyOption);
+
+                supplierProductLines.forEach(function (productLine) {
+                    const option = document.createElement("option");
+                    option.value = productLine;
+                    option.textContent = productLine;
+                    option.selected = currentValue
+                        && currentValue.toLocaleLowerCase("vi")
+                        === productLine.toLocaleLowerCase("vi");
+                    productLineSelect.appendChild(option);
+                });
+
+                productLineSelect.disabled =
+                    !purchaseOrderSupplierSelect
+                    || !purchaseOrderSupplierSelect.value
+                    || supplierProductLines.length === 0;
+            }
+
+            function updateProductLinesBySupplier() {
+                if (!purchaseOrderLines) return;
+
+                const supplierProductLines =
+                    getSelectedSupplierProductLines();
+
+                purchaseOrderLines
+                    .querySelectorAll(".purchase-order-line")
+                    .forEach(function (line) {
+                        const productLineSelect =
+                            line.querySelector(".js-purchase-product-line");
+
+                        if (!productLineSelect) return;
+
+                        const oldValue = productLineSelect.value;
+                        const canKeepOldValue = supplierProductLines.some(
+                            function (item) {
+                                return item.toLocaleLowerCase("vi")
+                                    === oldValue.toLocaleLowerCase("vi");
+                            }
+                        );
+
+                        fillSupplierProductLineSelect(
+                            productLineSelect,
+                            supplierProductLines,
+                            canKeepOldValue ? oldValue : ""
+                        );
+
+                        updatePurchaseLineFields(line);
+                    });
+            }
+
+            function refreshPurchaseLineNumbers(container) {
+                if (!container) return;
+
+                const lines =
+                    container.querySelectorAll(".purchase-order-line");
+
+                lines.forEach(function (line, index) {
+                    const numberElement =
+                        line.querySelector(".js-line-number");
+                    const removeButton =
+                        line.querySelector(".js-remove-purchase-line");
+
+                    if (numberElement) {
+                        numberElement.textContent = index + 1;
+                    }
+
+                    if (removeButton) {
+                        removeButton.disabled = lines.length === 1;
+                    }
+                });
+            }
+
+            function setupPurchaseLine(line, container) {
+                const productLineSelect =
+                    line.querySelector(".js-purchase-product-line");
+                const removeButton =
+                    line.querySelector(".js-remove-purchase-line");
+
+                if (productLineSelect) {
+                    const currentValue =
+                        productLineSelect.dataset.currentValue;
+
+                    if (currentValue) {
+                        productLineSelect.value = currentValue;
+                    }
+
+                    productLineSelect.addEventListener("change", function () {
+                        const categorySelect =
+                            line.querySelector(".js-purchase-category");
+                        const typeSelect =
+                            line.querySelector(".js-purchase-type");
+
+                        if (categorySelect) categorySelect.dataset.currentValue = "";
+                        if (typeSelect) typeSelect.dataset.currentValue = "";
+
+                        updatePurchaseLineFields(line);
+                    });
+                }
+
+                if (removeButton) {
+                    removeButton.addEventListener("click", function () {
+                        const totalLines = container
+                            ? container.querySelectorAll(".purchase-order-line").length
+                            : 0;
+
+                        if (totalLines <= 1) {
+                            alert("Đơn đặt hàng phải có ít nhất một dòng hàng.");
+                            return;
+                        }
+
+                        if (confirm("Bạn có chắc muốn xóa dòng hàng này không?")) {
+                            line.remove();
+                            refreshPurchaseLineNumbers(container);
+                        }
+                    });
+                }
+
+                updatePurchaseLineFields(line);
+            }
+
+            if (purchaseOrderSupplierSelect) {
+                purchaseOrderSupplierSelect.addEventListener(
+                    "change",
+                    updateProductLinesBySupplier
+                );
+            }
+
+            if (purchaseOrderLines) {
+                purchaseOrderLines
+                    .querySelectorAll(".purchase-order-line")
+                    .forEach(function (line) {
+                        setupPurchaseLine(line, purchaseOrderLines);
+                    });
+
+                refreshPurchaseLineNumbers(purchaseOrderLines);
+                updateProductLinesBySupplier();
+            }
+
+            if (addPurchaseOrderLineButton && purchaseOrderLines) {
+                addPurchaseOrderLineButton.addEventListener("click", function () {
+                    const firstLine =
+                        purchaseOrderLines.querySelector(".purchase-order-line");
+
+                    if (!firstLine) return;
+
+                    const newLine = firstLine.cloneNode(true);
+
+                    newLine
+                        .querySelectorAll("input, textarea")
+                        .forEach(function (input) {
+                            if (input.name === "Quantities") {
+                                input.value = "1";
+                            } else if (input.name === "Weights") {
+                                input.value = "0";
+                            } else {
+                                input.value = "";
+                            }
+                        });
+
+                    newLine.querySelectorAll("select").forEach(function (select) {
+                        select.value = "";
+                        select.dataset.currentValue = "";
+                    });
+
+                    purchaseOrderLines.appendChild(newLine);
+                    setupPurchaseLine(newLine, purchaseOrderLines);
+
+                    fillSupplierProductLineSelect(
+                        newLine.querySelector(".js-purchase-product-line"),
+                        getSelectedSupplierProductLines(),
+                        ""
+                    );
+
+                    updatePurchaseLineFields(newLine);
+                    refreshPurchaseLineNumbers(purchaseOrderLines);
+                });
+            }
+
+            document
+                .querySelectorAll(".js-edit-purchase-lines")
+                .forEach(function (container) {
+                    container
+                        .querySelectorAll(".purchase-order-line")
+                        .forEach(function (line) {
+                            setupPurchaseLine(line, container);
+                        });
+                });
+
+            document
+                .querySelectorAll(".js-add-edit-purchase-line")
+                .forEach(function (button) {
+                    button.addEventListener("click", function () {
+                        const form = button.closest("form");
+                        const container = form
+                            ? form.querySelector(".js-edit-purchase-lines")
+                            : null;
+                        const firstLine = container
+                            ? container.querySelector(".purchase-order-line")
+                            : null;
+
+                        if (!container || !firstLine) return;
+
+                        const newLine = firstLine.cloneNode(true);
+
+                        newLine
+                            .querySelectorAll("input, textarea")
+                            .forEach(function (input) {
+                                if (input.name === "Quantities") {
+                                    input.value = "1";
+                                } else if (input.name === "Weights") {
+                                    input.value = "0";
+                                } else {
+                                    input.value = "";
+                                }
+                            });
+
+                        newLine.querySelectorAll("select").forEach(function (select) {
+                            select.value = "";
+                            select.dataset.currentValue = "";
+                        });
+
+                        container.appendChild(newLine);
+                        setupPurchaseLine(newLine, container);
+                        refreshPurchaseLineNumbers(container);
+                    });
+                });
+
+            document.querySelectorAll("[data-open-modal]").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const modal = document.getElementById(
+                        button.getAttribute("data-open-modal")
+                    );
+
+                    if (!modal) return;
+
+                    modal.classList.add("is-open");
+                    modal.setAttribute("aria-hidden", "false");
+                    document.body.classList.add("supplier-modal-open");
+                });
+            });
+
+            document.querySelectorAll("[data-close-modal]").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const modal = button.closest(".supplier-modal");
+                    if (!modal) return;
+
+                    modal.classList.remove("is-open");
+                    modal.setAttribute("aria-hidden", "true");
+
+                    if (!document.querySelector(".supplier-modal.is-open")) {
+                        document.body.classList.remove("supplier-modal-open");
+                    }
+                });
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key !== "Escape") return;
+
+                document
+                    .querySelectorAll(".supplier-modal.is-open")
+                    .forEach(function (modal) {
+                        modal.classList.remove("is-open");
+                        modal.setAttribute("aria-hidden", "true");
+                    });
+
+                document.body.classList.remove("supplier-modal-open");
+            });
+
+            document.querySelectorAll(".js-order-detail-row").forEach(function (row) {
+                row.addEventListener("click", function (event) {
+                    if (event.target.closest("button, a, form, input, select, textarea")) {
+                        return;
+                    }
+
+                    const modal = document.getElementById(row.dataset.detailModal);
+                    if (!modal) return;
+
+                    modal.classList.add("is-open");
+                    modal.setAttribute("aria-hidden", "false");
+                    document.body.classList.add("supplier-modal-open");
+                });
+            });
+
+            const searchInput =
+                document.getElementById("purchaseOrderSearchInput");
+            const supplierFilter =
+                document.getElementById("purchaseOrderSupplierFilter");
+            const statusFilter =
+                document.getElementById("purchaseOrderStatusFilter");
+            const clearFilterButton =
+                document.getElementById("purchaseOrderClearFilterButton");
+            const resultCount =
+                document.getElementById("purchaseOrderResultCount");
+            const noResultRow =
+                document.getElementById("purchaseOrderNoResultRow");
+            const orderRows = Array.from(
+                document.querySelectorAll(".supplier-purchase-order-row")
+            );
+
+            function normalizeSearchValue(value) {
+                return (value || "")
+                    .toLocaleLowerCase("vi")
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .trim();
+            }
+
+            function applyPurchaseOrderFilters() {
+                const keyword = normalizeSearchValue(searchInput?.value);
+                const supplierId = supplierFilter?.value || "";
+                const status = statusFilter?.value || "";
+                let visibleCount = 0;
+
+                orderRows.forEach(function (row) {
+                    const matchesKeyword = !keyword
+                        || normalizeSearchValue(row.dataset.orderSearch)
+                            .includes(keyword);
+                    const matchesSupplier = !supplierId
+                        || row.dataset.orderSupplier === supplierId;
+                    const matchesStatus = !status
+                        || row.dataset.orderStatus === status;
+                    const isVisible =
+                        matchesKeyword && matchesSupplier && matchesStatus;
+
+                    row.hidden = !isVisible;
+                    if (isVisible) visibleCount += 1;
+                });
+
+                if (resultCount) {
+                    resultCount.textContent = visibleCount + " kết quả";
+                }
+
+                if (noResultRow) {
+                    noResultRow.hidden = visibleCount !== 0 || orderRows.length === 0;
+                }
+            }
+
+            searchInput?.addEventListener("input", applyPurchaseOrderFilters);
+            supplierFilter?.addEventListener("change", applyPurchaseOrderFilters);
+            statusFilter?.addEventListener("change", applyPurchaseOrderFilters);
+
+            clearFilterButton?.addEventListener("click", function () {
+                if (searchInput) searchInput.value = "";
+                if (supplierFilter) supplierFilter.value = "";
+                if (statusFilter) statusFilter.value = "";
+                applyPurchaseOrderFilters();
+                searchInput?.focus();
+            });
+        })();
+    </script>
+}

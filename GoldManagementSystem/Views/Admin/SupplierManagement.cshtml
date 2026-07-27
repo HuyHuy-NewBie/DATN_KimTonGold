@@ -1,1012 +1,179 @@
 @model GoldManagementSystem.Models.ViewModels.SupplierManagementViewModel
 @using GoldManagementSystem.Models
 @using System.Linq
+
 @{
     ViewData["Title"] = "Quản lý nhà cung cấp";
 
-    decimal DebtValue(SupplierPurchaseOrder order)
+    var supplierTypes = new[]
     {
-        var accepted = order?.Receipts?.Sum(receipt => receipt.TotalAcceptedValue) ?? 0m;
-        var paid = order?.Payments?.Sum(payment => payment.Amount) ?? 0m;
-        var debt = accepted - paid;
+        "Vàng",
+        "Bạc",
+        "Kim cương",
+        "Đá quý",
+        "Phụ kiện / hộp đựng",
+        "Gia công / sửa chữa"
+    };
+
+    var paymentTerms = new[] { 0, 7, 15, 30, 45, 60, 90 };
+
+    var banks = new[]
+    {
+        "Vietcombank",
+        "VietinBank",
+        "BIDV",
+        "Agribank",
+        "Techcombank",
+        "ACB",
+        "MB Bank",
+        "Sacombank",
+        "VPBank",
+        "TPBank",
+        "Khác"
+    };
+    decimal CalculateSupplierOrderDebt(
+    SupplierPurchaseOrder order)
+    {
+        var acceptedValue =
+            order?.Receipts?.Sum(
+                receipt => receipt.TotalAcceptedValue)
+            ?? 0m;
+
+        var paidAmount =
+            order?.Payments?.Sum(
+                payment => payment.Amount)
+            ?? 0m;
+
+        var debt = acceptedValue - paidAmount;
+
         return debt > 0 ? debt : 0m;
     }
 
-    var isAllStatusSelected = string.IsNullOrWhiteSpace(Model.StatusFilter);
-    var isActiveStatusSelected = string.Equals(Model.StatusFilter, "active", StringComparison.OrdinalIgnoreCase);
-    var isInactiveStatusSelected = string.Equals(Model.StatusFilter, "inactive", StringComparison.OrdinalIgnoreCase);
+    decimal CalculateSupplierDebt(
+        Supplier supplier)
+    {
+        return supplier?.PurchaseOrders?
+            .Sum(CalculateSupplierOrderDebt)
+            ?? 0m;
+    }
+
+    bool HasOpenPurchaseOrder(
+        Supplier supplier)
+    {
+        return supplier?.PurchaseOrders?.Any(order =>
+            order.Status
+                != SupplierPurchaseOrder.StatusReceived
+            && order.Status
+                != SupplierPurchaseOrder.StatusCancelled)
+            ?? false;
+    }
+    var activeSupplierCount = Model.Suppliers.Count(supplier => supplier.IsActive);
+    var inactiveSupplierCount = Model.Suppliers.Count - activeSupplierCount;
 }
 
-<div class="dashboard-card dashboard-card--flush admin-panel supplier-management-page">
-    <section class="admin-hero admin-hero--split supplier-hero">
+<div class="dashboard-card dashboard-card--flush admin-panel supplier-management-page supplier-directory-page">
+    <section class="admin-hero admin-hero--split supplier-hero supplier-directory-hero">
         <div>
-            <p class="admin-hero__eyebrow">Nghiệp vụ mua hàng</p>
+            <p class="admin-hero__eyebrow">Quản lý đối tác</p>
             <h1>Quản lý nhà cung cấp</h1>
             <p class="admin-hero__text">
-                Quản lý hồ sơ nhà cung cấp, đặt hàng nhập, kiểm hàng, nhập kho và thanh toán công nợ
-                theo nghiệp vụ cửa hàng vàng bạc đá quý.
+                Lưu trữ và tra cứu hồ sơ nhà cung cấp, thông tin liên hệ,
+                nhóm hàng cung ứng và điều khoản thanh toán.
             </p>
         </div>
 
         <div class="admin-hero__actions">
             <button type="button"
-                    class="admin-button admin-button--secondary"
+                    class="admin-button admin-button--primary"
                     data-open-modal="supplierCreateModal">
-                Thêm NCC
+                + Thêm nhà cung cấp
             </button>
-
-            <button type="button"
-                    class="admin-button admin-button--secondary"
-                    data-open-modal="purchaseOrderCreateModal">
-                Tạo đơn đặt hàng NCC
-            </button>
-
-            <a href="#purchase-order-list" class="admin-button admin-button--secondary">
-                Đơn đặt hàng
-            </a>
-
-            <a href="#goods-receipt-list"
-            class="admin-button admin-button--secondary">
-                Phiếu nhận hàng
-            </a>
-
-            <a href="#supplier-list" class="admin-button admin-button--primary">
-                Danh sách NCC
-            </a>
         </div>
     </section>
 
-    <div class="admin-panel__body">
+    <div class="admin-panel__body supplier-directory-body">
         @if (TempData["SuccessMessage"] != null)
         {
-            <div class="admin-alert admin-alert--success">@TempData["SuccessMessage"]</div>
+            <div class="admin-alert admin-alert--success">
+                @TempData["SuccessMessage"]
+            </div>
         }
 
         @if (TempData["ErrorMessage"] != null)
         {
-            <div class="admin-alert admin-alert--danger">@TempData["ErrorMessage"]</div>
+            <div class="admin-alert admin-alert--danger">
+                @TempData["ErrorMessage"]
+            </div>
         }
 
-        <section class="admin-stats-grid supplier-overview-grid">
+        <section class="admin-stats-grid supplier-directory-stats" aria-label="Tổng quan nhà cung cấp">
             <article class="admin-stat-card admin-stat-card--gold">
                 <div class="admin-stat-card__content">
-                    <p>Nhà cung cấp</p>
-                    <strong>@Model.TotalSuppliers</strong>
-                </div>
-            </article>
-
-            <article class="admin-stat-card admin-stat-card--blue">
-                <div class="admin-stat-card__content">
-                    <p>Đơn đang xử lý</p>
-                    <strong>@Model.ActivePurchaseOrders</strong>
+                    <p>Tổng nhà cung cấp</p>
+                    <strong>@Model.Suppliers.Count</strong>
                 </div>
             </article>
 
             <article class="admin-stat-card admin-stat-card--green">
                 <div class="admin-stat-card__content">
-                    <p>Cần kiểm hàng</p>
-                    <strong>@Model.PendingReceiptCount</strong>
+                    <p>Đang hợp tác</p>
+                    <strong>@activeSupplierCount</strong>
                 </div>
             </article>
 
             <article class="admin-stat-card admin-stat-card--rose">
                 <div class="admin-stat-card__content">
-                    <p>Công nợ NCC</p>
-                    <strong>@Model.TotalSupplierDebt.ToString("N0") ₫</strong>
+                    <p>Tạm ngưng</p>
+                    <strong>@inactiveSupplierCount</strong>
                 </div>
             </article>
         </section>
 
-        <div class="supplier-modal" id="supplierCreateModal" aria-hidden="true">
-    <div class="supplier-modal__backdrop" data-close-modal></div>
-
-    <div class="supplier-modal__dialog">
-        <div class="supplier-modal__header">
-            <div>
-                <p class="admin-section__eyebrow">Hồ sơ nhà cung cấp</p>
-                <h2>Thêm nhà cung cấp</h2>
-            </div>
-
-            <button type="button" class="supplier-modal__close" data-close-modal>
-                ×
-            </button>
-        </div>
-
-        <form asp-action="CreateSupplier"
-        asp-controller="Admin"
-        method="post"
-        class="admin-form-grid supplier-form-grid"
-        id="supplierCreateForm">
-            <label class="admin-field">
-                <span>Tên nhà cung cấp *</span>
-                <input type="text" name="Name" required maxlength="180" minlength="3" placeholder="VD: Công ty TNHH Vàng Bạc ABC" />
-            </label>
-
-            <label class="admin-field">
-                <span>Mã số thuế *</span>
-                <input type="text"
-                    name="TaxCode"
-                    required
-                    inputmode="numeric"
-                    maxlength="13"
-                    pattern="(\d{10}|\d{13})"
-                    data-digits-only
-                    placeholder="VD: 0312345678 hoặc 0312345678001" />
-            </label>
-
-            <label class="admin-field">
-                <span>Người liên hệ *</span>
-                <input type="text" name="ContactPerson" required maxlength="120" minlength="2" placeholder="VD: Nguyễn Văn A" />
-            </label>
-
-            <label class="admin-field">
-                <span>Số điện thoại *</span>
-                <input type="text"
-                    name="Phone"
-                    required
-                    inputmode="numeric"
-                    maxlength="10"
-                    pattern="0\d{9}"
-                    data-digits-only
-                    placeholder="VD: 0901234567" />
-            </label>
-
-            <label class="admin-field">
-                <span>Email</span>
-                <input type="email" name="Email" maxlength="150" placeholder="supplier@example.com" />
-            </label>
-
-            <label class="admin-field">
-                <span>Số ngày công nợ</span>
-                <select name="PaymentTermDays" class="admin-select">
-                    <option value="0">Thanh toán ngay</option>
-                    <option value="7">7 ngày</option>
-                    <option value="15">15 ngày</option>
-                    <option value="30">30 ngày</option>
-                    <option value="45">45 ngày</option>
-                    <option value="60">60 ngày</option>
-                    <option value="90">90 ngày</option>
-                </select>
-            </label>
-
-            <div class="admin-field admin-field--wide">
-                <span>Nhóm cung ứng *</span>
-
-                <div class="supplier-checkbox-grid">
-                    <label><input type="checkbox" name="SupplierTypes" value="Vàng" checked /> Vàng</label>
-                    <label><input type="checkbox" name="SupplierTypes" value="Bạc" /> Bạc</label>
-                    <label><input type="checkbox" name="SupplierTypes" value="Kim cương" /> Kim cương</label>
-                    <label><input type="checkbox" name="SupplierTypes" value="Đá quý" /> Đá quý</label>
-                    <label><input type="checkbox" name="SupplierTypes" value="Phụ kiện / hộp đựng" /> Phụ kiện / hộp đựng</label>
-                    <label><input type="checkbox" name="SupplierTypes" value="Gia công / sửa chữa" /> Gia công / sửa chữa</label>
+        <section class="admin-section supplier-directory-card" id="supplier-list">
+            <div class="admin-section__header supplier-directory-heading">
+                <div>
+                    <p class="admin-section__eyebrow">Danh sách nhà cung cấp</p>
+                    <h2>Hồ sơ đang quản lý</h2>
                 </div>
+
+                <span class="status-chip status-chip--info" id="supplierResultCount">
+                    @Model.Suppliers.Count kết quả
+                </span>
             </div>
 
-            <label class="admin-field">
-                <span>Ngân hàng</span>
-                <select name="BankName" class="admin-select">
-                    <option value="">-- Không nhập --</option>
-                    <option value="Vietcombank">Vietcombank</option>
-                    <option value="VietinBank">VietinBank</option>
-                    <option value="BIDV">BIDV</option>
-                    <option value="Agribank">Agribank</option>
-                    <option value="Techcombank">Techcombank</option>
-                    <option value="ACB">ACB</option>
-                    <option value="MB Bank">MB Bank</option>
-                    <option value="Sacombank">Sacombank</option>
-                    <option value="VPBank">VPBank</option>
-                    <option value="TPBank">TPBank</option>
-                    <option value="Khác">Khác</option>
-                </select>
-            </label>
+            <div class="supplier-directory-toolbar">
+                <label class="admin-field supplier-directory-toolbar__search">
+                    <span>Tìm kiếm</span>
+                    <input type="search"
+                           id="supplierSearchInput"
+                           placeholder="Tên NCC, người liên hệ, SĐT, email, mã số thuế..." />
+                </label>
 
-            <label class="admin-field">
-                <span>Số tài khoản</span>
-                <input type="text"
-                    name="BankAccountNumber"
-                    inputmode="numeric"
-                    maxlength="20"
-                    minlength="6"
-                    data-digits-only
-                    placeholder="Chỉ nhập số" />
-            </label>
-
-            <label class="admin-field">
-                <span>Chủ tài khoản</span>
-                <input type="text" name="BankAccountName" maxlength="120" placeholder="VD: CONG TY TNHH ABC" />
-            </label>
-
-            <label class="admin-field admin-field--wide">
-                <span>Địa chỉ *</span>
-                <input type="text" name="Address" required maxlength="300" minlength="5" placeholder="Địa chỉ nhà cung cấp" />
-            </label>
-
-            <label class="admin-field admin-field--wide">
-                <span>Ghi chú</span>
-                <textarea name="Note" rows="3" maxlength="1000" placeholder="VD: chuyên cung ứng vàng 18K, có giấy kiểm định..."></textarea>
-            </label>
-            <div class="admin-field admin-field--wide">
-                <div class="admin-alert admin-alert--danger"
-                    id="supplierCreateError"
-                    role="alert"
-                    hidden>
-                </div>
-            </div>
-            <div class="admin-form-actions">
-                <button type="submit"
-                        class="admin-button admin-button--primary"
-                        id="supplierCreateSubmitButton">
-                    Thêm nhà cung cấp
-                </button>
-            </div>
-        </form>
-        </div>
-</div>
-<div class="supplier-modal" id="purchaseOrderCreateModal" aria-hidden="true">
-    <div class="supplier-modal__backdrop" data-close-modal></div>
-
-    <div class="supplier-modal__dialog supplier-modal__dialog--large">
-        <div class="supplier-modal__header">
-            <div>
-                <p class="admin-section__eyebrow">Đặt hàng nhập</p>
-                <h2>Tạo đơn đặt hàng từ nhà cung cấp</h2>
-            </div>
-
-            <button type="button" class="supplier-modal__close" data-close-modal>×</button>
-        </div>
-
-        <form asp-action="CreateSupplierPurchaseOrder"
-              asp-controller="Admin"
-              method="post"
-              class="supplier-purchase-form"
-              id="supplierPurchaseOrderForm">
-
-            <div class="supplier-order-grid">
                 <label class="admin-field">
-                    <span>Nhà cung cấp *</span>
-
-                    <select name="SupplierId"
-                            id="purchaseOrderSupplierSelect"
-                            class="admin-select"
-                            required>
-
-                        <option value="">-- Chọn nhà cung cấp --</option>
-
-                        @foreach (Supplier supplier in ViewBag.ActiveSuppliersForEdit)
-                        {
-                            <option value="@supplier.Id"
-                                    data-supplier-types="@supplier.SupplierType">
-                                @supplier.Name
-                            </option>
-                        }
+                    <span>Trạng thái</span>
+                    <select id="supplierStatusFilter" class="admin-select">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="active">Đang hợp tác</option>
+                        <option value="inactive">Tạm ngưng</option>
                     </select>
                 </label>
 
-                <label class="admin-field">
-                    <span>Chi nhánh nhận hàng *</span>
-                    <select name="BranchId" class="admin-select" required asp-items="Model.BranchOptions"></select>
-                </label>
-
-                <label class="admin-field">
-                    <span>Ngày dự kiến giao *</span>
-                    <input type="date"
-                           name="ExpectedDeliveryDate"
-                           required
-                           min="@DateTime.Today.ToString("yyyy-MM-dd")" />
-                </label>
-
-                <label class="admin-field">
-                    <span>Ghi chú đơn đặt hàng</span>
-                    <textarea name="PurchaseOrderNote" rows="2" maxlength="1000"></textarea>
-                </label>
-            </div>
-
-            <div class="purchase-order-line-toolbar">
-                <div>
-                    <p class="admin-section__eyebrow">Chi tiết hàng đặt</p>
-                    <h3>Danh sách dòng hàng</h3>
-                </div>
-
-                <button type="button" class="admin-button admin-button--secondary" id="addPurchaseOrderLine">
-                    + Thêm dòng hàng
-                </button>
-            </div>
-
-            <div class="purchase-order-lines" id="purchaseOrderLines">
-                <article class="purchase-order-line">
-                    <div class="purchase-order-line__header">
-                        <strong>Dòng hàng <span class="js-line-number">1</span></strong>
-
-                        <button type="button"
-                                class="admin-button admin-button--danger js-remove-purchase-line">
-                            Xóa dòng
-                        </button>
-                    </div>
-
-                    <div class="purchase-order-line__grid">
-                        <label class="admin-field">
-                            <span>Nhóm hàng *</span>
-                            <select name="ProductLines" class="admin-select js-purchase-product-line" required>
-                                <option value="">-- Chọn nhóm hàng --</option>
-                                @foreach (var item in Model.ProductLineOptions)
-                                {
-                                    <option value="@item.Value">@item.Text</option>
-                                }
-                            </select>
-                        </label>
-
-                        <label class="admin-field js-category-field">
-                            <span>Danh mục hàng *</span>
-
-                            <select name="Categories" class="admin-select js-purchase-category" required>
-                                <option value="">-- Chọn nhóm hàng trước --</option>
-                            </select>
-                        </label>
-
-                    <label class="admin-field js-type-field">
-                        <span>Chất liệu / phân loại *</span>
-
-                        <select name="GoldTypes" class="admin-select js-purchase-type" required>
-                            <option value="">-- Chọn nhóm hàng trước --</option>
-                        </select>
-                    </label>
-
-                        <label class="admin-field">
-                            <span>Tên sản phẩm dự kiến nhập *</span>
-                            <input type="text" name="ProductNames" required maxlength="220" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span>Số lượng *</span>
-                            <input type="number" name="Quantities" required min="1" step="1" value="1" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span>Đơn giá nhập *</span>
-                            <input type="number" name="UnitCosts" required min="1" step="1000" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span class="js-weight-label">Trọng lượng gram</span>
-                            <input type="number" name="Weights" min="0" step="0.01" value="0" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span class="js-carat-label">Carat</span>
-                            <input type="number" name="DiamondCarats" min="0" step="0.01" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span>Mã kiểm định</span>
-                            <input type="text" name="DiamondCertificates" maxlength="120" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span>Ghi chú dòng hàng</span>
-                            <textarea name="DetailNotes" rows="2" maxlength="500"></textarea>
-                        </label>
-                    </div>
-                </article>
-            </div>
-
-            <div class="admin-form-actions">
-                <button type="submit" class="admin-button admin-button--primary">
-                    Tạo đơn đặt hàng NCC
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<section class="admin-section" id="purchase-order-list">
-    <div class="admin-section__header">
-        <div>
-            <p class="admin-section__eyebrow">Theo dõi đặt hàng</p>
-            <h2>Đơn đặt hàng NCC gần đây</h2>
-        </div>
-    </div>
-
-    <div class="table-shell">
-        <table class="data-table supplier-table">
-            <thead>
-                <tr>
-                    <th>Mã đơn</th>
-                    <th>Nhà cung cấp</th>
-                    <th>Chi nhánh nhận</th>
-                    <th>Ngày tạo</th>
-                    <th>Dự kiến giao</th>
-                    <th>Tổng tiền</th>
-                    <th>Trạng thái</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.PurchaseOrders.Any())
-                {
-                    foreach (var order in Model.PurchaseOrders)
-                    {
-                        var canEditOrder = order.Status == SupplierPurchaseOrder.StatusOrdered
-                        && (order.Receipts == null || !order.Receipts.Any())
-                        && (order.Payments == null || !order.Payments.Any());
-                        var remainingOrderQuantity =
-                            order.Details?.Sum(detail =>
-                                Math.Max(
-                                    0,
-                                    detail.Quantity
-                                    - detail.ReceivedQuantity))
-                            ?? 0;
-
-                        var canReceiveOrder =
-                            remainingOrderQuantity > 0
-                            && (
-                                order.Status
-                                    == SupplierPurchaseOrder.StatusOrdered
-                                || order.Status
-                                    == SupplierPurchaseOrder.StatusPartiallyReceived
-                            );
-                    <tr class="supplier-order-row js-order-detail-row"
-                        data-detail-modal="purchaseOrderDetailModal-@order.Id">
-                        <td>
-                            <strong>@order.OrderCode</strong>
-                        </td>
-                        <td>
-                            <div class="data-table__stack">
-                                <strong>@order.Supplier?.Name</strong>
-                                <span>@(order.Details?.FirstOrDefault()?.ProductName ?? "--")</span>
-                            </div>
-                        </td>
-                        <td>@(order.Branch?.BranchName ?? "--")</td>
-                        <td>@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
-                        <td>@(order.ExpectedDeliveryDate.HasValue ? order.ExpectedDeliveryDate.Value.ToString("dd/MM/yyyy") : "--")</td>
-                        <td class="data-table__accent">@order.TotalAmount.ToString("N0") ₫</td>
-                        <td>
-                            @if (order.Status == SupplierPurchaseOrder.StatusOrdered)
-                            {
-                                <span class="status-chip status-chip--warning">@order.Status</span>
-                            }
-                            else if (order.Status == SupplierPurchaseOrder.StatusReceived)
-                            {
-                                <span class="status-chip status-chip--success">@order.Status</span>
-                            }
-                            else if (order.Status == SupplierPurchaseOrder.StatusCancelled)
-                            {
-                                <span class="status-chip status-chip--neutral">@order.Status</span>
-                            }
-                            else
-                            {
-                                <span class="status-chip status-chip--info">@order.Status</span>
-                            }
-                        </td>
-                        <td>
-                            <div class="admin-action-group">
-                                <button type="button"
-                                        class="admin-button admin-button--secondary"
-                                        data-open-modal="purchaseOrderDetailModal-@order.Id">
-                                    Chi tiết
-                                </button>
-                                @if (canReceiveOrder)
-                                {
-                                    <button type="button"
-                                            class="admin-button admin-button--primary"
-                                            data-open-modal="supplierGoodsReceiptCreateModal-@order.Id">
-                                        Nhận hàng
-                                    </button>
-                                }
-
-                                @if (canEditOrder)
-                                {
-                                    <button type="button"
-                                            class="admin-button admin-button--primary"
-                                            data-open-modal="purchaseOrderEditModal-@order.Id">
-                                        Sửa
-                                    </button>
-
-                                    <form asp-action="CancelSupplierPurchaseOrder"
-                                        asp-controller="Admin"
-                                        method="post"
-                                        onsubmit="return confirm('Bạn có chắc muốn hủy đơn đặt hàng này không?');">
-                                        <input type="hidden" name="purchaseOrderId" value="@order.Id" />
-                                        <button type="submit" class="admin-button admin-button--danger">
-                                            Hủy
-                                        </button>
-                                    </form>
-                                }
-                            </div>
-                        </td>
-                    </tr>
-
-                    
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="8">
-                            <div class="empty-state-card supplier-empty-state">
-                                <h3>Chưa có đơn đặt hàng NCC</h3>
-                                <p>Sau khi tạo đơn, danh sách đơn đặt hàng gần đây sẽ hiển thị tại đây.</p>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    @if (Model.PurchaseOrders.Any())
-    {
-        foreach (var order in Model.PurchaseOrders)
-        {
-            var canEditOrder =
-                order.Status
-                    == SupplierPurchaseOrder.StatusOrdered
-                && (order.Receipts == null
-                    || !order.Receipts.Any())
-                && (order.Payments == null
-                    || !order.Payments.Any());
-
-            var remainingOrderQuantity =
-                order.Details?.Sum(detail =>
-                    Math.Max(
-                        0,
-                        detail.Quantity
-                        - detail.ReceivedQuantity))
-                ?? 0;
-
-            var canReceiveOrder =
-                remainingOrderQuantity > 0
-                && (
-                    order.Status
-                        == SupplierPurchaseOrder.StatusOrdered
-                    || order.Status
-                        == SupplierPurchaseOrder.StatusPartiallyReceived
-                );
-
-            @await Html.PartialAsync(
-                "_SupplierPurchaseOrderDetailModal",
-                order)
-
-            if (canReceiveOrder)
-            {
-                @await Html.PartialAsync(
-                    "_SupplierGoodsReceiptCreateModal",
-                    order)
-            }
-
-            if (canEditOrder)
-            {
-                @await Html.PartialAsync(
-                    "_SupplierPurchaseOrderEditModal",
-                    order)
-            }
-        }
-    }
-</section>
-        @* =========================================================
-            PHIẾU NHẬN HÀNG
-            Phần này phải nằm ngoài bảng đơn đặt hàng
-            và trước section danh sách nhà cung cấp.
-            ========================================================= *@
-
-            <section class="admin-section" id="goods-receipt-list">
-                <div class="admin-section__header">
-                    <div>
-                        <p class="admin-section__eyebrow">
-                            Tiếp nhận hàng hóa
-                        </p>
-
-                        <h2>Phiếu nhận hàng gần đây</h2>
-                    </div>
-
-                    <span class="status-chip status-chip--info">
-                        @Model.RecentReceipts.Count phiếu
-                    </span>
-                </div>
-
-                <div class="admin-alert admin-alert--success">
-                    Nhân viên kiểm tra hàng hóa trực tiếp bên ngoài,
-                    sau đó chỉ cần chọn Đạt hoặc Không đạt trên hệ thống.
-                    Những dòng đạt sẽ được nhập kho khi duyệt phiếu.
-                </div>
-
-                <div class="table-shell">
-                    <table class="data-table supplier-table">
-                        <thead>
-                            <tr>
-                                <th>Mã phiếu</th>
-                                <th>Đơn đặt hàng</th>
-                                <th>Nhà cung cấp</th>
-                                <th>Kho nhận</th>
-                                <th>Thời điểm nhận</th>
-                                <th>Số lượng nhận</th>
-                                <th>Trạng thái</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @if (Model.RecentReceipts.Any())
-                            {
-                                foreach (var receipt in Model.RecentReceipts)
-                                {
-                                    var receivedQuantity =
-                                        receipt.Details?.Sum(
-                                            detail =>
-                                                detail.ReceivedQuantity)
-                                        ?? 0;
-
-                                    var canReview =
-                                        receipt.Status
-                                            == SupplierGoodsReceipt
-                                                .StatusPendingInspection
-                                        || receipt.Status
-                                            == SupplierGoodsReceipt
-                                                .StatusInspecting
-                                        || receipt.Status
-                                            == SupplierGoodsReceipt
-                                                .StatusPendingApproval;
-
-                                    <tr>
-                                        <td>
-                                            <strong>
-                                                @receipt.ReceiptCode
-                                            </strong>
-                                        </td>
-
-                                        <td>
-                                            @(receipt.SupplierPurchaseOrder?
-                                                .OrderCode ?? "--")
-                                        </td>
-
-                                        <td>
-                                            @(receipt.SupplierPurchaseOrder?
-                                                .Supplier?
-                                                .Name ?? "--")
-                                        </td>
-
-                                        <td>
-                                            <div class="data-table__stack">
-                                                <strong>
-                                                    @(receipt.Warehouse?.Name
-                                                        ?? "--")
-                                                </strong>
-
-                                                <span>
-                                                    @(receipt.Warehouse?.Code
-                                                        ?? "--")
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        <td>
-                                            @(receipt.ReceivedAt.ToString("dd/MM/yyyy HH:mm"))
-                                        </td>
-
-                                        <td>
-                                            @receivedQuantity.ToString("N0")
-                                        </td>
-
-                                        <td>
-                                            @if (receipt.Status
-                                                == SupplierGoodsReceipt
-                                                    .StatusPendingInspection)
-                                            {
-                                                <span class="status-chip status-chip--warning">
-                                                    Chờ kiểm tra
-                                                </span>
-                                            }
-                                            else if (receipt.Status
-                                                == SupplierGoodsReceipt
-                                                    .StatusApproved)
-                                            {
-                                                <span class="status-chip status-chip--success">
-                                                    Đã duyệt nhập kho
-                                                </span>
-                                            }
-                                            else if (receipt.Status
-                                                == SupplierGoodsReceipt
-                                                    .StatusPartiallyApproved)
-                                            {
-                                                <span class="status-chip status-chip--info">
-                                                    Đạt một phần
-                                                </span>
-                                            }
-                                            else if (receipt.Status
-                                                == SupplierGoodsReceipt
-                                                    .StatusRejected)
-                                            {
-                                                <span class="status-chip status-chip--danger">
-                                                    Không đạt
-                                                </span>
-                                            }
-                                            else
-                                            {
-                                                <span class="status-chip status-chip--info">
-                                                    @receipt.Status
-                                                </span>
-                                            }
-                                        </td>
-
-                                        <td>
-                                            <div class="admin-action-group">
-                                                <button type="button"
-                                                        class="admin-button admin-button--secondary"
-                                                        data-open-modal="supplierGoodsReceiptDetailModal-@receipt.Id">
-                                                    Chi tiết
-                                                </button>
-
-                                                @if (canReview)
-                                                {
-                                                    <button type="button"
-                                                            class="admin-button admin-button--primary"
-                                                            data-toggle-receipt-review="receiptReviewRow-@receipt.Id">
-                                                        Kiểm hàng
-                                                    </button>
-                                                }
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    @*
-                                        Dòng kiểm hàng nằm trực tiếp dưới phiếu.
-                                        Đây vẫn là một thẻ tr hợp lệ trong tbody,
-                                        nên không làm vỡ bố cục bảng.
-                                    *@
-                                    @if (canReview)
-                                    {
-                                        <tr id="receiptReviewRow-@receipt.Id"
-                                            hidden>
-
-                                            <td colspan="8">
-                                                <form asp-action="ApproveSupplierGoodsReceipt"
-                                                    asp-controller="Admin"
-                                                    method="post"
-                                                    class="supplier-receipt-review-form">
-
-                                                    <input type="hidden"
-                                                        name="ReceiptId"
-                                                        value="@receipt.Id" />
-
-                                                    <div class="admin-section__header">
-                                                        <div>
-                                                            <p class="admin-section__eyebrow">
-                                                                Ghi nhận kết quả kiểm hàng
-                                                            </p>
-
-                                                            <h3>
-                                                                @receipt.ReceiptCode
-                                                            </h3>
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="admin-alert admin-alert--success">
-                                                        Mỗi dòng hàng được đánh giá toàn bộ:
-                                                        hoặc toàn bộ đạt, hoặc toàn bộ không đạt.
-                                                    </div>
-
-                                                    <div class="table-shell">
-                                                        <table class="data-table supplier-table">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Hàng hóa</th>
-                                                                    <th>Số lượng nhận</th>
-                                                                    <th>Thông tin thực nhận</th>
-                                                                    <th>Kết quả</th>
-                                                                    <th>Lý do không đạt</th>
-                                                                </tr>
-                                                            </thead>
-
-                                                            <tbody>
-                                                                @foreach (var detail
-                                                                    in receipt.Details)
-                                                                {
-                                                                    <tr class="js-simple-quality-row">
-                                                                        <td>
-                                                                            <div class="data-table__stack">
-                                                                                <strong>
-                                                                                    @(detail
-                                                                                        .SupplierPurchaseOrderDetail?
-                                                                                        .ProductName
-                                                                                        ?? "--")
-                                                                                </strong>
-
-                                                                                <span>
-                                                                                    @(detail
-                                                                                        .SupplierPurchaseOrderDetail?
-                                                                                        .ProductLine
-                                                                                        ?? "--")
-                                                                                    ·
-                                                                                    @(detail
-                                                                                        .SupplierPurchaseOrderDetail?
-                                                                                        .Category
-                                                                                        ?? "--")
-                                                                                    ·
-                                                                                    @(detail
-                                                                                        .SupplierPurchaseOrderDetail?
-                                                                                        .GoldType
-                                                                                        ?? "--")
-                                                                                </span>
-                                                                            </div>
-                                                                        </td>
-
-                                                                        <td>
-                                                                            <strong>
-                                                                                @(detail.ReceivedQuantity.ToString("N0"))
-                                                                            </strong>
-                                                                        </td>
-
-                                                                        <td>
-                                                                            <div class="data-table__stack">
-                                                                                @if (detail.ActualWeight > 0)
-                                                                                {
-                                                                                    <span>
-                                                                                        Trọng lượng:
-                                                                                        @(detail.ActualWeight.ToString("N2")) g
-                                                                                    </span>
-                                                                                }
-
-                                                                                @if (detail
-                                                                                    .ActualDiamondCarat
-                                                                                    .HasValue)
-                                                                                {
-                                                                                    <span>
-                                                                                        Carat:
-                                                                                        @detail
-                                                                                            .ActualDiamondCarat
-                                                                                            .Value
-                                                                                            .ToString("N2")
-                                                                                    </span>
-                                                                                }
-
-                                                                                @if (!string.IsNullOrWhiteSpace(
-                                                                                    detail
-                                                                                        .ActualDiamondCertificate))
-                                                                                {
-                                                                                    <span>
-                                                                                        Kiểm định:
-                                                                                        @detail
-                                                                                            .ActualDiamondCertificate
-                                                                                    </span>
-                                                                                }
-
-                                                                                @if (detail.ActualWeight <= 0
-                                                                                    && !detail
-                                                                                        .ActualDiamondCarat
-                                                                                        .HasValue)
-                                                                                {
-                                                                                    <span>--</span>
-                                                                                }
-                                                                            </div>
-                                                                        </td>
-
-                                                                        <td>
-                                                                            <div class="admin-action-group">
-                                                                                <label>
-                                                                                    <input type="radio"
-                                                                                        name="QualityResults[@detail.Id]"
-                                                                                        value="@SupplierGoodsReceiptDetail.QualityPassed"
-                                                                                        class="js-quality-result"
-                                                                                        checked
-                                                                                        required />
-
-                                                                                    Đạt
-                                                                                </label>
-
-                                                                                <label>
-                                                                                    <input type="radio"
-                                                                                        name="QualityResults[@detail.Id]"
-                                                                                        value="@SupplierGoodsReceiptDetail.QualityFailed"
-                                                                                        class="js-quality-result" />
-
-                                                                                    Không đạt
-                                                                                </label>
-                                                                            </div>
-                                                                        </td>
-
-                                                                        <td>
-                                                                            <textarea name="RejectionReasons[@detail.Id]"
-                                                                                    class="js-rejection-reason"
-                                                                                    rows="2"
-                                                                                    maxlength="500"
-                                                                                    placeholder="Chỉ nhập khi hàng không đạt"
-                                                                                    disabled>@detail.RejectionReason</textarea>
-                                                                        </td>
-                                                                    </tr>
-                                                                }
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-
-                                                    <div class="admin-form-actions">
-                                                        <button type="submit"
-                                                                class="admin-button admin-button--primary"
-                                                                onclick="return confirm('Bạn xác nhận kết quả kiểm hàng và duyệt nhập kho?');">
-                                                            Duyệt phiếu và nhập kho
-                                                        </button>
-
-                                                        <button type="button"
-                                                                class="admin-button admin-button--secondary"
-                                                                data-close-receipt-review="receiptReviewRow-@receipt.Id">
-                                                            Đóng
-                                                        </button>
-                                                    </div>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                <tr>
-                                    <td colspan="8">
-                                        Chưa có phiếu nhận hàng.
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            @*
-                Quan trọng: các popup phải được render ngoài table.
-                Không đặt PartialAsync ở trong tbody.
-            *@
-            @if (Model.RecentReceipts.Any())
-            {
-                foreach (var receipt in Model.RecentReceipts)
-                {
-                    @await Html.PartialAsync(
-                        "_SupplierGoodsReceiptDetailModal",
-                        receipt)
-                }
-            }
-
-            <section class="admin-section" id="supplier-list">
-        <section class="admin-section" id="supplier-list">
-            <div class="admin-section__header">
-                <div>
-                    <p class="admin-section__eyebrow">Danh sách NCC</p>
-                    <h2>Nhà cung cấp đang quản lý</h2>
+                <div class="supplier-directory-toolbar__actions">
+                    <button type="button"
+                            id="supplierClearFilterButton"
+                            class="admin-button admin-button--ghost">
+                        Xóa lọc
+                    </button>
                 </div>
             </div>
 
-            <div class="supplier-toolbar" id="supplierFilterPanel">
-            <label class="admin-field">
-                <span>Tìm kiếm</span>
-                <input type="text"
-                    id="supplierSearchInput"
-                    placeholder="Tên NCC, người liên hệ, SĐT, email, MST..." />
-            </label>
-
-            <label class="admin-field">
-                <span>Trạng thái</span>
-                <select id="supplierStatusFilter" class="admin-select">
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="active">Đang hợp tác</option>
-                    <option value="inactive">Tạm ngưng</option>
-                </select>
-            </label>
-
-            <div class="admin-form-actions supplier-toolbar__actions">
-                <button type="button" id="supplierFilterButton" class="admin-button admin-button--primary">
-                    Lọc
-                </button>
-
-                <button type="button" id="supplierClearFilterButton" class="admin-button admin-button--ghost">
-                    Xóa lọc
-                </button>
-            </div>
-        </div>
-
-            <div class="table-shell">
-                <table class="data-table supplier-table">
+            <div class="table-shell supplier-directory-table-shell">
+                <table class="data-table supplier-directory-table">
                     <thead>
                         <tr>
                             <th>Nhà cung cấp</th>
                             <th>Liên hệ</th>
-                            <th>Thanh toán</th>
-                            <th>Công nợ</th>
+                            <th>Nhóm cung ứng</th>
                             <th>Trạng thái</th>
                             <th>Thao tác</th>
                         </tr>
@@ -1014,218 +181,115 @@
                     <tbody>
                         @if (Model.Suppliers.Any())
                         {
-                            @foreach (var supplier in Model.Suppliers)
+                            foreach (var supplier in Model.Suppliers)
                             {
-                                var supplierDebt = supplier.PurchaseOrders?.Sum(order => DebtValue(order)) ?? 0m;
-
                                 var supplierSearchText = $"{supplier.Name} {supplier.ContactPerson} {supplier.Phone} {supplier.Email} {supplier.TaxCode} {supplier.SupplierType}";
                                 var supplierStatus = supplier.IsActive ? "active" : "inactive";
+                                var initial = string.IsNullOrWhiteSpace(supplier.Name)
+                                    ? "N"
+                                    : supplier.Name.Trim().Substring(0, 1).ToUpperInvariant();
+                                var supplierDebt =
+                                    CalculateSupplierDebt(supplier);
 
+                                var hasOpenPurchaseOrder =
+                                    HasOpenPurchaseOrder(supplier);
+
+                                var canStopCooperation =
+                                    supplier.IsActive
+                                    && supplierDebt <= 0
+                                    && !hasOpenPurchaseOrder;
                                 <tr class="supplier-data-row"
                                     data-supplier-search="@supplierSearchText"
-                                    data-supplier-status="@supplierStatus"
-                                    data-supplier-id="@supplier.Id">
+                                    data-supplier-status="@supplierStatus">
                                     <td>
-                                        <div class="data-table__stack">
-                                            <strong>@supplier.Name</strong>
-                                            <span>MST: @(string.IsNullOrWhiteSpace(supplier.TaxCode) ? "--" : supplier.TaxCode)</span>
-                                            <span>@supplier.SupplierType</span>
+                                        <div class="supplier-profile-cell">
+                                            <span class="supplier-profile-avatar">@initial</span>
+                                            <div class="data-table__stack">
+                                                <strong>@supplier.Name</strong>
+                                                <span>MST: @supplier.TaxCode</span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="data-table__stack">
                                             <strong>@supplier.ContactPerson</strong>
                                             <span>@supplier.Phone</span>
-                                            <span>@(string.IsNullOrWhiteSpace(supplier.Email) ? "--" : supplier.Email)</span>
+                                            <span>@(string.IsNullOrWhiteSpace(supplier.Email) ? "Chưa cập nhật email" : supplier.Email)</span>
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="data-table__stack">
-                                            <span>@supplier.PaymentTermDays ngày công nợ</span>
-                                            <span>@(string.IsNullOrWhiteSpace(supplier.BankName) ? "--" : supplier.BankName)</span>
-                                            <span>@(string.IsNullOrWhiteSpace(supplier.BankAccountNumber) ? "--" : supplier.BankAccountNumber)</span>
+                                        <div class="supplier-type-list">
+                                            @foreach (var type in (supplier.SupplierType ?? string.Empty)
+                                                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                                .Select(item => item.Trim()))
+                                            {
+                                                <span>@type</span>
+                                            }
                                         </div>
                                     </td>
-                                    <td class="data-table__accent">@supplierDebt.ToString("N0") ₫</td>
                                     <td>
                                         @if (supplier.IsActive)
                                         {
-                                            <span class="status-chip status-chip--success js-supplier-status-chip" data-supplier-id="@supplier.Id">Đang hợp tác</span>
+                                            <span class="status-chip status-chip--success">Đang hợp tác</span>
                                         }
                                         else
                                         {
-                                            <span class="status-chip status-chip--neutral js-supplier-status-chip" data-supplier-id="@supplier.Id">Tạm ngưng</span>
+                                            <span class="status-chip status-chip--neutral">Tạm ngưng</span>
                                         }
                                     </td>
                                     <td>
-                                        <div class="admin-action-group">
-                                        <form asp-action="ToggleSupplierStatusAjax" asp-controller="Admin" method="post" class="js-toggle-supplier-status-form">
-                                            <input type="hidden" name="supplierId" value="@supplier.Id" />
+                                        <div class="admin-action-group supplier-directory-actions">
+                                            <button type="button"
+                                                    class="admin-button admin-button--secondary"
+                                                    data-open-modal="supplierDetailModal-@supplier.Id">
+                                                Xem
+                                            </button>
 
-                                            @if (supplier.IsActive)
+                                            <button type="button"
+                                                    class="admin-button admin-button--primary"
+                                                    data-open-modal="supplierEditModal-@supplier.Id">
+                                                Sửa
+                                            </button>
+
+                                            @if (canStopCooperation)
                                             {
-                                                <button type="submit" class="admin-button admin-button--danger js-toggle-supplier-status-button">Tạm ngưng</button>
+                                                <form asp-action="ToggleSupplierStatus"
+                                                    asp-controller="Admin"
+                                                    method="post"
+                                                    onsubmit="return confirm(
+                                                        'Bạn có chắc muốn ngưng hợp tác với nhà cung cấp này?'
+                                                    );">
+
+                                                    <input type="hidden"
+                                                        name="supplierId"
+                                                        value="@supplier.Id" />
+
+                                                    <button type="submit"
+                                                            class="admin-button admin-button--danger">
+                                                        Ngưng hợp tác
+                                                    </button>
+                                                </form>
                                             }
-                                            else
+                                            else if (!supplier.IsActive)
                                             {
-                                                <button type="submit" class="admin-button admin-button--secondary js-toggle-supplier-status-button">Kích hoạt</button>
+                                                <form asp-action="ToggleSupplierStatus"
+                                                    asp-controller="Admin"
+                                                    method="post"
+                                                    onsubmit="return confirm(
+                                                        'Bạn có muốn hợp tác lại với nhà cung cấp này?'
+                                                    );">
+
+                                                    <input type="hidden"
+                                                        name="supplierId"
+                                                        value="@supplier.Id" />
+
+                                                    <button type="submit"
+                                                            class="admin-button admin-button--secondary">
+                                                        Hợp tác lại
+                                                    </button>
+                                                </form>
                                             }
-                                        </form>
-
-                                        @if (supplier.PurchaseOrders == null || !supplier.PurchaseOrders.Any())
-                                        {
-                                            <form asp-action="DeleteSupplier"
-                                                asp-controller="Admin"
-                                                method="post"
-                                                onsubmit="return confirm('Bạn chắc chắn muốn xóa nhà cung cấp này? Chỉ nên xóa khi tạo nhầm và chưa phát sinh giao dịch.');">
-                                                <input type="hidden" name="supplierId" value="@supplier.Id" />
-                                                <button type="submit" class="admin-button admin-button--danger">Xóa</button>
-                                            </form>
-                                        }
-                                    </div>
-                                    </td>
-                                </tr>
-
-                                <tr class="supplier-edit-row" data-edit-for="@supplier.Id">
-                                    <td colspan="6">
-                                        <details>
-                                            <summary>Sửa nhanh thông tin nhà cung cấp</summary>
-
-                                            <form asp-action="UpdateSupplier" asp-controller="Admin" method="post" class="admin-form-grid supplier-form-grid supplier-edit-form">
-                                                <input type="hidden" name="SupplierId" value="@supplier.Id" />
-
-                                                <label class="admin-field">
-                                                    <span>Tên NCC *</span>
-                                                    <input type="text" name="Name" value="@supplier.Name" required maxlength="180" minlength="3" />
-                                                </label>
-
-                                                <label class="admin-field">
-                                                    <span>Mã số thuế *</span>
-                                                    <input type="text"
-                                                        name="TaxCode"
-                                                        value="@supplier.TaxCode"
-                                                        required
-                                                        inputmode="numeric"
-                                                        maxlength="13"
-                                                        pattern="(\d{10}|\d{13})"
-                                                        data-digits-only />
-                                                </label>
-
-                                                <label class="admin-field">
-                                                    <span>Người liên hệ *</span>
-                                                    <input type="text" name="ContactPerson" value="@supplier.ContactPerson" required maxlength="120" minlength="2" />
-                                                </label>
-
-                                                <label class="admin-field">
-                                                    <span>Số điện thoại *</span>
-                                                    <input type="text"
-                                                        name="Phone"
-                                                        value="@supplier.Phone"
-                                                        required
-                                                        inputmode="numeric"
-                                                        maxlength="10"
-                                                        pattern="0\d{9}"
-                                                        data-digits-only />
-                                                </label>
-
-                                                <label class="admin-field">
-                                                    <span>Email</span>
-                                                    <input type="email" name="Email" value="@supplier.Email" maxlength="150" />
-                                                </label>
-
-                                                <label class="admin-field">
-                                                    <span>Số ngày công nợ</span>
-                                                    <select name="PaymentTermDays" class="admin-select">
-                                                        @foreach (var term in new[] { 0, 7, 15, 30, 45, 60, 90 })
-                                                        {
-                                                            if (supplier.PaymentTermDays == term)
-                                                            {
-                                                                <option value="@term" selected>@(term == 0 ? "Thanh toán ngay" : $"{term} ngày")</option>
-                                                            }
-                                                            else
-                                                            {
-                                                                <option value="@term">@(term == 0 ? "Thanh toán ngay" : $"{term} ngày")</option>
-                                                            }
-                                                        }
-                                                    </select>
-                                                </label>
-
-                                                <div class="admin-field admin-field--wide">
-                                                    <span>Nhóm cung ứng *</span>
-
-                                                    <div class="supplier-checkbox-grid">
-                                                        @foreach (var type in new[] { "Vàng", "Bạc", "Kim cương", "Đá quý", "Phụ kiện / hộp đựng", "Gia công / sửa chữa" })
-                                                        {
-                                                            var isChecked = (supplier.SupplierType ?? "")
-                                                                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                                                .Select(item => item.Trim())
-                                                                .Any(item => string.Equals(item, type, StringComparison.OrdinalIgnoreCase));
-
-                                                            <label>
-                                                                @if (isChecked)
-                                                                {
-                                                                    <input type="checkbox" name="SupplierTypes" value="@type" checked />
-                                                                }
-                                                                else
-                                                                {
-                                                                    <input type="checkbox" name="SupplierTypes" value="@type" />
-                                                                }
-                                                                @type
-                                                            </label>
-                                                        }
-                                                    </div>
-                                                </div>
-
-                                                <label class="admin-field">
-                                                    <span>Ngân hàng</span>
-                                                    <select name="BankName" class="admin-select">
-                                                        <option value="">-- Không nhập --</option>
-
-                                                        @foreach (var bank in new[] { "Vietcombank", "VietinBank", "BIDV", "Agribank", "Techcombank", "ACB", "MB Bank", "Sacombank", "VPBank", "TPBank", "Khác" })
-                                                        {
-                                                            if (string.Equals(supplier.BankName, bank, StringComparison.OrdinalIgnoreCase))
-                                                            {
-                                                                <option value="@bank" selected>@bank</option>
-                                                            }
-                                                            else
-                                                            {
-                                                                <option value="@bank">@bank</option>
-                                                            }
-                                                        }
-                                                    </select>
-                                                </label>
-
-                                                <label class="admin-field">
-                                                    <span>Số tài khoản</span>
-                                                    <input type="text"
-                                                        name="BankAccountNumber"
-                                                        value="@supplier.BankAccountNumber"
-                                                        inputmode="numeric"
-                                                        maxlength="20"
-                                                        minlength="6"
-                                                        data-digits-only />
-                                                </label>
-
-                                                <label class="admin-field">
-                                                    <span>Chủ tài khoản</span>
-                                                    <input type="text" name="BankAccountName" value="@supplier.BankAccountName" maxlength="120" />
-                                                </label>
-
-                                                <label class="admin-field admin-field--wide">
-                                                    <span>Địa chỉ *</span>
-                                                    <input type="text" name="Address" value="@supplier.Address" required maxlength="300" minlength="5" />
-                                                </label>
-
-                                                <label class="admin-field admin-field--wide">
-                                                    <span>Ghi chú</span>
-                                                    <textarea name="Note" rows="3" maxlength="1000">@supplier.Note</textarea>
-                                                </label>
-
-                                                <div class="admin-form-actions">
-                                                    <button type="submit" class="admin-button admin-button--primary">Lưu thay đổi</button>
-                                                </div>
-                                            </form>
-                                        </details>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -1233,19 +297,20 @@
                         else
                         {
                             <tr>
-                                <td colspan="6">
+                                <td colspan="5">
                                     <div class="empty-state-card supplier-empty-state">
-                                        <h3>Chưa có dữ liệu nhà cung cấp</h3>
-                                        <p>Hãy thêm nhà cung cấp đầu tiên để bắt đầu tạo đơn đặt hàng nhập.</p>
+                                        <h3>Chưa có nhà cung cấp</h3>
+                                        <p>Nhấn “Thêm nhà cung cấp” để tạo hồ sơ đầu tiên.</p>
                                     </div>
                                 </td>
                             </tr>
                         }
-                        <tr id="supplierNoResultRow" style="display:none;">
-                            <td colspan="6">
+
+                        <tr id="supplierNoResultRow" hidden>
+                            <td colspan="5">
                                 <div class="empty-state-card supplier-empty-state">
                                     <h3>Không tìm thấy nhà cung cấp phù hợp</h3>
-                                    <p>Hãy thử đổi từ khóa tìm kiếm hoặc chọn trạng thái khác.</p>
+                                    <p>Hãy thử đổi từ khóa hoặc trạng thái lọc.</p>
                                 </div>
                             </td>
                         </tr>
@@ -1255,1044 +320,579 @@
         </section>
     </div>
 </div>
+
+<div class="supplier-modal" id="supplierCreateModal" aria-hidden="true">
+    <div class="supplier-modal__backdrop" data-close-modal></div>
+
+    <div class="supplier-modal__dialog supplier-modal__dialog--medium">
+        <div class="supplier-modal__header">
+            <div>
+                <p class="admin-section__eyebrow">Hồ sơ nhà cung cấp</p>
+                <h2>Thêm nhà cung cấp</h2>
+                <p>Nhập các thông tin cần thiết để tạo hồ sơ mới.</p>
+            </div>
+
+            <button type="button"
+                    class="supplier-modal__close"
+                    data-close-modal
+                    aria-label="Đóng">
+                ×
+            </button>
+        </div>
+
+        <form asp-action="CreateSupplier"
+              asp-controller="Admin"
+              method="post"
+              class="admin-form-grid supplier-form-grid"
+              id="supplierCreateForm">
+            <label class="admin-field">
+                <span>Tên nhà cung cấp *</span>
+                <input type="text" name="Name" required maxlength="180" minlength="3" />
+            </label>
+
+            <label class="admin-field">
+                <span>Mã số thuế *</span>
+                <input type="text"
+                       name="TaxCode"
+                       required
+                       inputmode="numeric"
+                       maxlength="13"
+                       pattern="(\d{10}|\d{13})"
+                       data-digits-only />
+            </label>
+
+            <label class="admin-field">
+                <span>Người liên hệ *</span>
+                <input type="text" name="ContactPerson" required maxlength="120" minlength="2" />
+            </label>
+
+            <label class="admin-field">
+                <span>Số điện thoại *</span>
+                <input type="text"
+                       name="Phone"
+                       required
+                       inputmode="numeric"
+                       maxlength="10"
+                       pattern="0\d{9}"
+                       data-digits-only />
+            </label>
+
+            <label class="admin-field">
+                <span>Email</span>
+                <input type="email" name="Email" maxlength="150" />
+            </label>
+
+            <label class="admin-field">
+                <span>Số ngày công nợ</span>
+                <select name="PaymentTermDays" class="admin-select">
+                    @foreach (var term in paymentTerms)
+                    {
+                        <option value="@term">@(term == 0 ? "Thanh toán ngay" : $"{term} ngày")</option>
+                    }
+                </select>
+            </label>
+
+            <div class="admin-field admin-field--wide">
+                <span>Nhóm cung ứng *</span>
+                <div class="supplier-checkbox-grid">
+                    @foreach (var type in supplierTypes)
+                    {
+                        <label>
+                            @if (type == "Vàng")
+                            {
+                                <input type="checkbox" name="SupplierTypes" value="@type" checked />
+                            }
+                            else
+                            {
+                                <input type="checkbox" name="SupplierTypes" value="@type" />
+                            }
+                            @type
+                        </label>
+                    }
+                </div>
+            </div>
+
+            <label class="admin-field">
+                <span>Ngân hàng</span>
+                <select name="BankName" class="admin-select">
+                    <option value="">-- Không nhập --</option>
+                    @foreach (var bank in banks)
+                    {
+                        <option value="@bank">@bank</option>
+                    }
+                </select>
+            </label>
+
+            <label class="admin-field">
+                <span>Số tài khoản</span>
+                <input type="text"
+                       name="BankAccountNumber"
+                       inputmode="numeric"
+                       maxlength="20"
+                       minlength="6"
+                       data-digits-only />
+            </label>
+
+            <label class="admin-field">
+                <span>Chủ tài khoản</span>
+                <input type="text" name="BankAccountName" maxlength="120" />
+            </label>
+
+            <label class="admin-field admin-field--wide">
+                <span>Địa chỉ *</span>
+                <input type="text" name="Address" required maxlength="300" minlength="5" />
+            </label>
+
+            <label class="admin-field admin-field--wide">
+                <span>Ghi chú</span>
+                <textarea name="Note" rows="3" maxlength="1000"></textarea>
+            </label>
+
+            <div class="admin-field admin-field--wide">
+                <div class="admin-alert admin-alert--danger"
+                     id="supplierCreateError"
+                     role="alert"
+                     hidden>
+                </div>
+            </div>
+
+            <div class="admin-form-actions admin-field--wide">
+                <button type="button"
+                        class="admin-button admin-button--ghost"
+                        data-close-modal>
+                    Hủy
+                </button>
+
+                <button type="submit"
+                        class="admin-button admin-button--primary"
+                        id="supplierCreateSubmitButton">
+                    Thêm nhà cung cấp
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.Suppliers.Any())
+{
+    foreach (var supplier in Model.Suppliers)
+    {
+        var selectedTypes = (supplier.SupplierType ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(item => item.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        <div class="supplier-modal" id="supplierDetailModal-@supplier.Id" aria-hidden="true">
+            <div class="supplier-modal__backdrop" data-close-modal></div>
+
+            <div class="supplier-modal__dialog supplier-modal__dialog--medium">
+                <div class="supplier-modal__header">
+                    <div>
+                        <p class="admin-section__eyebrow">Chi tiết nhà cung cấp</p>
+                        <h2>@supplier.Name</h2>
+                        <p>Mã số thuế: @supplier.TaxCode</p>
+                    </div>
+
+                    <button type="button"
+                            class="supplier-modal__close"
+                            data-close-modal
+                            aria-label="Đóng">
+                        ×
+                    </button>
+                </div>
+
+                <div class="supplier-detail-status">
+                    @if (supplier.IsActive)
+                    {
+                        <span class="status-chip status-chip--success">Đang hợp tác</span>
+                    }
+                    else
+                    {
+                        <span class="status-chip status-chip--neutral">Tạm ngưng</span>
+                    }
+                </div>
+
+                <dl class="supplier-detail-grid">
+                    <div>
+                        <dt>Người liên hệ</dt>
+                        <dd>@supplier.ContactPerson</dd>
+                    </div>
+                    <div>
+                        <dt>Số điện thoại</dt>
+                        <dd>@supplier.Phone</dd>
+                    </div>
+                    <div>
+                        <dt>Email</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(supplier.Email) ? "Chưa cập nhật" : supplier.Email)</dd>
+                    </div>
+                    <div>
+                        <dt>Điều khoản thanh toán</dt>
+                        <dd>@(supplier.PaymentTermDays == 0 ? "Thanh toán ngay" : $"Công nợ {supplier.PaymentTermDays} ngày")</dd>
+                    </div>
+                    <div class="supplier-detail-grid__wide">
+                        <dt>Nhóm cung ứng</dt>
+                        <dd>@supplier.SupplierType</dd>
+                    </div>
+                    <div class="supplier-detail-grid__wide">
+                        <dt>Địa chỉ</dt>
+                        <dd>@supplier.Address</dd>
+                    </div>
+                    <div>
+                        <dt>Ngân hàng</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(supplier.BankName) ? "Chưa cập nhật" : supplier.BankName)</dd>
+                    </div>
+                    <div>
+                        <dt>Số tài khoản</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(supplier.BankAccountNumber) ? "Chưa cập nhật" : supplier.BankAccountNumber)</dd>
+                    </div>
+                    <div>
+                        <dt>Chủ tài khoản</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(supplier.BankAccountName) ? "Chưa cập nhật" : supplier.BankAccountName)</dd>
+                    </div>
+                    <div>
+                        <dt>Ngày tạo hồ sơ</dt>
+                        <dd>@supplier.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</dd>
+                    </div>
+                    <div class="supplier-detail-grid__wide">
+                        <dt>Ghi chú</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(supplier.Note) ? "Không có ghi chú" : supplier.Note)</dd>
+                    </div>
+                </dl>
+
+                <div class="admin-form-actions">
+                    <button type="button"
+                            class="admin-button admin-button--ghost"
+                            data-close-modal>
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="supplier-modal" id="supplierEditModal-@supplier.Id" aria-hidden="true">
+            <div class="supplier-modal__backdrop" data-close-modal></div>
+
+            <div class="supplier-modal__dialog supplier-modal__dialog--medium">
+                <div class="supplier-modal__header">
+                    <div>
+                        <p class="admin-section__eyebrow">Cập nhật hồ sơ</p>
+                        <h2>@supplier.Name</h2>
+                        <p>Chỉnh sửa thông tin nhà cung cấp và lưu thay đổi.</p>
+                    </div>
+
+                    <button type="button"
+                            class="supplier-modal__close"
+                            data-close-modal
+                            aria-label="Đóng">
+                        ×
+                    </button>
+                </div>
+
+                <form asp-action="UpdateSupplier"
+                      asp-controller="Admin"
+                      method="post"
+                      class="admin-form-grid supplier-form-grid">
+                    <input type="hidden" name="SupplierId" value="@supplier.Id" />
+
+                    <label class="admin-field">
+                        <span>Tên nhà cung cấp *</span>
+                        <input type="text" name="Name" value="@supplier.Name" required maxlength="180" minlength="3" />
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Mã số thuế *</span>
+                        <input type="text"
+                               name="TaxCode"
+                               value="@supplier.TaxCode"
+                               required
+                               inputmode="numeric"
+                               maxlength="13"
+                               pattern="(\d{10}|\d{13})"
+                               data-digits-only />
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Người liên hệ *</span>
+                        <input type="text" name="ContactPerson" value="@supplier.ContactPerson" required maxlength="120" minlength="2" />
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Số điện thoại *</span>
+                        <input type="text"
+                               name="Phone"
+                               value="@supplier.Phone"
+                               required
+                               inputmode="numeric"
+                               maxlength="10"
+                               pattern="0\d{9}"
+                               data-digits-only />
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Email</span>
+                        <input type="email" name="Email" value="@supplier.Email" maxlength="150" />
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Số ngày công nợ</span>
+                        <select name="PaymentTermDays" class="admin-select">
+                            @foreach (var term in paymentTerms)
+                            {
+                                if (supplier.PaymentTermDays == term)
+                                {
+                                    <option value="@term" selected>@(term == 0 ? "Thanh toán ngay" : $"{term} ngày")</option>
+                                }
+                                else
+                                {
+                                    <option value="@term">@(term == 0 ? "Thanh toán ngay" : $"{term} ngày")</option>
+                                }
+                            }
+                        </select>
+                    </label>
+
+                    <div class="admin-field admin-field--wide">
+                        <span>Nhóm cung ứng *</span>
+                        <div class="supplier-checkbox-grid">
+                            @foreach (var type in supplierTypes)
+                            {
+                                <label>
+                                    @if (selectedTypes.Contains(type))
+                                    {
+                                        <input type="checkbox" name="SupplierTypes" value="@type" checked />
+                                    }
+                                    else
+                                    {
+                                        <input type="checkbox" name="SupplierTypes" value="@type" />
+                                    }
+                                    @type
+                                </label>
+                            }
+                        </div>
+                    </div>
+
+                    <label class="admin-field">
+                        <span>Ngân hàng</span>
+                        <select name="BankName" class="admin-select">
+                            <option value="">-- Không nhập --</option>
+                            @foreach (var bank in banks)
+                            {
+                                if (string.Equals(supplier.BankName, bank, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <option value="@bank" selected>@bank</option>
+                                }
+                                else
+                                {
+                                    <option value="@bank">@bank</option>
+                                }
+                            }
+                        </select>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Số tài khoản</span>
+                        <input type="text"
+                               name="BankAccountNumber"
+                               value="@supplier.BankAccountNumber"
+                               inputmode="numeric"
+                               maxlength="20"
+                               minlength="6"
+                               data-digits-only />
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Chủ tài khoản</span>
+                        <input type="text" name="BankAccountName" value="@supplier.BankAccountName" maxlength="120" />
+                    </label>
+
+                    <label class="admin-field admin-field--wide">
+                        <span>Địa chỉ *</span>
+                        <input type="text" name="Address" value="@supplier.Address" required maxlength="300" minlength="5" />
+                    </label>
+
+                    <label class="admin-field admin-field--wide">
+                        <span>Ghi chú</span>
+                        <textarea name="Note" rows="3" maxlength="1000">@supplier.Note</textarea>
+                    </label>
+
+                    <div class="admin-form-actions admin-field--wide">
+                        <button type="button"
+                                class="admin-button admin-button--ghost"
+                                data-close-modal>
+                            Hủy
+                        </button>
+
+                        <button type="submit" class="admin-button admin-button--primary">
+                            Lưu thay đổi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+}
+
 @section Scripts {
     <script>
-        document.querySelectorAll("[data-digits-only]").forEach(function (input) {
-            input.addEventListener("input", function () {
-                this.value = this.value.replace(/\D/g, "");
-            });
-        });
-        const supplierCreateForm =
-            document.getElementById("supplierCreateForm");
-
-        const supplierCreateError =
-            document.getElementById("supplierCreateError");
-
-        const supplierCreateSubmitButton =
-            document.getElementById("supplierCreateSubmitButton");
-
-        function showSupplierCreateError(message) {
-            if (!supplierCreateError) {
-                alert(message);
-                return;
-            }
-
-            supplierCreateError.textContent = message;
-            supplierCreateError.hidden = false;
-
-            // Cuộn tới vị trí thông báo lỗi trong popup
-            supplierCreateError.scrollIntoView({
-                behavior: "smooth",
-                block: "center"
-            });
-        }
-
-        if (supplierCreateForm) {
-            supplierCreateForm.addEventListener("submit", async function (event) {
-                // Không cho form tải lại trang theo cách mặc định
-                event.preventDefault();
-
-                // Kiểm tra required, pattern, minlength...
-                if (!supplierCreateForm.checkValidity()) {
-                    supplierCreateForm.reportValidity();
-                    return;
-                }
-
-                // Ẩn thông báo lỗi cũ
-                if (supplierCreateError) {
-                    supplierCreateError.textContent = "";
-                    supplierCreateError.hidden = true;
-                }
-
-                const originalButtonText = supplierCreateSubmitButton
-                    ? supplierCreateSubmitButton.textContent
-                    : "Thêm nhà cung cấp";
-
-                // Khóa nút để tránh nhấn nhiều lần
-                if (supplierCreateSubmitButton) {
-                    supplierCreateSubmitButton.disabled = true;
-                    supplierCreateSubmitButton.textContent = "Đang lưu...";
-                }
-
-                try {
-                    const response = await fetch(supplierCreateForm.action, {
-                        method: "POST",
-
-                        // Backend dùng header này để biết đây là AJAX
-                        headers: {
-                            "X-Requested-With": "XMLHttpRequest"
-                        },
-
-                        // FormData chứa toàn bộ input và AntiForgeryToken
-                        body: new FormData(supplierCreateForm)
-                    });
-
-                    const contentType =
-                        response.headers.get("content-type") || "";
-
-                    const result = contentType.includes("application/json")
-                        ? await response.json()
-                        : null;
-
-                    // Backend báo lỗi hoặc không trả về JSON đúng
-                    if (!response.ok || !result || !result.success) {
-                        showSupplierCreateError(
-                            result && result.message
-                                ? result.message
-                                : "Không thể thêm nhà cung cấp. Vui lòng kiểm tra lại dữ liệu."
-                        );
-
-                        return;
-                    }
-
-                    // Chỉ tải lại trang sau khi SaveChangesAsync thành công
-                    window.location.reload();
-                }
-                catch (error) {
-                    console.error(error);
-
-                    showSupplierCreateError(
-                        "Không thể kết nối đến máy chủ. Vui lòng thử lại."
-                    );
-                }
-                finally {
-                    if (supplierCreateSubmitButton) {
-                        supplierCreateSubmitButton.disabled = false;
-                        supplierCreateSubmitButton.textContent = originalButtonText;
-                    }
-                }
-            });
-        }
-        const supplierSearchInput = document.getElementById("supplierSearchInput");
-        const supplierStatusFilter = document.getElementById("supplierStatusFilter");
-        const supplierFilterButton = document.getElementById("supplierFilterButton");
-        const supplierClearFilterButton = document.getElementById("supplierClearFilterButton");
-        const supplierNoResultRow = document.getElementById("supplierNoResultRow");
-
-        function normalizeText(value) {
-            return (value || "")
-                .toString()
-                .trim()
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
-        }
-
-        function filterSuppliers() {
-            const keyword = normalizeText(supplierSearchInput.value);
-            const selectedStatus = supplierStatusFilter.value;
-
-            const supplierRows = document.querySelectorAll(".supplier-data-row");
-            let visibleCount = 0;
-
-            supplierRows.forEach(function (row) {
-                const searchText = normalizeText(row.dataset.supplierSearch);
-                const status = row.dataset.supplierStatus;
-                const supplierId = row.dataset.supplierId;
-                const editRow = document.querySelector('.supplier-edit-row[data-edit-for="' + supplierId + '"]');
-
-                const matchKeyword = keyword === "" || searchText.includes(keyword);
-                const matchStatus = selectedStatus === "" || status === selectedStatus;
-                const shouldShow = matchKeyword && matchStatus;
-
-                row.style.display = shouldShow ? "" : "none";
-
-                if (editRow) {
-                    editRow.style.display = shouldShow ? "" : "none";
-                }
-
-                if (shouldShow) {
-                    visibleCount++;
-                }
-            });
-
-            if (supplierNoResultRow) {
-                supplierNoResultRow.style.display = visibleCount === 0 ? "" : "none";
-            }
-        }
-
-        if (supplierSearchInput) {
-            supplierSearchInput.addEventListener("input", filterSuppliers);
-        }
-
-        if (supplierStatusFilter) {
-            supplierStatusFilter.addEventListener("change", filterSuppliers);
-        }
-
-        if (supplierFilterButton) {
-            supplierFilterButton.addEventListener("click", filterSuppliers);
-        }
-
-        if (supplierClearFilterButton) {
-            supplierClearFilterButton.addEventListener("click", function () {
-                supplierSearchInput.value = "";
-                supplierStatusFilter.value = "";
-                filterSuppliers();
-            });
-        }
-
-        document.querySelectorAll(".js-toggle-supplier-status-form").forEach(function (form) {
-            form.addEventListener("submit", async function (event) {
-                event.preventDefault();
-
-                const supplierIdInput = form.querySelector('input[name="supplierId"]');
-                const tokenInput = form.querySelector('input[name="__RequestVerificationToken"]');
-                const button = form.querySelector(".js-toggle-supplier-status-button");
-
-                if (!supplierIdInput || !tokenInput) {
-                    return;
-                }
-
-                const body = new URLSearchParams();
-                body.append("supplierId", supplierIdInput.value);
-                body.append("__RequestVerificationToken", tokenInput.value);
-
-                if (button) {
-                    button.disabled = true;
-                }
-
-                try {
-                    const response = await fetch(form.action, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                            "X-Requested-With": "XMLHttpRequest"
-                        },
-                        body: body.toString()
-                    });
-
-                    const result = await response.json();
-
-                    if (!result.success) {
-                        alert(result.message);
-                        return;
-                    }
-
-                    const supplierId = result.supplierId || supplierIdInput.value;
-                    const row = document.querySelector('.supplier-data-row[data-supplier-id="' + supplierId + '"]');
-                    const statusChip = document.querySelector('.js-supplier-status-chip[data-supplier-id="' + supplierId + '"]');
-
-                    if (button) {
-                        button.textContent = result.buttonText;
-                        button.className = result.buttonClass + " js-toggle-supplier-status-button";
-                    }
-
-                    if (statusChip) {
-                        statusChip.textContent = result.statusText;
-                        statusChip.className = result.statusChipClass + " js-supplier-status-chip";
-                    }
-
-                    if (row) {
-                        row.dataset.supplierStatus = result.status;
-                    }
-
-                    if (typeof filterSuppliers === "function") {
-                        filterSuppliers();
-                    }
-                } catch (error) {
-                    alert("Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i nh\u00e0 cung c\u1ea5p. Vui l\u00f2ng th\u1eed l\u1ea1i.");
-                } finally {
-                    if (button) {
-                        button.disabled = false;
-                    }
-                }
-            });
-        });
-        const purchaseCategoryOptions = {
-            "Vàng": ["Nhẫn", "Dây chuyền", "Lắc tay", "Lắc chân", "Bông tai", "Mặt dây", "Vòng", "Bộ trang sức"],
-            "Bạc": ["Nhẫn", "Dây chuyền", "Lắc tay", "Lắc chân", "Bông tai", "Mặt dây", "Vòng", "Bộ trang sức"],
-            "Kim cương": ["Nhẫn", "Bông tai", "Mặt dây", "Đá rời", "Bộ trang sức"],
-            "Đá quý": ["Nhẫn", "Bông tai", "Mặt dây", "Đá rời", "Bộ trang sức"],
-            "Phụ kiện / hộp đựng": ["Hộp trang sức", "Túi giấy", "Khăn lau", "Tem / tag", "Hộp quà", "Khay trưng bày"]
-        };
-
-        const purchaseTypeOptions = {
-            "Vàng": ["Vàng 24K", "Vàng 18K", "Vàng 14K", "Vàng 10K", "Vàng trắng 18K", "Vàng hồng 18K"],
-            "Bạc": ["Bạc 999", "Bạc 925", "Bạc 950", "Bạc Thái"],
-            "Kim cương": ["Kim cương thiên nhiên", "Kim cương nhân tạo", "Kim cương GIA", "Kim cương kiểm định PNJ"],
-            "Đá quý": ["Ruby", "Sapphire", "Emerald", "Topaz", "Thạch anh", "CZ"],
-            "Phụ kiện / hộp đựng": ["Loại nhỏ", "Loại vừa", "Loại lớn", "Cao cấp", "Phổ thông"]
-        };
-
-        const purchaseOrderLines = document.getElementById("purchaseOrderLines");
-        const addPurchaseOrderLineButton = document.getElementById("addPurchaseOrderLine");
-        function fillPurchaseSelect(select, values, emptyText, currentValue) {
-            select.innerHTML = "";
-
-            const emptyOption = document.createElement("option");
-            emptyOption.value = "";
-            emptyOption.textContent = emptyText;
-            select.appendChild(emptyOption);
-
-            values.forEach(function (value) {
-                const option = document.createElement("option");
-                option.value = value;
-                option.textContent = value;
-
-                if (currentValue && currentValue === value) {
-                    option.selected = true;
-                }
-
-                select.appendChild(option);
-            });
-        }
-        function updatePurchaseLineSelects(line) {
-            const productLineSelect = line.querySelector(".js-purchase-product-line");
-            const categorySelect = line.querySelector(".js-purchase-category");
-            const typeSelect = line.querySelector(".js-purchase-type");
-            const weightInput = line.querySelector('input[name="Weights"]');
-            const caratInput = line.querySelector('input[name="DiamondCarats"]');
-            const weightLabel = line.querySelector(".js-weight-label");
-            const caratLabel = line.querySelector(".js-carat-label");
-
-            if (!productLineSelect || !categorySelect || !typeSelect) {
-                return;
-            }
-
-            const selectedLine = productLineSelect.value;
-            const currentCategory = categorySelect.dataset.currentValue || "";
-            const currentType = typeSelect.dataset.currentValue || "";
-
-            fillPurchaseSelect(
-                categorySelect,
-                purchaseCategoryOptions[selectedLine] || [],
-                selectedLine ? "-- Chọn danh mục --" : "-- Chọn nhóm hàng trước --",
-                currentCategory
-            );
-
-            fillPurchaseSelect(
-                typeSelect,
-                purchaseTypeOptions[selectedLine] || [],
-                selectedLine ? "-- Chọn phân loại --" : "-- Chọn nhóm hàng trước --",
-                currentType
-            );
-
-            categorySelect.disabled = !selectedLine;
-            typeSelect.disabled = !selectedLine;
-
-            if (selectedLine === "Vàng" || selectedLine === "Bạc") {
-                if (weightInput) weightInput.required = true;
-                if (caratInput) caratInput.required = false;
-                if (weightLabel) weightLabel.textContent = "Trọng lượng gram *";
-                if (caratLabel) caratLabel.textContent = "Carat";
-            } else if (selectedLine === "Kim cương" || selectedLine === "Đá quý") {
-                if (weightInput) weightInput.required = false;
-                if (caratInput) caratInput.required = true;
-                if (weightLabel) weightLabel.textContent = "Trọng lượng gram";
-                if (caratLabel) caratLabel.textContent = "Carat *";
-            } else {
-                if (weightInput) weightInput.required = false;
-                if (caratInput) caratInput.required = false;
-                if (weightLabel) weightLabel.textContent = "Trọng lượng gram";
-                if (caratLabel) caratLabel.textContent = "Carat";
-            }
-        }
-
-        function setupEditablePurchaseLine(line) {
-            const productLineSelect = line.querySelector(".js-purchase-product-line");
-            const removeButton = line.querySelector(".js-remove-purchase-line");
-
-            if (productLineSelect) {
-                const currentValue = productLineSelect.dataset.currentValue;
-
-                if (currentValue) {
-                    productLineSelect.value = currentValue;
-                }
-
-                productLineSelect.addEventListener("change", function () {
-                    const categorySelect = line.querySelector(".js-purchase-category");
-                    const typeSelect = line.querySelector(".js-purchase-type");
-
-                    if (categorySelect) categorySelect.dataset.currentValue = "";
-                    if (typeSelect) typeSelect.dataset.currentValue = "";
-
-                    updatePurchaseLineSelects(line);
-                });
-            }
-
-            if (removeButton) {
-                removeButton.addEventListener("click", function () {
-                    const container = line.closest(".js-edit-purchase-lines");
-                    const totalLines = container ? container.querySelectorAll(".purchase-order-line").length : 0;
-
-                    if (totalLines <= 1) {
-                        alert("Đơn đặt hàng phải có ít nhất một dòng hàng.");
-                        return;
-                    }
-
-                    if (confirm("Bạn có chắc muốn xóa dòng hàng này khỏi đơn đặt hàng không?")) {
-                        line.remove();
-                    }
-                });
-            }
-
-            updatePurchaseLineSelects(line);
-        }
-
-        document.querySelectorAll(".js-edit-purchase-lines .purchase-order-line").forEach(setupEditablePurchaseLine);
-
-        document.querySelectorAll(".js-add-edit-purchase-line").forEach(function (button) {
-            button.addEventListener("click", function () {
-                const form = button.closest("form");
-                const container = form ? form.querySelector(".js-edit-purchase-lines") : null;
-                const firstLine = container ? container.querySelector(".purchase-order-line") : null;
-
-                if (!container || !firstLine) {
-                    return;
-                }
-
-                const newLine = firstLine.cloneNode(true);
-
-                newLine.querySelectorAll("input, textarea").forEach(function (input) {
-                    if (input.name === "Quantities") {
-                        input.value = "1";
-                    } else if (input.name === "Weights") {
-                        input.value = "0";
-                    } else {
-                        input.value = "";
-                    }
-                });
-
-                newLine.querySelectorAll("select").forEach(function (select) {
-                    select.value = "";
-                    select.dataset.currentValue = "";
-                });
-
-                container.appendChild(newLine);
-                setupEditablePurchaseLine(newLine);
-            });
-        });
-        function fillSelectOptions(select, values, emptyText) {
-            select.innerHTML = "";
-
-            const emptyOption = document.createElement("option");
-            emptyOption.value = "";
-            emptyOption.textContent = emptyText;
-            select.appendChild(emptyOption);
-
-            values.forEach(function (value) {
-                const option = document.createElement("option");
-                option.value = value;
-                option.textContent = value;
-                select.appendChild(option);
-            });
-        }
-
-        function toggleOtherInput(select, wrapperSelector) {
-            const line = select.closest(".purchase-order-line");
-            const wrapper = line.querySelector(wrapperSelector);
-            const input = wrapper ? wrapper.querySelector("input") : null;
-
-            if (!wrapper || !input) {
-                return;
-            }
-
-            const isOther = select.value === "__other__";
-
-            if (isOther) {
-                select.hidden = true;
-                wrapper.hidden = false;
-                input.required = true;
-                input.readOnly = false;
-                input.focus();
-            } else {
-                select.hidden = false;
-                wrapper.hidden = true;
-                input.required = false;
-                input.readOnly = true;
-                input.value = "";
-            }
-        }
-
-        function resetOtherInput(line, selectSelector, wrapperSelector) {
-            const select = line.querySelector(selectSelector);
-            const wrapper = line.querySelector(wrapperSelector);
-            const input = wrapper ? wrapper.querySelector("input") : null;
-
-            if (!select || !wrapper || !input) {
-                return;
-            }
-
-            select.value = "";
-            select.hidden = false;
-
-            wrapper.hidden = true;
-            input.value = "";
-            input.required = false;
-            input.readOnly = true;
-        }
-
-        function updatePurchaseLineFields(line) {
-            const productLineSelect = line.querySelector(".js-purchase-product-line");
-            const categorySelect = line.querySelector(".js-purchase-category");
-            const typeSelect = line.querySelector(".js-purchase-type");
-            const weightInput = line.querySelector('input[name="Weights"]');
-            const caratInput = line.querySelector('input[name="DiamondCarats"]');
-            const weightLabel = line.querySelector(".js-weight-label");
-            const caratLabel = line.querySelector(".js-carat-label");
-
-            if (!productLineSelect || !categorySelect || !typeSelect || !weightInput || !caratInput) {
-                return;
-            }
-
-            const selectedLine = productLineSelect.value;
-            const hasProductLine = selectedLine !== "";
-
-            categorySelect.hidden = false;
-            typeSelect.hidden = false;
-
-            fillSelectOptions(
-                categorySelect,
-                purchaseCategoryOptions[selectedLine] || [],
-                hasProductLine ? "-- Chọn danh mục --" : "-- Chọn nhóm hàng trước --"
-            );
-
-            fillSelectOptions(
-                typeSelect,
-                purchaseTypeOptions[selectedLine] || [],
-                hasProductLine ? "-- Chọn phân loại --" : "-- Chọn nhóm hàng trước --"
-            );
-
-            categorySelect.disabled = !hasProductLine;
-            typeSelect.disabled = !hasProductLine;
-            categorySelect.required = hasProductLine;
-            typeSelect.required = hasProductLine;
-
-            if (selectedLine === "Vàng" || selectedLine === "Bạc") {
-                weightInput.required = true;
-                caratInput.required = false;
-
-                if (weightLabel) {
-                    weightLabel.textContent = "Trọng lượng gram *";
-                }
-
-                if (caratLabel) {
-                    caratLabel.textContent = "Carat";
-                }
-            } else if (selectedLine === "Kim cương" || selectedLine === "Đá quý") {
-                weightInput.required = false;
-                caratInput.required = true;
-
-                if (weightLabel) {
-                    weightLabel.textContent = "Trọng lượng gram";
-                }
-
-                if (caratLabel) {
-                    caratLabel.textContent = "Carat *";
-                }
-            } else {
-                weightInput.required = false;
-                caratInput.required = false;
-
-                if (weightLabel) {
-                    weightLabel.textContent = "Trọng lượng gram";
-                }
-
-                if (caratLabel) {
-                    caratLabel.textContent = "Carat";
-                }
-            }
-        }
-
-        function refreshPurchaseLineNumbers() {
-            if (!purchaseOrderLines) {
-                return;
-            }
-
-            const lines = purchaseOrderLines.querySelectorAll(".purchase-order-line");
-
-            lines.forEach(function (line, index) {
-                const numberElement = line.querySelector(".js-line-number");
-                const removeButton = line.querySelector(".js-remove-purchase-line");
-
-                if (numberElement) {
-                    numberElement.textContent = index + 1;
-                }
-
-                if (removeButton) {
-                    removeButton.disabled = lines.length === 1;
-                }
-            });
-        }
-
-        function setupPurchaseLine(line) {
-            const productLineSelect = line.querySelector(".js-purchase-product-line");
-            const removeButton = line.querySelector(".js-remove-purchase-line");
-
-            if (productLineSelect) {
-                productLineSelect.addEventListener("change", function () {
-                    updatePurchaseLineFields(line);
-                });
-            }
-
-            if (removeButton) {
-                removeButton.addEventListener("click", function () {
-                    const totalLines = purchaseOrderLines
-                        ? purchaseOrderLines.querySelectorAll(".purchase-order-line").length
-                        : 0;
-
-                    if (totalLines <= 1) {
-                        alert("Đơn đặt hàng phải có ít nhất một dòng hàng.");
-                        return;
-                    }
-
-                    if (confirm("Bạn có chắc muốn xóa dòng hàng này khỏi đơn đặt hàng không?")) {
-                        line.remove();
-                        refreshPurchaseLineNumbers();
-                    }
-                });
-            }
-
-            updatePurchaseLineFields(line);
-        }
-        // =====================================================
-        // LỌC NHÓM HÀNG THEO NHÀ CUNG CẤP
-        // =====================================================
-
-        const purchaseOrderSupplierSelect =
-            document.getElementById("purchaseOrderSupplierSelect");
-
-        // Những nhóm hàng được phép tạo đơn đặt hàng
-        const allowedPurchaseProductLines = [
-            "Vàng",
-            "Bạc",
-            "Kim cương",
-            "Đá quý",
-            "Phụ kiện / hộp đựng"
-        ];
-
-        /**
-         * Lấy danh sách nhóm cung ứng của nhà cung cấp đang được chọn.
-         */
-        function getSelectedSupplierProductLines() {
-            if (!purchaseOrderSupplierSelect) {
-                return [];
-            }
-
-            const selectedOption =
-                purchaseOrderSupplierSelect.options[
-                    purchaseOrderSupplierSelect.selectedIndex
-                ];
-
-            if (!selectedOption || !selectedOption.value) {
-                return [];
-            }
-
-            const supplierTypeText =
-                selectedOption.dataset.supplierTypes || "";
-
-            let supplierTypes = supplierTypeText
-                .split(",")
-                .map(function (item) {
-                    return item.trim();
-                })
-                .filter(function (item) {
-                    return item !== "";
-                });
-
-            /*
-            * Hỗ trợ dữ liệu nhà cung cấp cũ có nhóm:
-            * "Vàng bạc đá quý"
-            */
-            if (
-                supplierTypeText
-                    .toLocaleLowerCase("vi")
-                    .includes("vàng bạc đá quý")
-            ) {
-                supplierTypes.push(
-                    "Vàng",
-                    "Bạc",
-                    "Kim cương",
-                    "Đá quý"
-                );
-            }
-
-            // Chỉ giữ lại các nhóm có thể đặt hàng
-            supplierTypes = supplierTypes.filter(function (supplierType) {
-                return allowedPurchaseProductLines.some(function (allowedType) {
-                    return allowedType.toLocaleLowerCase("vi")
-                        === supplierType.toLocaleLowerCase("vi");
+        (function () {
+            document.querySelectorAll("[data-digits-only]").forEach(function (input) {
+                input.addEventListener("input", function () {
+                    this.value = this.value.replace(/\D/g, "");
                 });
             });
 
-            // Loại bỏ dữ liệu bị trùng
-            return supplierTypes.filter(function (item, index, array) {
-                return array.findIndex(function (otherItem) {
-                    return otherItem.toLocaleLowerCase("vi")
-                        === item.toLocaleLowerCase("vi");
-                }) === index;
-            });
-        }
-
-        /**
-         * Tạo lại dropdown Nhóm hàng cho một dòng hàng.
-         */
-        function fillSupplierProductLineSelect(
-            productLineSelect,
-            supplierProductLines,
-            currentValue
-        ) {
-            if (!productLineSelect) {
-                return;
-            }
-
-            productLineSelect.innerHTML = "";
-
-            const emptyOption = document.createElement("option");
-            emptyOption.value = "";
-
-            if (
-                !purchaseOrderSupplierSelect
-                || !purchaseOrderSupplierSelect.value
-            ) {
-                emptyOption.textContent =
-                    "-- Chọn nhà cung cấp trước --";
-            } else if (supplierProductLines.length === 0) {
-                emptyOption.textContent =
-                    "-- Nhà cung cấp không có nhóm hàng phù hợp --";
-            } else {
-                emptyOption.textContent =
-                    "-- Chọn nhóm hàng --";
-            }
-
-            productLineSelect.appendChild(emptyOption);
-
-            supplierProductLines.forEach(function (productLine) {
-                const option = document.createElement("option");
-
-                option.value = productLine;
-                option.textContent = productLine;
-
-                if (
-                    currentValue
-                    && currentValue.toLocaleLowerCase("vi")
-                        === productLine.toLocaleLowerCase("vi")
-                ) {
-                    option.selected = true;
-                }
-
-                productLineSelect.appendChild(option);
-            });
-
-            productLineSelect.disabled =
-                !purchaseOrderSupplierSelect
-                || !purchaseOrderSupplierSelect.value
-                || supplierProductLines.length === 0;
-        }
-
-        /**
-         * Cập nhật Nhóm hàng cho tất cả dòng hàng trong popup.
-         */
-        function updateProductLinesBySupplier() {
-            if (!purchaseOrderLines) {
-                return;
-            }
-
-            const supplierProductLines =
-                getSelectedSupplierProductLines();
-
-            const lines =
-                purchaseOrderLines.querySelectorAll(
-                    ".purchase-order-line"
-                );
-
-            lines.forEach(function (line) {
-                const productLineSelect =
-                    line.querySelector(
-                        ".js-purchase-product-line"
-                    );
-
-                if (!productLineSelect) {
-                    return;
-                }
-
-                const oldProductLine =
-                    productLineSelect.value;
-
-                /*
-                * Chỉ giữ nhóm cũ nếu nhà cung cấp mới
-                * cũng có cung ứng nhóm đó.
-                */
-                const canKeepOldValue =
-                    supplierProductLines.some(function (item) {
-                        return item.toLocaleLowerCase("vi")
-                            === oldProductLine.toLocaleLowerCase("vi");
-                    });
-
-                fillSupplierProductLineSelect(
-                    productLineSelect,
-                    supplierProductLines,
-                    canKeepOldValue ? oldProductLine : ""
-                );
-
-                /*
-                * Cập nhật lại Danh mục và Chất liệu.
-                * Nếu nhóm cũ không còn phù hợp thì hai ô này
-                * sẽ trở về trạng thái chọn nhóm hàng trước.
-                */
-                updatePurchaseLineFields(line);
-            });
-        }
-
-        // Khi đổi nhà cung cấp thì lọc lại Nhóm hàng
-        if (purchaseOrderSupplierSelect) {
-            purchaseOrderSupplierSelect.addEventListener(
-                "change",
-                function () {
-                    updateProductLinesBySupplier();
-                }
-            );
-        }
-
-        // =====================================================
-        // KHỞI TẠO DÒNG HÀNG ĐẦU TIÊN
-        // =====================================================
-
-        if (purchaseOrderLines) {
-            purchaseOrderLines
-                .querySelectorAll(".purchase-order-line")
-                .forEach(function (line) {
-                    setupPurchaseLine(line);
-                });
-
-            refreshPurchaseLineNumbers();
-        }
-
-        // Ban đầu chưa chọn nhà cung cấp thì khóa Nhóm hàng
-        updateProductLinesBySupplier();
-
-        // =====================================================
-        // THÊM DÒNG HÀNG MỚI
-        // =====================================================
-
-        if (addPurchaseOrderLineButton && purchaseOrderLines) {
-            addPurchaseOrderLineButton.addEventListener(
-                "click",
-                function () {
-                    const firstLine =
-                        purchaseOrderLines.querySelector(
-                            ".purchase-order-line"
-                        );
-
-                    if (!firstLine) {
-                        return;
-                    }
-
-                    const newLine = firstLine.cloneNode(true);
-
-                    // Xóa dữ liệu input của dòng được sao chép
-                    newLine
-                        .querySelectorAll("input, textarea")
-                        .forEach(function (input) {
-                            if (input.name === "Quantities") {
-                                input.value = "1";
-                            } else if (input.name === "Weights") {
-                                input.value = "0";
-                            } else {
-                                input.value = "";
-                            }
-                        });
-
-                    // Đưa tất cả select về giá trị trống
-                    newLine
-                        .querySelectorAll("select")
-                        .forEach(function (select) {
-                            select.value = "";
-                        });
-
-                    purchaseOrderLines.appendChild(newLine);
-
-                    // Gắn sự kiện change và xóa dòng
-                    setupPurchaseLine(newLine);
-
-                    // Lọc Nhóm hàng của dòng mới theo NCC
-                    const productLineSelect =
-                        newLine.querySelector(
-                            ".js-purchase-product-line"
-                        );
-
-                    fillSupplierProductLineSelect(
-                        productLineSelect,
-                        getSelectedSupplierProductLines(),
-                        ""
-                    );
-
-                    updatePurchaseLineFields(newLine);
-                    refreshPurchaseLineNumbers();
-                }
-            );
-        }
-        document.querySelectorAll("[data-open-modal]").forEach(function (button) {
-            button.addEventListener("click", function () {
-                const modalId = button.getAttribute("data-open-modal");
+            function openModal(modalId) {
                 const modal = document.getElementById(modalId);
-
-                if (!modal) {
-                    return;
-                }
+                if (!modal) return;
 
                 modal.classList.add("is-open");
                 modal.setAttribute("aria-hidden", "false");
                 document.body.classList.add("supplier-modal-open");
-            });
-        });
+            }
 
-        document.querySelectorAll("[data-close-modal]").forEach(function (button) {
-            button.addEventListener("click", function () {
-                const modal = button.closest(".supplier-modal");
-
-                if (!modal) {
-                    return;
-                }
+            function closeModal(modal) {
+                if (!modal) return;
 
                 modal.classList.remove("is-open");
                 modal.setAttribute("aria-hidden", "true");
-                document.body.classList.remove("supplier-modal-open");
-            });
-        });
 
-        document.addEventListener("keydown", function (event) {
-            if (event.key !== "Escape") {
-                return;
-            }
-
-            document.querySelectorAll(".supplier-modal.is-open").forEach(function (modal) {
-                modal.classList.remove("is-open");
-                modal.setAttribute("aria-hidden", "true");
-            });
-
-            document.body.classList.remove("supplier-modal-open");
-        });
-        function openSupplierModalById(modalId) {
-            const modal = document.getElementById(modalId);
-
-            if (!modal) {
-                return;
-            }
-
-            modal.classList.add("is-open");
-            modal.setAttribute("aria-hidden", "false");
-            document.body.classList.add("supplier-modal-open");
-        }
-
-        document.querySelectorAll(".js-order-detail-row").forEach(function (row) {
-            row.addEventListener("click", function (event) {
-                if (event.target.closest("button, a, form, input, select, textarea")) {
-                    return;
+                if (!document.querySelector(".supplier-modal.is-open")) {
+                    document.body.classList.remove("supplier-modal-open");
                 }
+            }
 
-                openSupplierModalById(row.dataset.detailModal);
-            });
-        });
-        document
-            .querySelectorAll("[data-toggle-receipt-review]")
-            .forEach(function (button) {
+            document.querySelectorAll("[data-open-modal]").forEach(function (button) {
                 button.addEventListener("click", function () {
-                    const targetId =
-                        button.dataset.toggleReceiptReview;
+                    openModal(button.getAttribute("data-open-modal"));
+                });
+            });
 
-                    const reviewRow =
-                        document.getElementById(targetId);
+            document.querySelectorAll("[data-close-modal]").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    closeModal(button.closest(".supplier-modal"));
+                });
+            });
 
-                    if (!reviewRow) {
+            document.addEventListener("keydown", function (event) {
+                if (event.key !== "Escape") return;
+                document.querySelectorAll(".supplier-modal.is-open").forEach(closeModal);
+            });
+
+            const searchInput = document.getElementById("supplierSearchInput");
+            const statusFilter = document.getElementById("supplierStatusFilter");
+            const clearFilterButton = document.getElementById("supplierClearFilterButton");
+            const noResultRow = document.getElementById("supplierNoResultRow");
+            const resultCount = document.getElementById("supplierResultCount");
+
+            function normalizeText(value) {
+                return (value || "")
+                    .toString()
+                    .trim()
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "");
+            }
+
+            function filterSuppliers() {
+                const keyword = normalizeText(searchInput ? searchInput.value : "");
+                const selectedStatus = statusFilter ? statusFilter.value : "";
+                const rows = document.querySelectorAll(".supplier-data-row");
+                let visibleCount = 0;
+
+                rows.forEach(function (row) {
+                    const matchKeyword = keyword === ""
+                        || normalizeText(row.dataset.supplierSearch).includes(keyword);
+                    const matchStatus = selectedStatus === ""
+                        || row.dataset.supplierStatus === selectedStatus;
+                    const visible = matchKeyword && matchStatus;
+
+                    row.hidden = !visible;
+                    if (visible) visibleCount++;
+                });
+
+                if (noResultRow) noResultRow.hidden = visibleCount !== 0;
+                if (resultCount) resultCount.textContent = visibleCount + " kết quả";
+            }
+
+            if (searchInput) searchInput.addEventListener("input", filterSuppliers);
+            if (statusFilter) statusFilter.addEventListener("change", filterSuppliers);
+
+            if (clearFilterButton) {
+                clearFilterButton.addEventListener("click", function () {
+                    if (searchInput) searchInput.value = "";
+                    if (statusFilter) statusFilter.value = "";
+                    filterSuppliers();
+                });
+            }
+
+            const createForm = document.getElementById("supplierCreateForm");
+            const createError = document.getElementById("supplierCreateError");
+            const createButton = document.getElementById("supplierCreateSubmitButton");
+
+            function showCreateError(message) {
+                if (!createError) {
+                    alert(message);
+                    return;
+                }
+
+                createError.textContent = message;
+                createError.hidden = false;
+            }
+
+            if (createForm) {
+                createForm.addEventListener("submit", async function (event) {
+                    event.preventDefault();
+
+                    if (!createForm.checkValidity()) {
+                        createForm.reportValidity();
                         return;
                     }
 
-                    const willOpen =
-                        reviewRow.hidden;
+                    if (createError) {
+                        createError.textContent = "";
+                        createError.hidden = true;
+                    }
 
-                    reviewRow.hidden =
-                        !willOpen;
+                    const originalText = createButton ? createButton.textContent : "Thêm nhà cung cấp";
+                    if (createButton) {
+                        createButton.disabled = true;
+                        createButton.textContent = "Đang lưu...";
+                    }
 
-                    button.textContent =
-                        willOpen
-                            ? "Ẩn kiểm hàng"
-                            : "Kiểm hàng";
-
-                    if (willOpen) {
-                        reviewRow.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center"
+                    try {
+                        const response = await fetch(createForm.action, {
+                            method: "POST",
+                            headers: {
+                                "X-Requested-With": "XMLHttpRequest"
+                            },
+                            body: new FormData(createForm)
                         });
+
+                        const contentType = response.headers.get("content-type") || "";
+                        const result = contentType.includes("application/json")
+                            ? await response.json()
+                            : null;
+
+                        if (!response.ok || !result || !result.success) {
+                            showCreateError(
+                                result && result.message
+                                    ? result.message
+                                    : "Không thể thêm nhà cung cấp. Vui lòng kiểm tra lại dữ liệu."
+                            );
+                            return;
+                        }
+
+                        window.location.reload();
+                    } catch (error) {
+                        console.error(error);
+                        showCreateError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+                    } finally {
+                        if (createButton) {
+                            createButton.disabled = false;
+                            createButton.textContent = originalText;
+                        }
                     }
                 });
-            });
-
-        document
-            .querySelectorAll("[data-close-receipt-review]")
-            .forEach(function (button) {
-                button.addEventListener("click", function () {
-                    const targetId =
-                        button.dataset.closeReceiptReview;
-
-                    const reviewRow =
-                        document.getElementById(targetId);
-
-                    if (!reviewRow) {
-                        return;
-                    }
-
-                    reviewRow.hidden = true;
-
-                    const openButton =
-                        document.querySelector(
-                            '[data-toggle-receipt-review="'
-                            + targetId
-                            + '"]'
-                        );
-
-                    if (openButton) {
-                        openButton.textContent =
-                            "Kiểm hàng";
-                    }
-                });
-            });
-
-        function updateSimpleQualityRow(row) {
-            const selectedResult =
-                row.querySelector(
-                    '.js-quality-result:checked'
-                );
-
-            const rejectionReason =
-                row.querySelector(
-                    ".js-rejection-reason"
-                );
-
-            if (!selectedResult
-                || !rejectionReason) {
-                return;
             }
-
-            const isFailed =
-                selectedResult.value === "Không đạt";
-
-            rejectionReason.disabled =
-                !isFailed;
-
-            rejectionReason.required =
-                isFailed;
-
-            if (!isFailed) {
-                rejectionReason.value = "";
-            }
-        }
-
-        document
-            .querySelectorAll(".js-simple-quality-row")
-            .forEach(function (row) {
-                row
-                    .querySelectorAll(".js-quality-result")
-                    .forEach(function (radio) {
-                        radio.addEventListener(
-                            "change",
-                            function () {
-                                updateSimpleQualityRow(row);
-                            }
-                        );
-                    });
-
-                updateSimpleQualityRow(row);
-            });
+        })();
     </script>
 }
