@@ -839,6 +839,9 @@
                                     var isInventoryManagementPage =
                                         pathMatches("/admin/inventorymanagement");
 
+                                    var isInventoryIssuePage =
+                                        pathMatches("/admin/inventoryissues");
+
                                     var isInventoryHistoryPage =
                                         pathMatches("/admin/inventoryhistory");
                                     <details class="management-menu @(isActiveManagementBranch ? "management-menu--active" : string.Empty)" @(isActiveManagementBranch ? "open" : null)>
@@ -865,6 +868,7 @@
                                                             || isWarehousePurchasingPage
                                                             || isSupplierPurchaseOrdersPage
                                                             || isInventoryManagementPage
+                                                            || isInventoryIssuePage
                                                             || isInventoryHistoryPage
                                                         )
                                                             ? "open"
@@ -894,9 +898,14 @@
                                                         Phiếu nhập kho
                                                     </a>
 
-                                                    <span>
-                                                        Phiếu xuất kho · đang phát triển
-                                                    </span>
+                                                    <a class="@(
+                                                            isInventoryIssuePage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                    href="/Admin/InventoryIssues?branchId=@branch.Id">
+                                                        Phiếu xuất kho
+                                                    </a>
 
                                                     <a class="@(
                                                             isInventoryManagementPage

@@ -7,6 +7,11 @@ namespace GoldManagementSystem.Models
 {
     public class Warehouse
     {
+        public const string LocationTypeStorage =
+            "Kho lưu trữ";
+
+        public const string LocationTypeDisplay =
+            "Quầy trưng bày";
         [Key]
         public int Id { get; set; }
 
@@ -24,6 +29,11 @@ namespace GoldManagementSystem.Models
 
         [StringLength(300)]
         public string Location { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        public string LocationType { get; set; }
+            = LocationTypeStorage;
 
         public bool IsActive { get; set; } = true;
 

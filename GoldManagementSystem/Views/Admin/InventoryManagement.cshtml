@@ -329,10 +329,10 @@
                                                 <strong>@item.StockCode</strong>
 
                                                 <span>
-                                                    Cập nhật
-                                                    @item.UpdatedAt
+                                                    Cập nhật:
+                                                    @(item.UpdatedAt
                                                         .ToLocalTime()
-                                                        .ToString("dd/MM/yyyy HH:mm")
+                                                        .ToString("dd/MM/yyyy HH:mm"))
                                                 </span>
                                             </div>
                                         </td>
@@ -400,8 +400,7 @@
                                         <td data-label="Tồn thực tế">
                                             <div class="inventory-quantity">
                                                 <strong>
-                                                    @item.QuantityOnHand
-                                                        .ToString("N0")
+                                                    @(item.QuantityOnHand.ToString("N0"))
                                                 </strong>
 
                                                 <span>Sản phẩm</span>
@@ -415,13 +414,11 @@
                                         <td data-label="Giá vốn">
                                             <div class="inventory-cell-stack">
                                                 <strong>
-                                                    @item.InventoryValue
-                                                        .ToString("N0") ₫
+                                                    @(item.InventoryValue.ToString("N0")) ₫
                                                 </strong>
 
                                                 <span>
-                                                    @item.UnitCost.ToString("N0")
-                                                    ₫ / sản phẩm
+                                                    @(item.UnitCost.ToString("N0")) ₫ / sản phẩm
                                                 </span>
                                             </div>
                                         </td>
@@ -456,7 +453,7 @@
                         <button type="button"
                                 class="admin-button admin-button--primary"
                                 onclick="openCreateWarehouseModal()">
-                            + Thêm kho
+                            + Thêm địa điểm
                         </button>
                     }
                 </div>
@@ -465,7 +462,8 @@
                     <table class="inventory-table">
                         <thead>
                             <tr>
-                                <th>Kho</th>
+                                <th>Kho/Quầy</th>
+                                <th>Loại địa điểm</th>
                                 <th>Chi nhánh</th>
                                 <th>Vị trí</th>
                                 <th>Dòng hàng</th>
@@ -497,11 +495,22 @@
                                             item => item.InventoryValue) ?? 0m;
 
                                     <tr>
-                                        <td data-label="Kho">
+                                        <td data-label="Kho/Quầy">
                                             <div class="inventory-cell-stack">
                                                 <strong>@warehouse.Name</strong>
                                                 <span>@warehouse.Code</span>
                                             </div>
+                                        </td>
+
+                                        <td data-label="Loại địa điểm">
+                                            <span class="inventory-badge @(
+                                                warehouse.LocationType
+                                                    == Warehouse.LocationTypeDisplay
+                                                        ? "inventory-badge--info"
+                                                        : "inventory-badge--success")">
+
+                                                @warehouse.LocationType
+                                            </span>
                                         </td>
 
                                         <td data-label="Chi nhánh">
@@ -569,7 +578,7 @@
                             else
                             {
                                 <tr>
-                                    <td colspan="@(canManageWarehouse ? 8 : 7)">
+                                    <td colspan="@(canManageWarehouse ? 9 : 8)">
                                         Chưa có kho nào trong phạm vi được xem.
                                     </td>
                                 </tr>
@@ -598,7 +607,7 @@
                         Thiết lập kho
                     </p>
 
-                    <h3>Thêm kho mới</h3>
+                    <h3>Thêm địa điểm lưu giữ hàng</h3>
                 </div>
 
                 <button type="button"
@@ -614,7 +623,7 @@
                   class="admin-form-grid">
 
                 <label class="admin-field">
-                    <span>Mã kho *</span>
+                    <span>Mã địa điểm *</span>
 
                     <input type="text"
                            name="Code"
@@ -624,13 +633,30 @@
                 </label>
 
                 <label class="admin-field">
-                    <span>Tên kho *</span>
+                    <span>Tên địa điểm *</span>
 
                     <input type="text"
                            name="Name"
                            required
                            maxlength="150"
                            placeholder="VD: Kho chính chi nhánh HCM" />
+                </label>
+
+                <label class="admin-field">
+                    <span>Loại địa điểm *</span>
+
+                    <select name="LocationType"
+                            class="admin-select"
+                            required>
+
+                        <option value="@Warehouse.LocationTypeStorage">
+                            @Warehouse.LocationTypeStorage
+                        </option>
+
+                        <option value="@Warehouse.LocationTypeDisplay">
+                            @Warehouse.LocationTypeDisplay
+                        </option>
+                    </select>
                 </label>
 
                 <label class="admin-field">
@@ -669,7 +695,7 @@
                 <div class="admin-form-actions">
                     <button type="submit"
                             class="admin-button admin-button--primary">
-                        Tạo kho
+                        Tạo địa điểm
                     </button>
 
                     <button type="button"

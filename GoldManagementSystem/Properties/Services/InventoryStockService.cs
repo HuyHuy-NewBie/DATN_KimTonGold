@@ -125,6 +125,12 @@ namespace GoldManagementSystem.Services
                     $"Kho {warehouse.Code} đang tạm ngưng.");
             }
 
+            if (warehouse.LocationType
+                != Warehouse.LocationTypeStorage)
+            {
+                throw new InvalidOperationException(
+                    "Hàng từ nhà cung cấp chỉ được nhập vào kho lưu trữ, không được nhập thẳng vào quầy trưng bày.");
+            }
             /*
              * Đơn đặt hàng của chi nhánh nào thì chỉ được
              * nhập vào kho thuộc đúng chi nhánh đó.

@@ -4,6 +4,7 @@ using GoldManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoldManagementSystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260727212939_AddInventoryDisplayLocations")]
+    partial class AddInventoryDisplayLocations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -398,9 +401,14 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ReceiverUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("RecipientPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("ReferenceCode")
                         .HasMaxLength(100)
@@ -429,8 +437,6 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("IssueCode")
                         .IsUnique();
-
-                    b.HasIndex("ReceiverUserId");
 
                     b.HasIndex("SupplierId");
 
@@ -1842,11 +1848,6 @@ namespace GoldManagementSystem.Migrations
                         .HasForeignKey("DestinationWarehouseId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReceiverUser")
-                        .WithMany()
-                        .HasForeignKey("ReceiverUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("GoldManagementSystem.Models.Supplier", "Supplier")
                         .WithMany()
                         .HasForeignKey("SupplierId")
@@ -1865,8 +1866,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("DestinationWarehouse");
-
-                    b.Navigation("ReceiverUser");
 
                     b.Navigation("Supplier");
 

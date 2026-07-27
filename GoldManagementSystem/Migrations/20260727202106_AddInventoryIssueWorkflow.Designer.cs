@@ -4,6 +4,7 @@ using GoldManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoldManagementSystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260727202106_AddInventoryIssueWorkflow")]
+    partial class AddInventoryIssueWorkflow
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -374,9 +377,6 @@ namespace GoldManagementSystem.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int?>("DestinationWarehouseId")
-                        .HasColumnType("int");
-
                     b.Property<string>("IssueCode")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -398,9 +398,14 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ReceiverUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("RecipientPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("ReferenceCode")
                         .HasMaxLength(100)
@@ -425,12 +430,8 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.HasIndex("DestinationWarehouseId");
-
                     b.HasIndex("IssueCode")
                         .IsUnique();
-
-                    b.HasIndex("ReceiverUserId");
 
                     b.HasIndex("SupplierId");
 
@@ -1514,13 +1515,6 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
-                    b.Property<string>("LocationType")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasDefaultValue("Kho lưu trữ");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -1837,16 +1831,6 @@ namespace GoldManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("GoldManagementSystem.Models.Warehouse", "DestinationWarehouse")
-                        .WithMany()
-                        .HasForeignKey("DestinationWarehouseId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReceiverUser")
-                        .WithMany()
-                        .HasForeignKey("ReceiverUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("GoldManagementSystem.Models.Supplier", "Supplier")
                         .WithMany()
                         .HasForeignKey("SupplierId")
@@ -1863,10 +1847,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("ConfirmedByUser");
 
                     b.Navigation("CreatedByUser");
-
-                    b.Navigation("DestinationWarehouse");
-
-                    b.Navigation("ReceiverUser");
 
                     b.Navigation("Supplier");
 

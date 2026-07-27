@@ -32,6 +32,8 @@ namespace GoldManagementSystem.Data
         public DbSet<Warehouse> Warehouses { get; set; }
         public DbSet<InventoryItem> InventoryItems { get; set; }
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
+        public DbSet<InventoryIssue> InventoryIssues { get; set; }
+        public DbSet<InventoryIssueDetail> InventoryIssueDetails { get; set; }
         public DbSet<ChatSettings> ChatSettings { get; set; }
         public DbSet<WorkShift> WorkShifts { get; set; }
         public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
@@ -209,7 +211,10 @@ namespace GoldManagementSystem.Data
                 .WithMany(branch => branch.Warehouses)
                 .HasForeignKey(warehouse => warehouse.BranchId)
                 .OnDelete(DeleteBehavior.Restrict);
-
+            builder.Entity<Warehouse>()
+                .Property(warehouse => warehouse.LocationType)
+                .HasDefaultValue(
+                    Warehouse.LocationTypeStorage);
             builder.Entity<InventoryItem>()
                 .HasIndex(item => item.StockCode)
                 .IsUnique();
@@ -259,7 +264,113 @@ namespace GoldManagementSystem.Data
                 .WithMany()
                 .HasForeignKey(transaction => transaction.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+            /*
+            * =========================================
+            * PHIẾU XUẤT KHO
+            * =========================================
+            */
 
+            /*
+            * Mã phiếu xuất không được trùng.
+            */
+            builder.Entity<InventoryIssue>()
+                .HasIndex(issue => issue.IssueCode)
+                .IsUnique();
+
+            /*
+            * Chi nhánh thực hiện xuất kho.
+            */
+            builder.Entity<InventoryIssue>()
+                .HasOne(issue => issue.Branch)
+                .WithMany()
+                .HasForeignKey(issue => issue.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+            /*
+            * Kho bị trừ hàng.
+            */
+            builder.Entity<InventoryIssue>()
+                .HasOne(issue => issue.Warehouse)
+                .WithMany()
+                .HasForeignKey(issue => issue.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<InventoryIssue>()
+                .HasOne(issue => issue.ReceiverUser)
+                .WithMany()
+                .HasForeignKey(issue => issue.ReceiverUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<InventoryIssue>()
+                .HasOne(issue => issue.DestinationWarehouse)
+                .WithMany()
+                .HasForeignKey(issue =>
+                    issue.DestinationWarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+            /*
+            * Nhà cung cấp nhận lại hàng.
+            * SupplierId chỉ có giá trị đối với phiếu
+            * Trả nhà cung cấp.
+            */
+            builder.Entity<InventoryIssue>()
+                .HasOne(issue => issue.Supplier)
+                .WithMany()
+                .HasForeignKey(issue => issue.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            /*
+            * Người lập phiếu.
+            */
+            builder.Entity<InventoryIssue>()
+                .HasOne(issue => issue.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(issue => issue.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            /*
+            * Người xác nhận xuất kho.
+            * Khi phiếu còn Chờ xuất kho thì
+            * ConfirmedByUserId bằng null.
+            */
+            builder.Entity<InventoryIssue>()
+                .HasOne(issue => issue.ConfirmedByUser)
+                .WithMany()
+                .HasForeignKey(issue => issue.ConfirmedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            /*
+            * Một mã tồn không được xuất lặp lại
+            * nhiều lần trong cùng một phiếu.
+            */
+            builder.Entity<InventoryIssueDetail>()
+                .HasIndex(detail => new
+                {
+                    detail.InventoryIssueId,
+                    detail.InventoryItemId
+                })
+                .IsUnique();
+
+            /*
+            * Khi xóa phiếu chưa phát sinh nghiệp vụ,
+            * các chi tiết thuộc phiếu cũng được xóa.
+            *
+            * Sau này controller sẽ không cho phép
+            * xóa trực tiếp phiếu đã xuất kho.
+            */
+            builder.Entity<InventoryIssueDetail>()
+                .HasOne(detail => detail.InventoryIssue)
+                .WithMany(issue => issue.Details)
+                .HasForeignKey(detail => detail.InventoryIssueId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            /*
+            * Không cho xóa mã tồn nếu mã tồn đã từng
+            * xuất hiện trong phiếu xuất kho.
+            */
+            builder.Entity<InventoryIssueDetail>()
+                .HasOne(detail => detail.InventoryItem)
+                .WithMany()
+                .HasForeignKey(detail => detail.InventoryItemId)
+                .OnDelete(DeleteBehavior.Restrict);
             builder.Entity<UserFeaturePermission>()
                 .HasIndex(permission => new { permission.UserId, permission.FeatureKey, permission.BranchId })
                 .IsUnique();

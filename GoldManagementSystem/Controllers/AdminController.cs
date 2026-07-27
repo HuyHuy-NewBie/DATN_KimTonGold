@@ -124,13 +124,15 @@ namespace GoldManagementSystem.Controllers
                     order.BranchId == scopedBranchId.Value);
             }
             var warehouseQuery =
-                _context.Warehouses
-                    .AsNoTracking()
-                    .Include(warehouse => warehouse.Branch)
-                    .Where(warehouse =>
-                        warehouse.IsActive
-                        && warehouse.Branch.IsActive)
-                    .AsQueryable();
+                    _context.Warehouses
+                        .AsNoTracking()
+                        .Include(warehouse => warehouse.Branch)
+                        .Where(warehouse =>
+                            warehouse.IsActive
+                            && warehouse.Branch.IsActive
+                            && warehouse.LocationType
+                                == Warehouse.LocationTypeStorage)
+                        .AsQueryable();
 
             if (scopedBranchId.HasValue)
             {
@@ -186,7 +188,9 @@ namespace GoldManagementSystem.Controllers
                     .Include(warehouse => warehouse.Branch)
                     .Where(warehouse =>
                         warehouse.IsActive
-                        && warehouse.Branch.IsActive)
+                        && warehouse.Branch.IsActive
+                        && warehouse.LocationType
+                            == Warehouse.LocationTypeStorage)
                     .AsQueryable();
 
             var purchaseOrderQuery =
@@ -972,12 +976,14 @@ namespace GoldManagementSystem.Controllers
                 .Include(item => item.Branch)
                 .FirstOrDefaultAsync(item =>
                     item.Id == WarehouseId
-                    && item.IsActive);
+                    && item.IsActive
+                    && item.LocationType
+                        == Warehouse.LocationTypeStorage);
 
             if (warehouse == null)
             {
                 TempData["ErrorMessage"] =
-                    "Kho nhận hàng không tồn tại hoặc đang tạm ngưng.";
+                    "Kho nhận hàng không tồn tại, đã tạm ngưng hoặc không phải kho lưu trữ.";
 
                 return RedirectToAction(nameof(WarehouseManagement));
             }
@@ -1499,12 +1505,14 @@ namespace GoldManagementSystem.Controllers
             var warehouse = await _context.Warehouses
                 .FirstOrDefaultAsync(item =>
                     item.Id == WarehouseId
-                    && item.IsActive);
+                    && item.IsActive
+                    && item.LocationType
+                        == Warehouse.LocationTypeStorage);
 
             if (warehouse == null)
             {
                 TempData["ErrorMessage"] =
-                    "Kho nhận hàng không tồn tại hoặc đang tạm ngưng.";
+                    "Kho nhận hàng không tồn tại, đã tạm ngưng hoặc không phải kho lưu trữ.";
 
                 return RedirectToAction(
                     nameof(WarehouseManagement),
@@ -3289,6 +3297,1418 @@ namespace GoldManagementSystem.Controllers
                 : $"Đã khóa tài khoản {targetUser.Email}. Tài khoản này sẽ tự bị đăng xuất ở lần tải trang tiếp theo.";
             return RedirectToAction(nameof(UserManagement));
         }
+        
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult> InventoryIssues(
+            string searchTerm = null,
+            int? branchId = null,
+            int? warehouseId = null,
+            string issueType = null,
+            string status = null)
+        {
+            searchTerm = NormalizeOrEmpty(searchTerm);
+            issueType = NormalizeOrEmpty(issueType);
+            status = NormalizeOrEmpty(status);
+
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            var isAdmin =
+                User.IsInRole(RoleCatalog.Admin);
+
+            /*
+            * Admin xem chi nhánh đang chọn.
+            * Vai trò khác chỉ xem chi nhánh của tài khoản.
+            */
+            int? scopedBranchId =
+                isAdmin
+                    ? branchId
+                    : currentUser.BranchId;
+
+            if (!isAdmin)
+            {
+                branchId = scopedBranchId;
+            }
+
+            var warehouseQuery =
+                _context.Warehouses
+                    .AsNoTracking()
+                    .Include(warehouse => warehouse.Branch)
+                    .Where(warehouse =>
+                            warehouse.IsActive
+                            && warehouse.Branch.IsActive
+                            && warehouse.LocationType
+                                == Warehouse.LocationTypeStorage)
+                    .AsQueryable();
+
+            List<int> accessibleWarehouseIds;
+
+            if (scopedBranchId.HasValue)
+            {
+                /*
+                * Bao gồm kho thuộc chi nhánh và kho được
+                * cấp quyền sử dụng chung cho chi nhánh.
+                */
+                accessibleWarehouseIds =
+                    await _context.BranchWarehouseAccesses
+                        .AsNoTracking()
+                        .Where(access =>
+                            access.BranchId
+                            == scopedBranchId.Value)
+                        .Select(access =>
+                            access.WarehouseId)
+                        .Concat(
+                            _context.Warehouses
+                                .Where(warehouse =>
+                                    warehouse.BranchId
+                                    == scopedBranchId.Value)
+                                .Select(warehouse =>
+                                    warehouse.Id))
+                        .Distinct()
+                        .ToListAsync();
+
+                warehouseQuery =
+                    warehouseQuery.Where(warehouse =>
+                        accessibleWarehouseIds.Contains(
+                            warehouse.Id));
+            }
+            else if (isAdmin)
+            {
+                accessibleWarehouseIds =
+                    await warehouseQuery
+                        .Select(warehouse => warehouse.Id)
+                        .ToListAsync();
+            }
+            else
+            {
+                accessibleWarehouseIds =
+                    new List<int>();
+
+                warehouseQuery =
+                    warehouseQuery.Where(warehouse => false);
+
+                ViewBag.InventoryScopeWarning =
+                    "Tài khoản chưa được gán chi nhánh nên không thể xem phiếu xuất kho.";
+            }
+
+            var accessibleWarehouses =
+                await warehouseQuery
+                    .OrderBy(warehouse =>
+                        warehouse.Branch.BranchName)
+                    .ThenBy(warehouse =>
+                        warehouse.Name)
+                    .ToListAsync();
+
+            var issueQuery =
+                _context.InventoryIssues
+                    .AsNoTracking()
+                    .Include(issue => issue.Branch)
+                    .Include(issue => issue.Warehouse)
+                    .Include(issue => issue.DestinationWarehouse)
+                    .Include(issue => issue.ReceiverUser)
+                    .Include(issue => issue.Supplier)
+                    .Include(issue => issue.CreatedByUser)
+                    .Include(issue => issue.ConfirmedByUser)
+                    .Include(issue => issue.Details)
+                        .ThenInclude(detail =>
+                            detail.InventoryItem)
+                    .AsQueryable();
+
+            /*
+            * Phạm vi phiếu được tính theo chi nhánh
+            * thực hiện nghiệp vụ.
+            */
+            if (scopedBranchId.HasValue)
+            {
+                issueQuery =
+                    issueQuery.Where(issue =>
+                        issue.BranchId
+                        == scopedBranchId.Value);
+            }
+            else if (!isAdmin)
+            {
+                issueQuery =
+                    issueQuery.Where(issue => false);
+            }
+
+            /*
+            * Thống kê trước khi áp dụng các bộ lọc giao diện.
+            */
+            var totalIssues =
+                await issueQuery.CountAsync();
+
+            var pendingIssues =
+                await issueQuery.CountAsync(issue =>
+                    issue.Status
+                    == InventoryIssue.StatusPending);
+
+            var issuedIssues =
+                await issueQuery.CountAsync(issue =>
+                    issue.Status
+                    == InventoryIssue.StatusIssued);
+
+            var totalIssuedQuantity =
+                await issueQuery
+                    .Where(issue =>
+                        issue.Status
+                        == InventoryIssue.StatusIssued)
+                    .SelectMany(issue => issue.Details)
+                    .SumAsync(detail =>
+                        (int?)detail.Quantity)
+                ?? 0;
+
+            /*
+            * Áp dụng bộ lọc.
+            */
+            var filteredIssueQuery =
+                issueQuery;
+
+            if (warehouseId.HasValue)
+            {
+                filteredIssueQuery =
+                    filteredIssueQuery.Where(issue =>
+                        issue.WarehouseId
+                        == warehouseId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(issueType))
+            {
+                filteredIssueQuery =
+                    filteredIssueQuery.Where(issue =>
+                        issue.IssueType == issueType);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                filteredIssueQuery =
+                    filteredIssueQuery.Where(issue =>
+                        issue.Status == status);
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filteredIssueQuery =
+                    filteredIssueQuery.Where(issue =>
+                        issue.IssueCode.Contains(searchTerm)
+                        || (
+                            issue.ReceiverUser != null
+                            && issue.ReceiverUser.FullName.Contains(
+                                searchTerm)
+                        )
+                        || (
+                            issue.DestinationWarehouse != null
+                            && issue.DestinationWarehouse.Name.Contains(
+                                searchTerm)
+                        )
+                        || (
+                            issue.ReferenceCode != null
+                            && issue.ReferenceCode.Contains(
+                                searchTerm)
+                        )
+                        || issue.Warehouse.Name.Contains(
+                            searchTerm)
+                        || (
+                            issue.Supplier != null
+                            && issue.Supplier.Name.Contains(
+                                searchTerm)
+                        ));
+            }
+
+            var issues =
+                await filteredIssueQuery
+                    .OrderByDescending(issue =>
+                        issue.CreatedAt)
+                    .ThenByDescending(issue =>
+                        issue.Id)
+                    .Take(300)
+                    .ToListAsync();
+
+            /*
+            * Hàng có thể chọn để xuất.
+            * Chỉ lấy hàng sẵn sàng và còn số lượng.
+            */
+            var availableItems =
+                await _context.InventoryItems
+                    .AsNoTracking()
+                    .Include(item => item.Warehouse)
+                        .ThenInclude(warehouse =>
+                            warehouse.Branch)
+                    .Include(item => item.Supplier)
+                    .Where(item =>
+                        accessibleWarehouseIds.Contains(
+                            item.WarehouseId)
+                        && item.QuantityOnHand > 0
+                        && item.Status
+                            == InventoryItem.StatusAvailable)
+                    .OrderBy(item =>
+                        item.Warehouse.Name)
+                    .ThenBy(item =>
+                        item.ProductName)
+                    .ToListAsync();
+
+            var branchQuery =
+                _context.Branches
+                    .AsNoTracking()
+                    .Where(branch => branch.IsActive)
+                    .AsQueryable();
+
+            if (!isAdmin)
+            {
+                if (scopedBranchId.HasValue)
+                {
+                    branchQuery =
+                        branchQuery.Where(branch =>
+                            branch.Id
+                            == scopedBranchId.Value);
+                }
+                else
+                {
+                    branchQuery =
+                        branchQuery.Where(branch => false);
+                }
+            }
+
+            var branches =
+                await branchQuery
+                    .OrderBy(branch =>
+                        branch.BranchName)
+                    .ToListAsync();
+
+            var model =
+                new InventoryIssueManagementViewModel
+                {
+                    SearchTerm = searchTerm,
+                    BranchId = branchId,
+                    WarehouseId = warehouseId,
+                    IssueType = issueType,
+                    Status = status,
+
+                    TotalIssues = totalIssues,
+                    PendingIssues = pendingIssues,
+                    IssuedIssues = issuedIssues,
+                    TotalIssuedQuantity =
+                        totalIssuedQuantity,
+
+                    Issues = issues,
+                    AvailableItems =
+                        availableItems,
+
+                    BranchOptions =
+                        new[]
+                        {
+                            new SelectListItem
+                            {
+                                Value = string.Empty,
+                                Text = "-- Tất cả chi nhánh --"
+                            }
+                        }
+                        .Concat(
+                            branches.Select(branch =>
+                                new SelectListItem
+                                {
+                                    Value =
+                                        branch.Id.ToString(),
+
+                                    Text =
+                                        branch.BranchName,
+
+                                    Selected =
+                                        branchId == branch.Id
+                                }))
+                        .ToList(),
+
+                    WarehouseOptions =
+                        new[]
+                        {
+                            new SelectListItem
+                            {
+                                Value = string.Empty,
+                                Text = "-- Tất cả kho --"
+                            }
+                        }
+                        .Concat(
+                            accessibleWarehouses.Select(
+                                warehouse =>
+                                    new SelectListItem
+                                    {
+                                        Value =
+                                            warehouse.Id
+                                                .ToString(),
+
+                                        Text =
+                                            $"{warehouse.Code} - {warehouse.Name}",
+
+                                        Selected =
+                                            warehouseId
+                                            == warehouse.Id
+                                    }))
+                        .ToList(),
+
+                    IssueTypeOptions =
+                        new[]
+                        {
+                            new SelectListItem
+                            {
+                                Value = string.Empty,
+                                Text = "-- Tất cả loại xuất --"
+                            },
+                            new SelectListItem
+                            {
+                                Value =
+                                    InventoryIssue.TypeSale,
+
+                                Text =
+                                    InventoryIssue.TypeSale,
+
+                                Selected =
+                                    issueType
+                                    == InventoryIssue.TypeSale
+                            },
+                            new SelectListItem
+                            {
+                                Value =
+                                    InventoryIssue
+                                        .TypeSupplierReturn,
+
+                                Text =
+                                    InventoryIssue
+                                        .TypeSupplierReturn,
+
+                                Selected =
+                                    issueType
+                                    == InventoryIssue
+                                        .TypeSupplierReturn
+                            }
+                        },
+
+                    StatusOptions =
+                        new[]
+                        {
+                            new SelectListItem
+                            {
+                                Value = string.Empty,
+                                Text = "-- Tất cả trạng thái --"
+                            },
+                            new SelectListItem
+                            {
+                                Value =
+                                    InventoryIssue.StatusPending,
+
+                                Text =
+                                    InventoryIssue.StatusPending,
+
+                                Selected =
+                                    status
+                                    == InventoryIssue.StatusPending
+                            },
+                            new SelectListItem
+                            {
+                                Value =
+                                    InventoryIssue.StatusIssued,
+
+                                Text =
+                                    InventoryIssue.StatusIssued,
+
+                                Selected =
+                                    status
+                                    == InventoryIssue.StatusIssued
+                            },
+                            new SelectListItem
+                            {
+                                Value =
+                                    InventoryIssue.StatusCancelled,
+
+                                Text =
+                                    InventoryIssue.StatusCancelled,
+
+                                Selected =
+                                    status
+                                    == InventoryIssue.StatusCancelled
+                            }
+                        }
+                };
+            ViewBag.InventoryIssueReceivers =
+                await _userManager.Users
+                    .AsNoTracking()
+                    .Include(user => user.Branch)
+                    .Where(user =>
+                        user.IsActive
+                        && user.BranchId.HasValue)
+                    .OrderBy(user => user.FullName)
+                    .ToListAsync();
+            ViewBag.DisplayWarehouses =
+                await _context.Warehouses
+                    .AsNoTracking()
+                    .Include(warehouse => warehouse.Branch)
+                    .Where(warehouse =>
+                        warehouse.IsActive
+                        && warehouse.Branch.IsActive
+                        && warehouse.LocationType
+                            == Warehouse.LocationTypeDisplay)
+                    .OrderBy(warehouse => warehouse.Name)
+                    .ToListAsync();
+
+            return View(model);
+        }
+
+        [HttpGet]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult>
+            SearchInventoryItemsForIssue(
+                int branchId,
+                int warehouseId,
+                string keyword = null,
+                int page = 1)
+        {
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            var isAdmin =
+                User.IsInRole(RoleCatalog.Admin);
+
+            var actingBranchId =
+                isAdmin
+                    ? branchId
+                    : currentUser.BranchId ?? 0;
+
+            if (actingBranchId <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message =
+                        "Không xác định được chi nhánh xuất kho."
+                });
+            }
+
+            if (warehouseId <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message =
+                        "Vui lòng chọn kho xuất hàng."
+                });
+            }
+
+            var warehouse =
+                await _context.Warehouses
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item =>
+                        item.Id == warehouseId
+                        && item.IsActive);
+
+            if (warehouse == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message =
+                        "Kho không tồn tại hoặc đã tạm ngưng."
+                });
+            }
+
+            var canUseWarehouse =
+                warehouse.BranchId == actingBranchId
+                || await _context.BranchWarehouseAccesses
+                    .AsNoTracking()
+                    .AnyAsync(access =>
+                        access.BranchId == actingBranchId
+                        && access.WarehouseId
+                            == warehouseId);
+
+            if (!canUseWarehouse)
+            {
+                return Forbid();
+            }
+
+            keyword = NormalizeOrEmpty(keyword);
+            page = Math.Max(page, 1);
+
+            const int pageSize = 8;
+
+            var inventoryQuery =
+                _context.InventoryItems
+                    .AsNoTracking()
+                    .Include(item => item.Supplier)
+                    .Where(item =>
+                        item.WarehouseId == warehouseId
+                        && item.QuantityOnHand > 0
+                        && item.Status
+                            == InventoryItem.StatusAvailable)
+                    .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                inventoryQuery =
+                    inventoryQuery.Where(item =>
+                        item.StockCode.Contains(keyword)
+                        || item.ProductName.Contains(keyword)
+                        || item.ProductLine.Contains(keyword)
+                        || item.Category.Contains(keyword)
+                        || item.MaterialType.Contains(keyword)
+                        || (
+                            item.CertificateCode != null
+                            && item.CertificateCode.Contains(
+                                keyword)
+                        )
+                        || (
+                            item.Supplier != null
+                            && item.Supplier.Name.Contains(
+                                keyword)
+                        ));
+            }
+
+            var totalItems =
+                await inventoryQuery.CountAsync();
+
+            var totalPages =
+                Math.Max(
+                    1,
+                    (int)Math.Ceiling(
+                        totalItems / (double)pageSize));
+
+            if (page > totalPages)
+            {
+                page = totalPages;
+            }
+
+            var inventoryItems =
+                await inventoryQuery
+                    .OrderByDescending(item =>
+                        item.UpdatedAt)
+                    .ThenBy(item =>
+                        item.ProductName)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+            return Json(new
+            {
+                success = true,
+                page,
+                totalPages,
+                totalItems,
+
+                items = inventoryItems.Select(item =>
+                    new
+                    {
+                        id = item.Id,
+                        stockCode = item.StockCode,
+                        productName = item.ProductName,
+                        productLine = item.ProductLine,
+                        category = item.Category,
+                        materialType = item.MaterialType,
+                        quantityOnHand =
+                            item.QuantityOnHand,
+                        weightOnHand =
+                            item.WeightOnHand,
+                        unitCost =
+                            item.UnitCost,
+                        certificateCode =
+                            item.CertificateCode,
+                        supplierName =
+                            item.Supplier != null
+                                ? item.Supplier.Name
+                                : string.Empty
+                    })
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult> CreateInventoryIssue(
+            int BranchId,
+            int WarehouseId,
+            int DestinationWarehouseId,
+            string ReceiverUserId,
+            string ReferenceCode,
+            string Note,
+            int[] SelectedInventoryItemIds,
+            Dictionary<int, string> Quantities,
+            Dictionary<int, string> IssuedWeights,
+            Dictionary<int, string> DetailNotes)
+        {
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            var isAdmin =
+                User.IsInRole(RoleCatalog.Admin);
+
+            int? actingBranchId =
+                isAdmin
+                    ? BranchId
+                    : currentUser.BranchId;
+
+            IActionResult ReturnWithError(string message)
+            {
+                TempData["ErrorMessage"] = message;
+
+                return RedirectToAction(
+                    nameof(InventoryIssues),
+                    new
+                    {
+                        branchId = actingBranchId
+                    });
+            }
+
+            if (!actingBranchId.HasValue
+                || actingBranchId.Value <= 0)
+            {
+                return ReturnWithError(
+                    "Vui lòng chọn chi nhánh thực hiện xuất kho.");
+            }
+
+            var branch =
+                await _context.Branches
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item =>
+                        item.Id == actingBranchId.Value
+                        && item.IsActive);
+
+            if (branch == null)
+            {
+                return ReturnWithError(
+                    "Chi nhánh không tồn tại hoặc đã tạm ngưng.");
+            }
+
+            ReferenceCode = NormalizeOrEmpty(ReferenceCode);
+            Note = NormalizeOrEmpty(Note);
+
+
+            var warehouse =
+                await _context.Warehouses
+                    .AsNoTracking()
+                    .Include(item => item.Branch)
+                    .FirstOrDefaultAsync(item =>
+                        item.Id == WarehouseId
+                        && item.IsActive);
+
+            if (warehouse == null)
+            {
+                return ReturnWithError(
+                    "Kho xuất hàng không tồn tại hoặc đã tạm ngưng.");
+            }
+            if (warehouse.LocationType
+                != Warehouse.LocationTypeStorage)
+            {
+                return ReturnWithError(
+                    "Chỉ được xuất hàng từ kho lưu trữ.");
+            }
+            /*
+            * Kho phải thuộc chi nhánh hoặc được cấp quyền
+            * sử dụng chung cho chi nhánh.
+            */
+            var canUseWarehouse =
+                warehouse.BranchId == actingBranchId.Value
+                || await _context.BranchWarehouseAccesses
+                    .AsNoTracking()
+                    .AnyAsync(access =>
+                        access.BranchId
+                            == actingBranchId.Value
+                        && access.WarehouseId
+                            == WarehouseId);
+
+            if (!canUseWarehouse)
+            {
+                return ReturnWithError(
+                    "Chi nhánh không có quyền xuất hàng từ kho đã chọn.");
+            }
+
+            var destinationWarehouse =
+                await _context.Warehouses
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item =>
+                        item.Id == DestinationWarehouseId
+                        && item.IsActive);
+
+            if (destinationWarehouse == null
+                || destinationWarehouse.LocationType
+                    != Warehouse.LocationTypeDisplay)
+            {
+                return ReturnWithError(
+                    "Quầy trưng bày nhận hàng không hợp lệ.");
+            }
+
+            if (destinationWarehouse.BranchId
+                != actingBranchId.Value)
+            {
+                return ReturnWithError(
+                    "Quầy nhận không thuộc chi nhánh đang thực hiện xuất kho.");
+            }
+
+            var receiver =
+                await _userManager.Users
+                    .FirstOrDefaultAsync(user =>
+                        user.Id == ReceiverUserId
+                        && user.IsActive);
+
+            if (receiver == null)
+            {
+                return ReturnWithError(
+                    "Người nhận tại quầy không tồn tại hoặc đã ngừng hoạt động.");
+            }
+
+            if (receiver.BranchId
+                != destinationWarehouse.BranchId)
+            {
+                return ReturnWithError(
+                    "Người nhận không thuộc chi nhánh của quầy nhận hàng.");
+            }
+
+            var selectedItemIds =
+                (SelectedInventoryItemIds
+                    ?? Array.Empty<int>())
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (selectedItemIds.Count == 0)
+            {
+                return ReturnWithError(
+                    "Vui lòng chọn ít nhất một mặt hàng để xuất.");
+            }
+
+            var inventoryItems =
+                await _context.InventoryItems
+                    .Include(item => item.Supplier)
+                    .Where(item =>
+                        selectedItemIds.Contains(item.Id)
+                        && item.WarehouseId == WarehouseId)
+                    .ToListAsync();
+
+            if (inventoryItems.Count
+                != selectedItemIds.Count)
+            {
+                return ReturnWithError(
+                    "Có mã tồn không tồn tại hoặc không thuộc kho đã chọn.");
+            }
+
+            Quantities ??=
+                new Dictionary<int, string>();
+
+            IssuedWeights ??=
+                new Dictionary<int, string>();
+
+            DetailNotes ??=
+                new Dictionary<int, string>();
+
+            int ParseQuantity(int inventoryItemId)
+            {
+                if (!Quantities.TryGetValue(
+                    inventoryItemId,
+                    out var value))
+                {
+                    return 0;
+                }
+
+                return int.TryParse(
+                    NormalizeOrEmpty(value),
+                    out var result)
+                        ? result
+                        : 0;
+            }
+
+            decimal ParseWeight(int inventoryItemId)
+            {
+                if (!IssuedWeights.TryGetValue(
+                    inventoryItemId,
+                    out var value))
+                {
+                    return 0m;
+                }
+
+                value = NormalizeOrEmpty(value)
+                    .Replace(",", ".");
+
+                return decimal.TryParse(
+                    value,
+                    NumberStyles.Number,
+                    CultureInfo.InvariantCulture,
+                    out var result)
+                        ? result
+                        : 0m;
+            }
+
+            string GetDetailNote(int inventoryItemId)
+            {
+                return DetailNotes.TryGetValue(
+                    inventoryItemId,
+                    out var value)
+                        ? NormalizeOrEmpty(value)
+                        : string.Empty;
+            }
+
+            var details =
+                new List<InventoryIssueDetail>();
+
+            foreach (var item in inventoryItems)
+            {
+                if (item.Status
+                        != InventoryItem.StatusAvailable
+                    || item.QuantityOnHand <= 0)
+                {
+                    return ReturnWithError(
+                        $"Mã tồn {item.StockCode} không ở trạng thái sẵn sàng để xuất.");
+                }
+
+
+                var quantity =
+                    ParseQuantity(item.Id);
+
+                if (quantity <= 0)
+                {
+                    return ReturnWithError(
+                        $"Số lượng xuất của {item.ProductName} phải lớn hơn 0.");
+                }
+
+                if (quantity > item.QuantityOnHand)
+                {
+                    return ReturnWithError(
+                        $"Số lượng xuất của {item.ProductName} vượt quá tồn kho hiện tại.");
+                }
+
+                var issuedWeight =
+                    ParseWeight(item.Id);
+
+                if (item.WeightOnHand > 0)
+                {
+                    /*
+                    * Nếu xuất hết số lượng thì tự dùng toàn bộ
+                    * trọng lượng còn lại để tránh tồn 0 sản phẩm
+                    * nhưng vẫn còn trọng lượng.
+                    */
+                    if (quantity == item.QuantityOnHand)
+                    {
+                        issuedWeight =
+                            item.WeightOnHand;
+                    }
+                    else
+                    {
+                        if (issuedWeight <= 0)
+                        {
+                            return ReturnWithError(
+                                $"Vui lòng nhập trọng lượng thực tế xuất của {item.ProductName}.");
+                        }
+
+                        if (issuedWeight
+                            >= item.WeightOnHand)
+                        {
+                            return ReturnWithError(
+                                $"Xuất một phần {item.ProductName} thì trọng lượng xuất phải nhỏ hơn trọng lượng đang tồn.");
+                        }
+                    }
+                }
+                else
+                {
+                    issuedWeight = 0;
+                }
+
+                var detailNote =
+                    GetDetailNote(item.Id);
+
+                if (detailNote.Length > 500)
+                {
+                    return ReturnWithError(
+                        $"Ghi chú của {item.ProductName} không được vượt quá 500 ký tự.");
+                }
+
+                details.Add(
+                    new InventoryIssueDetail
+                    {
+                        InventoryItemId = item.Id,
+                        Quantity = quantity,
+                        IssuedWeight = issuedWeight,
+                        UnitCost = item.UnitCost,
+                        Note = detailNote
+                    });
+            }
+
+            var issueCodeSuffix =
+                Guid.NewGuid()
+                    .ToString("N")
+                    .Substring(0, 6)
+                    .ToUpperInvariant();
+
+            var issue =
+                new InventoryIssue
+                {
+                    IssueCode =
+                        $"PXK-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{issueCodeSuffix}",
+
+                    BranchId =
+                        actingBranchId.Value,
+
+                    WarehouseId =
+                        WarehouseId,
+                    DestinationWarehouseId =
+                        destinationWarehouse.Id,
+
+                    ReceiverUserId =
+                        receiver.Id,
+                    SupplierId = null,
+
+                    IssueType =
+                        InventoryIssue.TypeSale,
+
+                    Status =
+                        InventoryIssue.StatusPending,
+
+                
+
+                    ReferenceCode =
+                        string.IsNullOrWhiteSpace(
+                            ReferenceCode)
+                            ? null
+                            : ReferenceCode,
+
+                    Reason =
+                        null,
+
+                    Note =
+                        string.IsNullOrWhiteSpace(Note)
+                            ? null
+                            : Note,
+
+                    CreatedByUserId =
+                        currentUser.Id,
+
+                    CreatedAt =
+                        DateTime.UtcNow,
+
+                    Details =
+                        details
+                };
+
+            try
+            {
+                _context.InventoryIssues.Add(issue);
+
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] =
+                    $"Đã tạo phiếu {issue.IssueCode}. "
+                    + "Phiếu đang chờ xác nhận xuất kho.";
+
+                return RedirectToAction(
+                    nameof(InventoryIssues),
+                    new
+                    {
+                        branchId =
+                            actingBranchId.Value
+                    });
+            }
+            catch (Exception exception)
+            {
+                TempData["ErrorMessage"] =
+                    "Không thể tạo phiếu xuất kho. Chi tiết lỗi: "
+                    + exception.GetBaseException().Message;
+
+                return RedirectToAction(
+                    nameof(InventoryIssues),
+                    new
+                    {
+                        branchId =
+                            actingBranchId.Value
+                    });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = RoleCatalog.ManagementRoles)]
+        public async Task<IActionResult> ConfirmInventoryIssue(
+            int issueId)
+        {
+            var currentUser =
+                await _userManager.GetUserAsync(User);
+
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            InventoryIssue issue = null;
+
+            IActionResult ReturnWithError(string message)
+            {
+                TempData["ErrorMessage"] = message;
+
+                return RedirectToAction(
+                    nameof(InventoryIssues),
+                    new
+                    {
+                        branchId = issue?.BranchId
+                    });
+            }
+
+            try
+            {
+                issue =
+                    await _context.InventoryIssues
+                        .Include(item => item.Warehouse)
+                        .Include(item =>
+                            item.DestinationWarehouse)
+                        .Include(item => item.ReceiverUser)
+                        .Include(item => item.Details)
+                            .ThenInclude(detail =>
+                                detail.InventoryItem)
+                        .FirstOrDefaultAsync(item =>
+                            item.Id == issueId);
+
+                if (issue == null)
+                {
+                    return ReturnWithError(
+                        "Không tìm thấy phiếu xuất kho.");
+                }
+
+                if (issue.Status
+                    != InventoryIssue.StatusPending)
+                {
+                    return ReturnWithError(
+                        "Phiếu này không còn ở trạng thái chờ xuất kho.");
+                }
+
+                if (!User.IsInRole(RoleCatalog.Admin)
+                    && currentUser.BranchId
+                        != issue.BranchId)
+                {
+                    return ReturnWithError(
+                        "Bạn không có quyền xác nhận phiếu của chi nhánh này.");
+                }
+
+                if (issue.Warehouse == null
+                    || !issue.Warehouse.IsActive
+                    || issue.Warehouse.LocationType
+                        != Warehouse.LocationTypeStorage)
+                {
+                    return ReturnWithError(
+                        "Kho xuất không tồn tại, đã tạm ngưng hoặc không phải kho lưu trữ.");
+                }
+
+                if (issue.DestinationWarehouse == null
+                    || !issue.DestinationWarehouse.IsActive
+                    || issue.DestinationWarehouse.LocationType
+                        != Warehouse.LocationTypeDisplay)
+                {
+                    return ReturnWithError(
+                        "Quầy nhận không tồn tại, đã tạm ngưng hoặc không phải quầy trưng bày.");
+                }
+
+                if (issue.DestinationWarehouse.BranchId
+                    != issue.BranchId)
+                {
+                    return ReturnWithError(
+                        "Quầy nhận không thuộc chi nhánh của phiếu xuất.");
+                }
+
+                if (issue.ReceiverUser == null
+                    || !issue.ReceiverUser.IsActive)
+                {
+                    return ReturnWithError(
+                        "Người nhận tại quầy không còn hoạt động.");
+                }
+
+                if (issue.ReceiverUser.BranchId
+                    != issue.DestinationWarehouse.BranchId)
+                {
+                    return ReturnWithError(
+                        "Người nhận không thuộc chi nhánh của quầy.");
+                }
+
+                if (issue.Details == null
+                    || issue.Details.Count == 0)
+                {
+                    return ReturnWithError(
+                        "Phiếu xuất không có hàng hóa.");
+                }
+
+                /*
+                * Kiểm tra toàn bộ trước khi cập nhật tồn kho.
+                */
+                foreach (var detail in issue.Details)
+                {
+                    var sourceItem =
+                        detail.InventoryItem;
+
+                    if (sourceItem == null)
+                    {
+                        return ReturnWithError(
+                            "Có mặt hàng trong phiếu không còn tồn tại.");
+                    }
+
+                    if (sourceItem.WarehouseId
+                        != issue.WarehouseId)
+                    {
+                        return ReturnWithError(
+                            $"Mã tồn {sourceItem.StockCode} không thuộc kho xuất.");
+                    }
+
+                    if (sourceItem.Status
+                            != InventoryItem.StatusAvailable
+                        || sourceItem.QuantityOnHand
+                            < detail.Quantity)
+                    {
+                        return ReturnWithError(
+                            $"Mã tồn {sourceItem.StockCode} không còn đủ số lượng để xuất.");
+                    }
+
+                    if (detail.IssuedWeight < 0
+                        || detail.IssuedWeight
+                            > sourceItem.WeightOnHand)
+                    {
+                        return ReturnWithError(
+                            $"Trọng lượng xuất của mã tồn {sourceItem.StockCode} không hợp lệ.");
+                    }
+                }
+
+                var now = DateTime.UtcNow;
+
+                string BuildCode(string prefix)
+                {
+                    var suffix =
+                        Guid.NewGuid()
+                            .ToString("N")
+                            .Substring(0, 6)
+                            .ToUpperInvariant();
+
+                    return $"{prefix}-{now:yyyyMMddHHmmssfff}-{suffix}";
+                }
+
+                foreach (var detail in issue.Details)
+                {
+                    var sourceItem =
+                        detail.InventoryItem;
+
+                    /*
+                    * Trừ tồn tại kho lưu trữ.
+                    */
+                    sourceItem.QuantityOnHand -=
+                        detail.Quantity;
+
+                    sourceItem.WeightOnHand =
+                        Math.Max(
+                            0m,
+                            sourceItem.WeightOnHand
+                                - detail.IssuedWeight);
+
+                    sourceItem.UpdatedAt = now;
+
+                    if (sourceItem.QuantityOnHand == 0)
+                    {
+                        sourceItem.WeightOnHand = 0;
+
+                        sourceItem.Status =
+                            InventoryItem.StatusOutOfStock;
+                    }
+
+                    /*
+                    * Tạo mã tồn mới tại quầy để giữ nguyên
+                    * nguồn gốc của lô hàng.
+                    */
+                    var displayItem =
+                        new InventoryItem
+                        {
+                            StockCode =
+                                BuildCode("INV"),
+
+                            WarehouseId =
+                                issue.DestinationWarehouse.Id,
+
+                            SupplierId =
+                                sourceItem.SupplierId,
+
+                            SupplierPurchaseOrderId =
+                                sourceItem.SupplierPurchaseOrderId,
+
+                            SupplierGoodsReceiptDetailId =
+                                sourceItem.SupplierGoodsReceiptDetailId,
+
+                            ProductLine =
+                                sourceItem.ProductLine,
+
+                            Category =
+                                sourceItem.Category,
+
+                            ProductName =
+                                sourceItem.ProductName,
+
+                            MaterialType =
+                                sourceItem.MaterialType,
+
+                            QuantityOnHand =
+                                detail.Quantity,
+
+                            WeightOnHand =
+                                detail.IssuedWeight,
+
+                            DiamondCarat =
+                                sourceItem.DiamondCarat,
+
+                            CertificateCode =
+                                sourceItem.CertificateCode,
+
+                            UnitCost =
+                                detail.UnitCost,
+
+                            Status =
+                                InventoryItem.StatusAvailable,
+
+                            Note =
+                                $"Nhận từ mã tồn {sourceItem.StockCode} theo phiếu {issue.IssueCode}.",
+
+                            CreatedAt = now,
+                            UpdatedAt = now
+                        };
+
+                    /*
+                    * Giao dịch trừ tại kho nguồn.
+                    */
+                    var transferOut =
+                        new InventoryTransaction
+                        {
+                            TransactionCode =
+                                BuildCode("ITX"),
+
+                            WarehouseId =
+                                issue.WarehouseId,
+
+                            InventoryItemId =
+                                sourceItem.Id,
+
+                            TransactionType =
+                                InventoryTransaction
+                                    .TypeTransferOut,
+
+                            QuantityChange =
+                                -detail.Quantity,
+
+                            WeightChange =
+                                -detail.IssuedWeight,
+
+                            QuantityAfter =
+                                sourceItem.QuantityOnHand,
+
+                            WeightAfter =
+                                sourceItem.WeightOnHand,
+
+                            ReferenceType =
+                                "Phiếu xuất kho",
+
+                            ReferenceId =
+                                issue.Id,
+
+                            Note =
+                                $"Xuất ra {issue.DestinationWarehouse.Name} theo phiếu {issue.IssueCode}.",
+
+                            CreatedByUserId =
+                                currentUser.Id,
+
+                            CreatedAt = now
+                        };
+
+                    /*
+                    * Giao dịch cộng tại quầy.
+                    */
+                    var transferIn =
+                        new InventoryTransaction
+                        {
+                            TransactionCode =
+                                BuildCode("ITX"),
+
+                            WarehouseId =
+                                issue.DestinationWarehouse.Id,
+
+                            InventoryItem =
+                                displayItem,
+
+                            TransactionType =
+                                InventoryTransaction
+                                    .TypeTransferIn,
+
+                            QuantityChange =
+                                detail.Quantity,
+
+                            WeightChange =
+                                detail.IssuedWeight,
+
+                            QuantityAfter =
+                                detail.Quantity,
+
+                            WeightAfter =
+                                detail.IssuedWeight,
+
+                            ReferenceType =
+                                "Phiếu xuất kho",
+
+                            ReferenceId =
+                                issue.Id,
+
+                            Note =
+                                $"Nhận từ {issue.Warehouse.Name} theo phiếu {issue.IssueCode}.",
+
+                            CreatedByUserId =
+                                currentUser.Id,
+
+                            CreatedAt = now
+                        };
+
+                    _context.InventoryItems.Add(
+                        displayItem);
+
+                    _context.InventoryTransactions.AddRange(
+                        transferOut,
+                        transferIn);
+                }
+
+                issue.Status =
+                    InventoryIssue.StatusIssued;
+
+                issue.ConfirmedByUserId =
+                    currentUser.Id;
+
+                issue.IssuedAt = now;
+
+                await _context.SaveChangesAsync();
+
+
+                TempData["SuccessMessage"] =
+                    $"Đã xác nhận phiếu {issue.IssueCode}. "
+                    + $"Hàng đã được chuyển sang "
+                    + $"{issue.DestinationWarehouse.Name}.";
+
+                return RedirectToAction(
+                    nameof(InventoryIssues),
+                    new
+                    {
+                        branchId = issue.BranchId
+                    });
+            }
+            catch (Exception exception)
+            {
+
+                return ReturnWithError(
+                    "Không thể xác nhận xuất kho: "
+                    + exception.GetBaseException().Message);
+            }
+        }
+
         [Authorize(Roles = RoleCatalog.ManagementRoles)]
         public async Task<IActionResult> InventoryManagement(
             string searchTerm = null,
@@ -3885,11 +5305,14 @@ namespace GoldManagementSystem.Controllers
             string Code,
             string Name,
             int BranchId,
-            string Location)
+            string Location,
+            string LocationType)
         {
             Code = NormalizeOrEmpty(Code).ToUpperInvariant();
             Name = NormalizeOrEmpty(Name);
             Location = NormalizeOrEmpty(Location);
+            LocationType = NormalizeOrEmpty(LocationType);
+    
 
             if (Code.Length < 3 || Code.Length > 30)
             {
@@ -3913,6 +5336,28 @@ namespace GoldManagementSystem.Controllers
                     "Vị trí kho không được vượt quá 300 ký tự.";
 
                 return RedirectToAction(nameof(InventoryManagement));
+            }
+
+            var allowedLocationTypes =
+                new[]
+                {
+                    Warehouse.LocationTypeStorage,
+                    Warehouse.LocationTypeDisplay
+                };
+
+            if (!allowedLocationTypes.Contains(
+                LocationType))
+            {
+                TempData["ErrorMessage"] =
+                    "Loại địa điểm lưu giữ hàng không hợp lệ.";
+
+                return RedirectToAction(
+                    nameof(InventoryManagement),
+                    new
+                    {
+                        branchId = BranchId,
+                        inventoryTab = "warehouses"
+                    });
             }
 
             var branch = await _context.Branches
@@ -3958,18 +5403,51 @@ namespace GoldManagementSystem.Controllers
                 Name = Name,
                 BranchId = BranchId,
                 Location = Location,
+                LocationType = LocationType,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Warehouses.Add(warehouse);
+            try
+            {
+                _context.Warehouses.Add(warehouse);
 
-            await _context.SaveChangesAsync();
+                var savedRows =
+                    await _context.SaveChangesAsync();
 
-            TempData["SuccessMessage"] =
-                $"Đã tạo kho {Code} - {Name} cho chi nhánh {branch.BranchName}.";
+                if (savedRows <= 0)
+                {
+                    TempData["ErrorMessage"] =
+                        "Không có dữ liệu kho nào được lưu.";
 
-            return RedirectToAction(nameof(InventoryManagement));
+                    return RedirectToAction(
+                        nameof(InventoryManagement),
+                        new
+                        {
+                            branchId = BranchId,
+                            inventoryTab = "warehouses"
+                        });
+                }
+
+                TempData["SuccessMessage"] =
+                    $"Đã tạo {LocationType.ToLower()} "
+                    + $"{Code} - {Name} cho chi nhánh "
+                    + $"{branch.BranchName}.";
+            }
+            catch (Exception exception)
+            {
+                TempData["ErrorMessage"] =
+                    "Không thể tạo kho: "
+                    + exception.GetBaseException().Message;
+            }
+
+            return RedirectToAction(
+                nameof(InventoryManagement),
+                new
+                {
+                    branchId = BranchId,
+                    inventoryTab = "warehouses"
+                });
         }
 
         [HttpPost]
