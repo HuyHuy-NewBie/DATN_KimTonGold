@@ -289,4 +289,929 @@
         <div class="dashboard-switcher"><button class="is-active" type="button" data-audit-switch="sales">Lịch sử bán hàng hôm nay</button><button type="button" data-audit-switch="management">Lịch sử quản lí hôm nay</button></div>
         @foreach (var area in new[] { "sales", "management" }) { var logs = area == "sales" ? Model.SalesAuditLogs : Model.ManagementAuditLogs; <article class="management-card management-card--wide audit-panel @(area == "sales" ? "is-active" : "")" data-audit-panel="@area"><div class="management-section-heading"><div><p>@(area == "sales" ? "GIAO DIỆN BÁN HÀNG" : "GIAO DIỆN QUẢN LÍ")</p><h2>@Model.SelectedDate.ToString("dd/MM/yyyy")</h2></div><strong>@logs.Count thao tác</strong></div><div class="management-table-wrap"><table class="management-table"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Thao tác</th><th>Phương thức</th><th>Kết quả</th></tr></thead><tbody>@foreach (var log in logs) { <tr><td>@log.CreatedAt.ToLocalTime().ToString("HH:mm:ss")</td><td>@(log.UserName ?? "—")</td><td>@log.Action</td><td>@log.HttpMethod</td><td><span class="status-dot @(log.Succeeded ? "is-good" : "is-bad")">@(log.Succeeded ? "Thành công" : "Lỗi")</span></td></tr> }</tbody></table></div></article> }
     }
+    else if (Model.Tab == "cskh")
+    {
+        <div class="cskh-portal-container">
+            <!-- Sidebar left (Ảnh 1) -->
+            <div class="cskh-sidebar">
+                <div class="cskh-sidebar__header">
+                    <div class="cskh-user-avatar">K</div>
+                    <h2 class="cskh-sidebar__title">Đoạn chat</h2>
+                </div>
+
+                <div class="cskh-tab-nav">
+                    <button type="button" class="cskh-tab-btn is-active" id="cskhTabWaiting" onclick="cskhSwitchTab('waiting')">
+                        Đang chờ (<span id="cskhWaitingBadge">0</span>)
+                    </button>
+                    <button type="button" class="cskh-tab-btn" id="cskhTabMy" onclick="cskhSwitchTab('my')">
+                        Của tôi (<span id="cskhMyBadge">0</span>)
+                    </button>
+                </div>
+
+                <div class="cskh-search-box">
+                    <button type="button" class="cskh-refresh-btn" onclick="cskhLoadSessions()" title="Làm mới danh sách">🔄</button>
+                    <div class="cskh-search-input-wrap">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="cskhSearchInput" placeholder="Tìm kiếm người trò chuyện..." oninput="cskhFilterSessions()" />
+                    </div>
+                </div>
+
+                <div class="cskh-session-list" id="cskhSessionList">
+                    <!-- Session cards loaded dynamically via JS -->
+                    <div class="cskh-empty-list">Đang tải danh sách cuộc trò chuyện...</div>
+                </div>
+
+                <div class="cskh-sidebar__footer" id="cskhSidebarFooter" style="display: none;">
+                    💬 Bạn chưa nhận cuộc trò chuyện nào
+                </div>
+            </div>
+
+            <!-- Chat Main View (Right) -->
+            <div class="cskh-main-view">
+                <!-- State 1: Chưa chọn cuộc trò chuyện (Ảnh 1) -->
+                <div class="cskh-empty-state" id="cskhEmptyState">
+                    <div class="cskh-empty-icon">
+                        <svg viewBox="0 0 24 24" width="48" height="48" fill="#a8c5da">
+                            <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="cskh-empty-title">Chọn một cuộc trò chuyện từ danh sách</h3>
+                    <p class="cskh-empty-desc">Hãy nhận các cuộc trò chuyện đang chờ hỗ trợ bên trái để bắt đầu chat trực tiếp.</p>
+                </div>
+
+                    <!-- State 2: Đang chat 1-1 với khách hàng -->
+                <div class="cskh-active-chat" id="cskhActiveChat" style="display: none;">
+                    <div class="cskh-chat-header">
+                        <div class="cskh-chat-user-info">
+                            <div class="cskh-avatar-circle" id="chatHeaderAvatar">K</div>
+                            <div>
+                                <h3 id="chatHeaderName" class="cskh-chat-name">Khách hàng</h3>
+                                <span id="chatHeaderSub" class="cskh-chat-sub">Mã phiên: --</span>
+                            </div>
+                        </div>
+                        <div class="cskh-chat-actions">
+                            <button type="button" class="cskh-btn cskh-btn--accept" id="btnAcceptSession" onclick="cskhAcceptCurrentSession()">
+                                🤝 Tiếp nhận
+                            </button>
+                            <button type="button" class="cskh-btn cskh-btn--close" id="btnCloseSession" onclick="cskhCloseCurrentSession()" style="display: none;">
+                                🔒 Kết thúc
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="cskh-chat-messages" id="cskhChatMessages">
+                        <!-- Messages dynamically inserted here -->
+                    </div>
+
+                    <div class="cskh-chat-input-bar" id="cskhInputBar">
+                        <input type="text" id="cskhMessageInput" placeholder="Nhập tin nhắn phản hồi khách hàng..." onkeydown="if(event.key==='Enter') cskhSendStaffMessage()" />
+                        <button type="button" class="cskh-send-btn" onclick="cskhSendStaffMessage()">Gửi →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .cskh-portal-container {
+                display: flex;
+                height: 720px;
+                background: #ffffff;
+                border-radius: 20px;
+                border: 1px solid #f0d0e8;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+                overflow: hidden;
+                font-family: 'Segoe UI', Roboto, sans-serif;
+                margin-top: 15px;
+            }
+            .cskh-sidebar {
+                width: 360px;
+                border-right: 1px solid #f0e0ee;
+                display: flex;
+                flex-direction: column;
+                background: #ffffff;
+                flex-shrink: 0;
+            }
+            .cskh-sidebar__header {
+                padding: 18px 20px 12px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .cskh-user-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: #6a1b4d;
+                color: #fff;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.1rem;
+            }
+            .cskh-sidebar__title {
+                font-size: 1.25rem;
+                font-weight: 800;
+                color: #2c1825;
+                margin: 0;
+            }
+            .cskh-tab-nav {
+                display: flex;
+                padding: 0 16px;
+                border-bottom: 2px solid #f8eaf4;
+                gap: 10px;
+            }
+            .cskh-tab-btn {
+                background: none;
+                border: none;
+                padding: 10px 8px;
+                font-weight: 700;
+                font-size: 0.9rem;
+                color: #887080;
+                cursor: pointer;
+                border-bottom: 3px solid transparent;
+                margin-bottom: -2px;
+                transition: color 0.2s, border-color 0.2s;
+            }
+            .cskh-tab-btn.is-active {
+                color: #d81b60;
+                border-bottom-color: #d81b60;
+            }
+            .cskh-search-box {
+                padding: 14px 16px 10px;
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+            .cskh-refresh-btn {
+                border: 1px solid #e8d0e0;
+                background: #fff;
+                border-radius: 10px;
+                padding: 7px 10px;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+            .cskh-refresh-btn:hover { background: #fce4f0; }
+            .cskh-search-input-wrap {
+                flex: 1;
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+            .cskh-search-input-wrap .search-icon {
+                position: absolute;
+                left: 12px;
+                font-size: 0.85rem;
+                color: #999;
+            }
+            .cskh-search-input-wrap input {
+                width: 100%;
+                padding: 8px 12px 8px 34px;
+                border-radius: 12px;
+                border: 1px solid #f0e0ea;
+                background: #fdf5f9;
+                font-size: 0.88rem;
+                outline: none;
+            }
+            .cskh-session-list {
+                flex: 1;
+                overflow-y: auto;
+                padding: 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .cskh-session-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px;
+                border-radius: 14px;
+                cursor: pointer;
+                transition: background 0.18s ease;
+                border: 1px solid transparent;
+            }
+            .cskh-session-item:hover { background: #fff4f9; }
+            .cskh-session-item.is-selected {
+                background: #fce4f0;
+                border-color: #f8bbd0;
+            }
+            .cskh-avatar-circle {
+                width: 44px;
+                height: 44px;
+                border-radius: 50%;
+                background: #ec407a;
+                color: #fff;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.1rem;
+                flex-shrink: 0;
+            }
+            .cskh-session-info { flex: 1; min-width: 0; }
+            .cskh-session-name {
+                font-weight: 700;
+                font-size: 0.92rem;
+                color: #333;
+                margin: 0 0 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .cskh-session-msg {
+                font-size: 0.82rem;
+                color: #777;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin: 0;
+            }
+            .cskh-session-meta {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 4px;
+            }
+            .cskh-session-time { font-size: 0.75rem; color: #aaa; }
+            .cskh-unread-badge {
+                background: #e91e63;
+                color: #fff;
+                font-size: 0.72rem;
+                font-weight: 800;
+                border-radius: 999px;
+                padding: 2px 7px;
+            }
+            .cskh-sidebar__footer {
+                padding: 12px 16px;
+                border-top: 1px solid #f8eaf4;
+                font-size: 0.83rem;
+                color: #999;
+                text-align: center;
+            }
+            /* Main Right Panel */
+            .cskh-main-view {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                background: #ffffff;
+            }
+            .cskh-empty-state {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 40px;
+                text-align: center;
+            }
+            .cskh-empty-icon {
+                width: 90px;
+                height: 90px;
+                border-radius: 50%;
+                background: #f0f7fc;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 20px;
+            }
+            .cskh-empty-title {
+                font-size: 1.15rem;
+                font-weight: 800;
+                color: #2c3e50;
+                margin: 0 0 8px;
+            }
+            .cskh-empty-desc {
+                font-size: 0.9rem;
+                color: #7f8c8d;
+                max-width: 400px;
+                margin: 0;
+            }
+            .cskh-active-chat {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                overflow: hidden;
+            }
+            .cskh-chat-header {
+                padding: 14px 20px;
+                border-bottom: 1px solid #f0e0ee;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: #fff9fc;
+            }
+            .cskh-chat-user-info { display: flex; align-items: center; gap: 12px; }
+            .cskh-chat-name { font-size: 1.05rem; font-weight: 800; color: #222; margin: 0; }
+            .cskh-chat-sub { font-size: 0.8rem; color: #888; }
+            .cskh-btn {
+                padding: 9px 16px;
+                border-radius: 12px;
+                border: none;
+                font-weight: 700;
+                font-size: 0.88rem;
+                cursor: pointer;
+                transition: transform 0.18s, box-shadow 0.18s;
+            }
+            .cskh-btn--accept {
+                background: linear-gradient(135deg, #d81b60, #f48fb1);
+                color: #fff;
+                box-shadow: 0 4px 12px rgba(216,27,96,0.3);
+            }
+            .cskh-btn--close {
+                background: #f5f5f5;
+                color: #666;
+                border: 1px solid #ddd;
+            }
+            .cskh-btn:hover { transform: translateY(-1px); }
+            .cskh-chat-messages {
+                flex: 1;
+                min-height: 0;
+                padding: 20px;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                background: #faf7f9;
+            }
+            .cskh-msg-bubble {
+                max-width: 75%;
+                padding: 12px 16px;
+                border-radius: 18px;
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            .cskh-msg-bubble.customer {
+                align-self: flex-start;
+                background: #ffffff;
+                color: #333;
+                border: 1px solid #f4cfdf;
+                border-bottom-left-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            }
+            .cskh-msg-bubble.staff {
+                align-self: flex-end;
+                background: linear-gradient(135deg, #d81b60, #ec407a);
+                color: #ffffff;
+                border-bottom-right-radius: 4px;
+                box-shadow: 0 4px 12px rgba(216,27,96,0.25);
+            }
+            .cskh-msg-bubble.system {
+                align-self: center;
+                background: #eef2f5;
+                color: #666;
+                font-size: 0.8rem;
+                border-radius: 999px;
+                padding: 6px 16px;
+            }
+            .cskh-msg-meta {
+                font-size: 0.72rem;
+                margin-top: 4px;
+                opacity: 0.75;
+                text-align: right;
+            }
+            .cskh-chat-input-bar {
+                padding: 14px 20px;
+                border-top: 1px solid #f0e0ee;
+                display: flex;
+                gap: 12px;
+                background: #fff;
+            }
+            .cskh-chat-input-bar input {
+                flex: 1;
+                padding: 11px 18px;
+                border-radius: 999px;
+                border: 1px solid #e0c8d8;
+                outline: none;
+                font-size: 0.92rem;
+            }
+            .cskh-send-btn {
+                padding: 0 24px;
+                border-radius: 999px;
+                border: none;
+                background: linear-gradient(135deg, #d81b60, #ec407a);
+                color: #fff;
+                font-weight: 700;
+                font-size: 0.9rem;
+                cursor: pointer;
+            }
+        </style>
+
+        <script>
+            var cskhCurrentTab = 'waiting';
+            var cskhActiveSessionCode = null;
+            var cskhActiveSessionId = null;
+            var cskhHubConnection = null;
+            var cskhPollingTimer = null;
+
+            // ===== Khởi động ngay (không cần DOMContentLoaded) =====
+            (function cskhInit() {
+                // Load danh sách ngay khi trang mở, tự chọn session đầu tiên
+                cskhLoadSessions(function(sessions) {
+                    if (sessions && sessions.length > 0) {
+                        cskhSelectSession(sessions[0].sessionCode, sessions[0].id, sessions[0].customerName, sessions[0].status);
+                    }
+                });
+
+                // Polling 3 giây: đảm bảo luôn thấy tin nhắn dù SignalR có lỗi
+                cskhPollingTimer = setInterval(function() {
+                    cskhLoadSessions(function(sessions) {
+                        if (cskhActiveSessionCode) {
+                            cskhRefreshMessages();
+                        } else if (sessions && sessions.length > 0) {
+                            cskhSelectSession(sessions[0].sessionCode, sessions[0].id, sessions[0].customerName, sessions[0].status);
+                        }
+                    });
+                }, 3000);
+
+                // Setup SignalR cho realtime tức thì (polling là backup)
+                function trySetupSignalR() {
+                    if (typeof signalR === 'undefined') { setTimeout(trySetupSignalR, 300); return; }
+                    try {
+                        cskhHubConnection = new signalR.HubConnectionBuilder()
+                            .withUrl('/supportChatHub').withAutomaticReconnect().build();
+
+                        cskhHubConnection.on('NewWaitingSession', function() {
+                            cskhCurrentTab = 'waiting';
+                            var el = document.getElementById('cskhTabWaiting');
+                            var el2 = document.getElementById('cskhTabMy');
+                            if (el) el.classList.add('is-active');
+                            if (el2) el2.classList.remove('is-active');
+                            cskhLoadSessions(function(sessions) {
+                                if (!cskhActiveSessionCode && sessions && sessions.length > 0)
+                                    cskhSelectSession(sessions[0].sessionCode, sessions[0].id, sessions[0].customerName, sessions[0].status);
+                            });
+                        });
+                        cskhHubConnection.on('StaffSessionUpdated', function(data) {
+                            cskhLoadSessions(function(sessions) {
+                                if (cskhActiveSessionCode && data.sessionCode === cskhActiveSessionCode) {
+                                    cskhRefreshMessages();
+                                } else if (!cskhActiveSessionCode && sessions && sessions.length > 0) {
+                                    cskhSelectSession(sessions[0].sessionCode, sessions[0].id, sessions[0].customerName, sessions[0].status);
+                                }
+                            });
+                        });
+                        cskhHubConnection.on('ReceiveMessage', function(msg) {
+                            if (cskhActiveSessionCode && msg.sessionCode === cskhActiveSessionCode)
+                                cskhAppendMessage(msg);
+                            cskhLoadSessions(null);
+                        });
+                        cskhHubConnection.on('SessionStatusChanged', function() { cskhLoadSessions(null); });
+                        cskhHubConnection.start().then(function() {
+                            cskhHubConnection.invoke('JoinStaffGroup').catch(function(){});
+                        }).catch(function(e) { console.warn('SignalR CSKH admin:', e); });
+                    } catch(e) { console.warn('SignalR init error:', e); }
+                }
+                trySetupSignalR();
+            })();
+
+
+
+            function cskhSwitchTab(tab) {
+                cskhCurrentTab = tab;
+                document.getElementById('cskhTabWaiting').classList.toggle('is-active', tab === 'waiting');
+                document.getElementById('cskhTabMy').classList.toggle('is-active', tab === 'my');
+                cskhLoadSessions(null);
+            }
+
+            function cskhLoadSessions(callback) {
+                return fetch('/api/customercare/admin/sessions?type=' + cskhCurrentTab)
+                    .then(res => {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        if (!data.success) {
+                            console.warn('[CSKH] API success=false');
+                            if (callback) callback([]);
+                            return;
+                        }
+                        var badgeW = document.getElementById('cskhWaitingBadge');
+                        var badgeM = document.getElementById('cskhMyBadge');
+                        if (badgeW) badgeW.textContent = data.waitingCount || 0;
+                        if (badgeM) badgeM.textContent = data.myCount || 0;
+
+                        var listContainer = document.getElementById('cskhSessionList');
+                        if (!listContainer) { if (callback) callback([]); return; }
+
+                        if (!data.sessions || data.sessions.length === 0) {
+                            listContainer.innerHTML = '<div class="cskh-empty-list" style="padding: 20px; text-align: center; color: #999; font-size: 0.88rem;">Không có cuộc trò chuyện nào</div>';
+                            if (callback) callback([]);
+                            return;
+                        }
+
+                        var html = '';
+                        data.sessions.forEach(function(s) {
+                            var initial = (s.customerName || 'K').charAt(0).toUpperCase();
+                            var isSelected = (cskhActiveSessionCode === s.sessionCode) ? 'is-selected' : '';
+                            html += '<div class="cskh-session-item ' + isSelected + '" onclick="cskhSelectSession(\'' + s.sessionCode + '\', ' + s.id + ', \'' + escapeJsString(s.customerName) + '\', \'' + s.status + '\')">';
+                            html += '  <div class="cskh-avatar-circle">' + initial + '</div>';
+                            html += '  <div class="cskh-session-info">';
+                            html += '    <h4 class="cskh-session-name">' + (s.customerEmail || s.customerName) + '</h4>';
+                            html += '    <p class="cskh-session-msg">' + (s.lastMessage || 'Vừa bắt đầu phiên chat') + '</p>';
+                            html += '  </div>';
+                            html += '  <div class="cskh-session-meta">';
+                            html += '    <span class="cskh-session-time">' + s.updatedAtTime + '</span>';
+                            if (s.unreadByStaff > 0) {
+                                html += '    <span class="cskh-unread-badge">' + s.unreadByStaff + '</span>';
+                            }
+                            html += '  </div>';
+                            html += '</div>';
+                        });
+                        listContainer.innerHTML = html;
+                        cskhFilterSessions();
+                        if (callback) callback(data.sessions);
+                    })
+                    .catch(function(err) {
+                        console.error('[CSKH] cskhLoadSessions error:', err);
+                        var listContainer = document.getElementById('cskhSessionList');
+                        if (listContainer && (!listContainer.children || listContainer.children.length === 0 || listContainer.querySelector('.cskh-empty-list'))) {
+                            listContainer.innerHTML = '<div class="cskh-empty-list" style="padding: 20px; text-align: center; color: #d32f2f; font-size: 0.88rem;">Khung trò chuyện trống hoặc lỗi kết nối.</div>';
+                        }
+                        if (callback) callback([]);
+                    });
+            }
+
+            function cskhFilterSessions() {
+                var query = (document.getElementById('cskhSearchInput')?.value || '').toLowerCase().trim();
+                var items = document.querySelectorAll('#cskhSessionList .cskh-session-item');
+                items.forEach(function(item) {
+                    var text = item.textContent.toLowerCase();
+                    item.style.display = text.indexOf(query) !== -1 ? 'flex' : 'none';
+                });
+            }
+
+            function escapeJsString(str) {
+                return (str || '').replace(/'/g, "\\'");
+            }
+
+            function cskhSelectSession(code, id, name, status) {
+                // Rời session group cũ nếu có
+                if (cskhHubConnection && cskhActiveSessionCode && cskhActiveSessionCode !== code) {
+                    cskhHubConnection.invoke("LeaveSessionGroup", cskhActiveSessionCode).catch(function() {});
+                }
+
+                cskhActiveSessionCode = code;
+                cskhActiveSessionId = id;
+
+                // Tham gia session group để nhận tin nhắn real-time
+                if (cskhHubConnection) {
+                    cskhHubConnection.invoke("JoinSessionGroup", code).catch(function(err) { console.error(err); });
+                }
+
+                document.getElementById('cskhEmptyState').style.display = 'none';
+                document.getElementById('cskhActiveChat').style.display = 'flex';
+                document.getElementById('chatHeaderAvatar').textContent = (name || 'K').charAt(0).toUpperCase();
+                document.getElementById('chatHeaderName').textContent = name || 'Khách hàng';
+                document.getElementById('chatHeaderSub').textContent = 'Mã phiên: ' + code;
+
+                var btnAccept = document.getElementById('btnAcceptSession');
+                var btnClose = document.getElementById('btnCloseSession');
+                if (status === 'Waiting') {
+                    btnAccept.style.display = 'inline-block';
+                    btnClose.style.display = 'none';
+                } else {
+                    btnAccept.style.display = 'none';
+                    btnClose.style.display = 'inline-block';
+                }
+
+                cskhLoadMessages(code);
+            }
+
+            function cskhLoadMessages(code) {
+                fetch('/api/customercare/session/' + code + '/messages')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) return;
+                        var msgContainer = document.getElementById('cskhChatMessages');
+                        msgContainer.innerHTML = '';
+                        data.messages.forEach(function(m) {
+                            cskhAppendMessage(m);
+                        });
+                        msgContainer.scrollTop = msgContainer.scrollHeight;
+                    });
+            }
+
+            // Refresh tin nhắn không làm mất vị trí scroll (dùng cho polling)
+            function cskhRefreshMessages() {
+                if (!cskhActiveSessionCode) return;
+                fetch('/api/customercare/session/' + cskhActiveSessionCode + '/messages')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) return;
+                        var msgContainer = document.getElementById('cskhChatMessages');
+                        var currentCount = msgContainer.querySelectorAll('.cskh-msg-bubble').length;
+                        if (data.messages.length > currentCount) {
+                            msgContainer.innerHTML = '';
+                            data.messages.forEach(function(m) { cskhAppendMessage(m); });
+                            msgContainer.scrollTop = msgContainer.scrollHeight;
+                        }
+                    });
+            }
+
+            function cskhAppendMessage(m) {
+                var msgContainer = document.getElementById('cskhChatMessages');
+                if (!msgContainer) return;
+                if (m.id && msgContainer.querySelector('[data-msg-id="' + m.id + '"]')) return;
+
+                var div = document.createElement('div');
+                if (m.id) div.setAttribute('data-msg-id', m.id);
+                var roleClass = m.senderRole === 'Customer' ? 'customer' : (m.senderRole === 'Staff' ? 'staff' : 'system');
+                div.className = 'cskh-msg-bubble ' + roleClass;
+                div.innerHTML = '<div>' + escapeHtml(m.message) + '</div><div class="cskh-msg-meta">' + escapeHtml(m.senderName) + ' • ' + escapeHtml(m.createdAt) + '</div>';
+                msgContainer.appendChild(div);
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            }
+
+            function escapeHtml(text) {
+                var div = document.createElement('div');
+                div.textContent = text || '';
+                return div.innerHTML;
+            }
+
+            function cskhSendStaffMessage() {
+                var input = document.getElementById('cskhMessageInput');
+                var msg = input.value.trim();
+                if (!msg || !cskhActiveSessionCode) return;
+
+                input.value = '';
+                fetch('/api/customercare/admin/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: cskhActiveSessionId, sessionCode: cskhActiveSessionCode, message: msg })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        cskhAppendMessage(data.data);
+                    }
+                });
+            }
+
+            function cskhAcceptCurrentSession() {
+                if (!cskhActiveSessionCode) return;
+                fetch('/api/customercare/admin/accept-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: cskhActiveSessionId, sessionCode: cskhActiveSessionCode })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        document.getElementById('btnAcceptSession').style.display = 'none';
+                        document.getElementById('btnCloseSession').style.display = 'inline-block';
+                        cskhSwitchTab('my');
+                    }
+                });
+            }
+
+            function cskhCloseCurrentSession() {
+                if (!cskhActiveSessionCode) return;
+                if (!confirm('Bạn có chắc chắn muốn kết thúc cuộc trò chuyện này?')) return;
+                fetch('/api/customercare/admin/close-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: cskhActiveSessionId, sessionCode: cskhActiveSessionCode })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        document.getElementById('cskhActiveChat').style.display = 'none';
+                        document.getElementById('cskhEmptyState').style.display = 'flex';
+                        cskhActiveSessionCode = null;
+                        cskhSwitchTab('waiting');
+                    }
+                });
+            }
+        </script>
+    }
+    else if (Model.Tab == "feedback")
+    {
+        <article class="management-card management-card--wide" style="margin-top: 15px;">
+            <div class="management-section-heading">
+                <div>
+                    <p>CHĂM SÓC KHÁCH HÀNG</p>
+                    <h2>Feedback & Đánh giá của khách hàng</h2>
+                </div>
+                <div class="cskh-feedback-summary" style="display: flex; gap: 14px; font-size: 0.92rem; background: #fff5f8; padding: 10px 18px; border-radius: 12px; border: 1px solid #f8bbd0;">
+                    <span>Tổng: <strong id="fbTotal" style="color: #333;">0</strong></span> |
+                    <span>Chờ xử lý: <strong id="fbPending" style="color: #e91e63;">0</strong></span> |
+                    <span>Đã xử lý: <strong id="fbProcessed" style="color: #2e7d32;">0</strong></span> |
+                    <span>Điểm TB: <strong id="fbAvg" style="color: #ff9800;">5.0 ⭐</strong></span>
+                </div>
+            </div>
+
+            <div class="feedback-filter-bar" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; align-items: center;">
+                <div style="flex: 1; min-width: 220px; position: relative;">
+                    <input type="text" id="fbSearchInput" oninput="loadAdminFeedbacks()" placeholder="🔍 Tìm theo tên khách, SĐT, Email hoặc nội dung..." style="width: 100%; padding: 9px 14px; border-radius: 10px; border: 1px solid #ddd; outline: none; font-size: 0.88rem;" />
+                </div>
+                <select id="fbRatingFilter" onchange="loadAdminFeedbacks()" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #ddd; font-size: 0.88rem; outline: none;">
+                    <option value="">Tất cả số sao ⭐</option>
+                    <option value="5">5 Sao ⭐⭐⭐⭐⭐</option>
+                    <option value="4">4 Sao ⭐⭐⭐⭐</option>
+                    <option value="3">3 Sao ⭐⭐⭐</option>
+                    <option value="2">2 Sao ⭐⭐</option>
+                    <option value="1">1 Sao ⭐</option>
+                </select>
+                <select id="fbStatusFilter" onchange="loadAdminFeedbacks()" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #ddd; font-size: 0.88rem; outline: none;">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="Chờ xử lý">Chờ xử lý</option>
+                    <option value="Đã xử lý">Đã xử lý</option>
+                </select>
+            </div>
+
+            <div class="management-table-wrap">
+                <table class="management-table">
+                    <thead>
+                        <tr>
+                            <th>Khách hàng</th>
+                            <th>Đánh giá ⭐</th>
+                            <th>Danh mục</th>
+                            <th>Sản phẩm</th>
+                            <th>Nội dung nhận xét</th>
+                            <th>Ngày gửi</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fbTableBody">
+                        <tr><td colspan="8" style="text-align: center; padding: 20px;">Đang tải danh sách đánh giá...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
+        <!-- Modal Phản hồi Feedback -->
+        <div id="fbReplyModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+            <div style="background: #fff; border-radius: 18px; width: 480px; max-width: 90%; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                <h3 style="margin-top: 0; font-size: 1.15rem; font-weight: 800; color: #880e4f;">💬 Phản hồi đánh giá khách hàng</h3>
+                <input type="hidden" id="fbReplyId" />
+                <p id="fbReplyCustomer" style="font-size: 0.9rem; color: #555; margin-bottom: 12px;"></p>
+                <textarea id="fbReplyContent" rows="4" style="width: 100%; border: 1px solid #ccc; border-radius: 12px; padding: 12px; font-size: 0.9rem; outline: none;" placeholder="Nhập câu trả lời phản hồi cho khách hàng..."></textarea>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                    <button type="button" onclick="closeFbModal()" style="padding: 8px 18px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer;">Hủy</button>
+                    <button type="button" onclick="submitFbReply()" style="padding: 8px 20px; border-radius: 10px; border: none; background: #d81b60; color: #fff; font-weight: 700; cursor: pointer;">Lưu phản hồi</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function escapeHtml(str) {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function escapeJsString(str) {
+                if (!str) return '';
+                return String(str)
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'")
+                    .replace(/"/g, '\\"')
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r');
+            }
+
+            (function initFeedbacks() {
+                loadAdminFeedbacks();
+
+                // Đăng ký SignalR lắng nghe khi có feedback mới gửi về
+                if (typeof signalR !== 'undefined') {
+                    try {
+                        var fbHub = new signalR.HubConnectionBuilder().withUrl('/supportChatHub').withAutomaticReconnect().build();
+                        fbHub.on('NewFeedbackSubmitted', function() {
+                            loadAdminFeedbacks();
+                        });
+                        fbHub.start().then(function() {
+                            fbHub.invoke('JoinStaffGroup');
+                        }).catch(function(e) {});
+                    } catch(e) {}
+                }
+            })();
+
+            function loadAdminFeedbacks() {
+                var ratingEl = document.getElementById('fbRatingFilter');
+                var statusEl = document.getElementById('fbStatusFilter');
+                var searchEl = document.getElementById('fbSearchInput');
+                var rating = ratingEl ? ratingEl.value : '';
+                var status = statusEl ? statusEl.value : '';
+                var search = searchEl ? searchEl.value.trim() : '';
+
+                var urlParams = new URLSearchParams(window.location.search);
+                var branchId = urlParams.get('branchId') || '';
+
+                var url = '/api/customercare/admin/feedbacks?rating=' + rating + '&status=' + encodeURIComponent(status) + '&search=' + encodeURIComponent(search) + '&branchId=' + branchId;
+
+                fetch(url)
+                    .then(res => {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        if (!data.success) return;
+                        var elTotal = document.getElementById('fbTotal');
+                        var elPending = document.getElementById('fbPending');
+                        var elProcessed = document.getElementById('fbProcessed');
+                        var elAvg = document.getElementById('fbAvg');
+
+                        if (elTotal) elTotal.textContent = data.totalCount || 0;
+                        if (elPending) elPending.textContent = data.pendingCount || 0;
+                        if (elProcessed) elProcessed.textContent = data.processedCount || 0;
+                        if (elAvg) elAvg.textContent = (data.avgRating || 5.0) + ' ⭐';
+
+                        var tbody = document.getElementById('fbTableBody');
+                        if (!tbody) return;
+
+                        if (!data.feedbacks || data.feedbacks.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 24px; color: #888;">Chưa có đánh giá nào phù hợp với bộ lọc</td></tr>';
+                            return;
+                        }
+
+                        var html = '';
+                        data.feedbacks.forEach(function(f) {
+                            var stars = '⭐'.repeat(f.rating || 5);
+                            var statusBadge = f.status === 'Chờ xử lý' 
+                                ? '<span class="status-dot" style="background: #e91e63; color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 700;">Chờ xử lý</span>'
+                                : '<span class="status-dot" style="background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 700;">Đã xử lý</span>';
+
+                            var contactInfo = f.phoneOrEmail ? ('<small style="color:#666;">' + escapeHtml(f.phoneOrEmail) + '</small>') : '';
+
+                            html += '<tr>';
+                            html += '<td><strong>' + escapeHtml(f.customerName) + '</strong><br/>' + contactInfo + '</td>';
+                            html += '<td><span style="color: #ff9800; font-weight: 700;">' + stars + '</span></td>';
+                            html += '<td><span style="background:#f5f5f5; padding:3px 8px; border-radius:6px; font-size:0.82rem;">' + escapeHtml(f.category) + '</span></td>';
+                            html += '<td>' + (f.productName ? escapeHtml(f.productName) : '—') + '</td>';
+                            html += '<td><div style="font-weight: 500;">' + escapeHtml(f.content) + '</div>' + (f.adminResponse ? '<div style="margin-top:6px; background:#f9edf3; padding:6px 10px; border-radius:8px; font-size:0.82rem; color:#880e4f;">💬 <strong>Phản hồi:</strong> ' + escapeHtml(f.adminResponse) + '</div>' : '') + '</td>';
+                            html += '<td>' + escapeHtml(f.createdAt) + '</td>';
+                            html += '<td>' + statusBadge + '</td>';
+                            html += '<td style="white-space: nowrap;">';
+                            html += '<button type="button" style="padding: 4px 10px; margin-right: 4px; border-radius: 8px; border: 1px solid #d81b60; color: #d81b60; background: #fff; font-weight: 700; cursor: pointer; font-size:0.8rem;" onclick="openFbModal(' + f.id + ', \'' + escapeJsString(f.customerName) + '\', \'' + escapeJsString(f.adminResponse || '') + '\')">💬 Phản hồi</button>';
+                            if (f.status === 'Chờ xử lý') {
+                                html += '<button type="button" style="padding: 4px 10px; margin-right: 4px; border-radius: 8px; border: 1px solid #2e7d32; color: #2e7d32; background: #fff; font-weight: 700; cursor: pointer; font-size:0.8rem;" onclick="markFbProcessed(' + f.id + ')">✅ Đã xử lý</button>';
+                            }
+                            html += '<button type="button" style="padding: 4px 10px; border-radius: 8px; border: 1px solid #c62828; color: #c62828; background: #fff; font-weight: 700; cursor: pointer; font-size:0.8rem;" onclick="deleteFb(' + f.id + ')">🗑️ Xóa</button>';
+                            html += '</td>';
+                            html += '</tr>';
+                        });
+                        tbody.innerHTML = html;
+                    })
+                    .catch(function(err) {
+                        console.error('[Feedback] error:', err);
+                        var tbody = document.getElementById('fbTableBody');
+                        if (tbody) {
+                            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #888;">Chưa có đánh giá nào hoặc lỗi kết nối.</td></tr>';
+                        }
+                    });
+            }
+
+            function openFbModal(id, name, prevResponse) {
+                document.getElementById('fbReplyId').value = id;
+                document.getElementById('fbReplyCustomer').textContent = 'Đánh giá từ: ' + name;
+                document.getElementById('fbReplyContent').value = prevResponse || '';
+                document.getElementById('fbReplyModal').style.display = 'flex';
+            }
+
+            function closeFbModal() {
+                document.getElementById('fbReplyModal').style.display = 'none';
+            }
+
+            function submitFbReply() {
+                var id = document.getElementById('fbReplyId').value;
+                var content = document.getElementById('fbReplyContent').value.trim();
+                if (!content) { alert('Vui lòng nhập nội dung phản hồi'); return; }
+
+                fetch('/api/customercare/admin/reply-feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedbackId: parseInt(id), response: content })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        closeFbModal();
+                        loadAdminFeedbacks();
+                    }
+                });
+            }
+
+            function markFbProcessed(id) {
+                if (!confirm('Bạn có chắc muốn đánh dấu đánh giá này là Đã xử lý?')) return;
+                fetch('/api/customercare/admin/mark-feedback-processed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedbackId: parseInt(id) })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) loadAdminFeedbacks();
+                });
+            }
+
+            function deleteFb(id) {
+                if (!confirm('Bạn có chắc chắn muốn XÓA đánh giá này?')) return;
+                fetch('/api/customercare/admin/delete-feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedbackId: parseInt(id) })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) loadAdminFeedbacks();
+                });
+            }
+        </script>
+    }
 </section>

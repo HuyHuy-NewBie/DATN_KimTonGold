@@ -4,6 +4,7 @@ using GoldManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoldManagementSystem.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260730165044_AddCustomerCareAndFeedback")]
+    partial class AddCustomerCareAndFeedback
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -243,81 +246,6 @@ namespace GoldManagementSystem.Migrations
                             UpdatedBy = "system",
                             WarrantyInfo = ""
                         });
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.CustomerFeedback", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AdminResponse")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<int?>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Category")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CustomerEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("CustomerId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("CustomerName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("CustomerPhone")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int?>("ProductId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ProductName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("Rating")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("RespondedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("RespondedByName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("CustomerFeedbacks");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.DiamondProductCatalogEntry", b =>
@@ -1479,116 +1407,6 @@ namespace GoldManagementSystem.Migrations
                     b.ToTable("SupplierPurchaseOrderDetails");
                 });
 
-            modelBuilder.Entity("GoldManagementSystem.Models.SupportChatMessage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SenderId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("SenderName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("SenderRole")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int>("SupportChatSessionId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SupportChatSessionId");
-
-                    b.ToTable("SupportChatMessages");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.SupportChatSession", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AssignedStaffId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("AssignedStaffName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CustomerEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("CustomerId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("CustomerName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("CustomerPhone")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("LastMessage")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("SessionCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<int>("UnreadByCustomerCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UnreadByStaffCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssignedStaffId");
-
-                    b.HasIndex("CustomerId");
-
-                    b.ToTable("SupportChatSessions");
-                });
-
             modelBuilder.Entity("GoldManagementSystem.Models.SystemNotification", b =>
                 {
                     b.Property<int>("Id")
@@ -1920,21 +1738,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Warehouse");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.CustomerFeedback", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "Customer")
-                        .WithMany()
-                        .HasForeignKey("CustomerId");
-
-                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId");
-
-                    b.Navigation("Customer");
-
-                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.DiamondProductCatalogEntry", b =>
@@ -2359,32 +2162,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("SupplierPurchaseOrder");
                 });
 
-            modelBuilder.Entity("GoldManagementSystem.Models.SupportChatMessage", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.SupportChatSession", "SupportChatSession")
-                        .WithMany("Messages")
-                        .HasForeignKey("SupportChatSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("SupportChatSession");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.SupportChatSession", b =>
-                {
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "AssignedStaff")
-                        .WithMany()
-                        .HasForeignKey("AssignedStaffId");
-
-                    b.HasOne("GoldManagementSystem.Models.AppUser", "Customer")
-                        .WithMany()
-                        .HasForeignKey("CustomerId");
-
-                    b.Navigation("AssignedStaff");
-
-                    b.Navigation("Customer");
-                });
-
             modelBuilder.Entity("GoldManagementSystem.Models.SystemNotification", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.AppUser", "User")
@@ -2536,11 +2313,6 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("Receipts");
-                });
-
-            modelBuilder.Entity("GoldManagementSystem.Models.SupportChatSession", b =>
-                {
-                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Warehouse", b =>

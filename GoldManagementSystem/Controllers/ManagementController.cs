@@ -51,7 +51,14 @@ namespace GoldManagementSystem.Controllers
             var selectedBranch = branches.FirstOrDefault(branch => branch.Id == branchId)
                 ?? branches.FirstOrDefault();
 
-            if (!IsSystemTab(tab) && selectedBranch == null) return Forbid();
+            if (!IsSystemTab(tab) && selectedBranch == null)
+            {
+                if (isAdmin)
+                {
+                    return RedirectToAction(nameof(Index), new { tab = "branches" });
+                }
+                return Forbid();
+            }
 
             var granted = await _permissions.GetGrantedKeysAsync(User, selectedBranch?.Id);
             if (!isAdmin && !CanOpenTab(tab, granted)) return Forbid();
@@ -786,11 +793,13 @@ namespace GoldManagementSystem.Controllers
             }),
             "products" => grants.Overlaps(new[] { ManagementFeatureCatalog.ProductsView, ManagementFeatureCatalog.ProductsEdit }),
             "revenue" => grants.Contains(ManagementFeatureCatalog.RevenueView),
+            "cskh" => grants.Contains(ManagementFeatureCatalog.CustomerCareChat) || grants.Count > 0,
+            "feedback" => grants.Contains(ManagementFeatureCatalog.CustomerCareFeedback) || grants.Count > 0,
             "overview" => grants.Count > 0,
             _ => false
         };
         private static bool IsSystemTab(string tab) => tab is "users" or "permissions" or "branches" or "audit";
-        private static string NormalizeTab(string tab) => (tab ?? "overview").ToLowerInvariant() switch { "warehouse" => "warehouse", "people" => "people", "products" => "products", "revenue" => "revenue", "users" => "users", "permissions" => "permissions", "branches" => "branches", "audit" => "audit", _ => "overview" };
+        private static string NormalizeTab(string tab) => (tab ?? "overview").ToLowerInvariant() switch { "warehouse" => "warehouse", "people" => "people", "products" => "products", "revenue" => "revenue", "cskh" => "cskh", "feedback" => "feedback", "users" => "users", "permissions" => "permissions", "branches" => "branches", "audit" => "audit", _ => "overview" };
         private static string NormalizeSubtab(
             string tab,
             string subtab) => tab switch

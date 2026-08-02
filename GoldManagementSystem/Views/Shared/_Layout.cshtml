@@ -948,6 +948,11 @@
                                         {
                                             <a class="@(requestManagementTab == "products" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=products&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Quản lí sản phẩm</a>
                                         }
+                                        <details class="management-menu__nested" @(requestManagementTab is "cskh" or "feedback" ? "open" : null)>
+                                            <summary>Khách hàng</summary>
+                                            <a class="@(requestManagementTab == "cskh" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=cskh&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Chăm sóc khách hàng</a>
+                                            <a class="@(requestManagementTab == "feedback" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=feedback&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Feedback / Đánh giá</a>
+                                        </details>
                                         @if (branchGrants.Contains(ManagementFeatureCatalog.RevenueView))
                                         {
                                             <a class="@(requestManagementTab == "revenue" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=revenue&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Doanh thu</a>
@@ -1294,7 +1299,7 @@
             <button type="button" id="supportCloseButton" aria-label="Đóng hỗ trợ">✕</button>
         </div>
         <div id="supportWidgetBody">
-            <div class="support-contact-row">
+            <div class="support-contact-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 8px;">
                 <button type="button" class="support-pill support-messenger" data-url="https://www.facebook.com/tuan.anh.78948?locale=vi_VN">
                     <span class="pill-icon">💬</span>
                     Messenger
@@ -1304,9 +1309,20 @@
                     Zalo
                 </button>
             </div>
-            <div class="support-chat">
+            <div class="support-contact-row" style="grid-template-columns: 1fr 1fr;">
+                <button type="button" class="support-pill support-cskh" id="btnOpenCskhLiveChat" style="color: #d81b60; border-color: #f8bbd0; background: #fff4f9;">
+                    <span class="pill-icon">🎧</span>
+                    Chăm sóc khách hàng
+                </button>
+                <button type="button" class="support-pill support-feedback" onclick="openClientFeedbackModal()" style="color: #ff9800; border-color: #ffe0b2; background: #fffde7;">
+                    <span class="pill-icon">⭐</span>
+                    Feedback
+                </button>
+            </div>
+            <!-- Chế độ AI chatbot (mặc định) -->
+            <div class="support-chat" id="aiBotPanel">
                 <div class="chat-messages" id="chatMessages">
-                    <div class="chat-bubble ai">Xin chào anh/chị! 👋 Em là trợ lý ảo KimTon. Anh/chị có thể hỏi em về giá sản phẩm, chọn size, bảo hành, thu đổi hoặc đặt hàng nhé!</div>
+                    <div class="chat-bubble ai">Xin chào anh/chị! 👋 Em là trợ lý ảo KimTon. Anh/chị có thể hỏi em về giá sản phẩm, chọn size, bảo hành, thu đổi hoặc bấm <strong>Chăm sóc khách hàng</strong> để chat trực tiếp với nhân viên nhé!</div>
                 </div>
                 <div class="quick-chips" id="quickChips">
                     <button type="button" class="quick-chip">Giá sản phẩm</button>
@@ -1320,9 +1336,130 @@
                     <button type="button" class="send-button" id="sendChatButton" aria-label="Gửi tin nhắn">Gửi</button>
                 </div>
             </div>
+            <!-- Chế độ Live Chat CSKH (ẩn mặc định) -->
+            <div class="support-chat" id="liveChatPanel" style="display:none; flex-direction:column;">
+                <div style="background: linear-gradient(135deg,#d81b60,#ec407a); color:#fff; padding: 8px 14px; border-radius: 12px 12px 0 0; display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:700;">
+                    <span>🎧</span> <span>Chăm sóc khách hàng</span>
+                    <button type="button" id="btnExitLiveChat" style="margin-left:auto; background:rgba(255,255,255,0.25); border:none; color:#fff; border-radius:50%; width:24px; height:24px; font-size:0.8rem; cursor:pointer; font-weight:700;">✕</button>
+                </div>
+                <div class="chat-messages" id="liveChatMessages" style="flex:1; overflow-y:auto; padding:12px;"></div>
+                <div id="liveChatInputRow" class="chat-actions" style="border-top: 1px solid #f0dde6;">
+                    <input type="text" id="liveChatInput" class="chat-input" placeholder="Nhập tin nhắn cho nhân viên..." />
+                    <button type="button" class="send-button" id="liveChatSendBtn">Gửi</button>
+                </div>
+            </div>
         </div>
     </aside>
 
+    <!-- Modal Đánh giá / Feedback dành cho Khách hàng -->
+    <div id="clientFeedbackModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div style="background: #ffffff; border-radius: 24px; width: 450px; max-width: 92%; padding: 28px; box-shadow: 0 20px 60px rgba(216,27,96,0.25); border: 1.5px solid #fce4f0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #2c1825;">⭐ Đánh giá & Phản hồi</h3>
+                <button type="button" onclick="closeClientFeedbackModal()" style="border: none; background: #f5f5f5; border-radius: 50%; width: 32px; height: 32px; font-weight: 700; cursor: pointer;">✕</button>
+            </div>
+            
+            <form id="clientFeedbackForm" onsubmit="submitClientFeedback(event)">
+                <div style="margin-bottom: 14px; text-align: center;">
+                    <label style="display: block; font-size: 0.88rem; font-weight: 700; color: #555; margin-bottom: 6px;">Mức độ hài lòng của bạn</label>
+                    <div id="starRatingGroup" style="display: flex; justify-content: center; gap: 8px; font-size: 2rem; cursor: pointer;">
+                        <span data-star="1" onclick="setStarRating(1)">⭐</span>
+                        <span data-star="2" onclick="setStarRating(2)">⭐</span>
+                        <span data-star="3" onclick="setStarRating(3)">⭐</span>
+                        <span data-star="4" onclick="setStarRating(4)">⭐</span>
+                        <span data-star="5" onclick="setStarRating(5)">⭐</span>
+                    </div>
+                    <input type="hidden" id="fbStarValue" value="5" />
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 4px;">Danh mục đánh giá</label>
+                    <select id="fbCategory" style="width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid #e0c8d8; font-size: 0.88rem; outline: none;">
+                        <option value="Sản phẩm">Chất lượng Sản phẩm</option>
+                        <option value="Dịch vụ CSKH">Dịch vụ Chăm sóc khách hàng</option>
+                        <option value="Giao hàng">Vận chuyển & Giao hàng</option>
+                        <option value="Giá cả">Giá cả & Chương trình ưu đãi</option>
+                        <option value="Khác">Góp ý khác</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 4px;">Nội dung nhận xét / góp ý *</label>
+                    <textarea id="fbContent" rows="3" required style="width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid #e0c8d8; font-size: 0.88rem; outline: none;" placeholder="Hãy chia sẻ trải nghiệm của bạn với KimTon..."></textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+                    <div>
+                        <input type="text" id="fbName" placeholder="Họ và tên (Tùy chọn)" style="width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid #e0c8d8; font-size: 0.82rem; outline: none;" />
+                    </div>
+                    <div>
+                        <input type="text" id="fbContact" placeholder="SĐT hoặc Email" style="width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid #e0c8d8; font-size: 0.82rem; outline: none;" />
+                    </div>
+                </div>
+
+                <button type="submit" id="btnSubmitFeedback" style="width: 100%; padding: 12px; border-radius: 14px; border: none; background: linear-gradient(135deg, #d81b60, #ec407a); color: #fff; font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 6px 20px rgba(216,27,96,0.3);">Gửi Đánh Giá Ngay</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openClientFeedbackModal() {
+            document.getElementById('clientFeedbackModal').style.display = 'flex';
+        }
+        function closeClientFeedbackModal() {
+            document.getElementById('clientFeedbackModal').style.display = 'none';
+        }
+        function setStarRating(val) {
+            document.getElementById('fbStarValue').value = val;
+            var stars = document.querySelectorAll('#starRatingGroup span');
+            stars.forEach(function(s, idx) {
+                s.style.opacity = (idx < val) ? '1' : '0.3';
+            });
+        }
+        function submitClientFeedback(e) {
+            e.preventDefault();
+            var content = document.getElementById('fbContent').value.trim();
+            if (!content) return;
+
+            var rating = parseInt(document.getElementById('fbStarValue').value);
+            var category = document.getElementById('fbCategory').value;
+            var name = document.getElementById('fbName').value.trim();
+            var contact = document.getElementById('fbContact').value.trim();
+            var isEmail = contact.includes('@@');
+
+            var btn = document.getElementById('btnSubmitFeedback');
+            btn.disabled = true;
+            btn.textContent = '⏳ Đang gửi...';
+
+            fetch('/api/customercare/submit-feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rating: rating,
+                    category: category,
+                    content: content,
+                    customerName: name,
+                    customerEmail: isEmail ? contact : '',
+                    customerPhone: !isEmail ? contact : ''
+                })
+            }).then(res => res.json()).then(data => {
+                btn.disabled = false;
+                btn.textContent = 'Gửi Đánh Giá Ngay';
+                if (data.success) {
+                    alert(data.message || 'Cảm ơn bạn đã gửi đánh giá!');
+                    closeClientFeedbackModal();
+                    document.getElementById('clientFeedbackForm').reset();
+                    setStarRating(5);
+                }
+            }).catch(err => {
+                btn.disabled = false;
+                btn.textContent = 'Gửi Đánh Giá Ngay';
+                alert('Có lỗi xảy ra, vui lòng thử lại sau.');
+            });
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script>
         (function() {
             const chatToggleButton = document.getElementById('chatToggleButton');
@@ -1334,6 +1471,153 @@
             const quickChips = document.getElementById('quickChips');
             const chatInput = document.getElementById('chatInput');
             const sendChatButton = document.getElementById('sendChatButton');
+
+            // ======= LIVE CHAT CSKH (SignalR) =======
+            let liveChatConnection = null;
+            let liveChatSessionCode = null;
+            let liveChatGuestName = '';
+
+            const aiBotPanel = document.getElementById('aiBotPanel');
+            const liveChatPanel = document.getElementById('liveChatPanel');
+            const liveChatMessages = document.getElementById('liveChatMessages');
+            const liveChatInput = document.getElementById('liveChatInput');
+            const liveChatSendBtn = document.getElementById('liveChatSendBtn');
+            const btnExitLiveChat = document.getElementById('btnExitLiveChat');
+            const btnOpenCskhLiveChat = document.getElementById('btnOpenCskhLiveChat');
+
+            function addLiveMsg(text, role) {
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex; margin-bottom:8px; ' + (role === 'Customer' ? 'justify-content:flex-end;' : 'justify-content:flex-start;');
+                const bubble = document.createElement('div');
+                bubble.textContent = text;
+                bubble.style.cssText = 'max-width:78%; padding:9px 13px; border-radius:16px; font-size:0.85rem; line-height:1.4; ' +
+                    (role === 'Customer'
+                        ? 'background:linear-gradient(135deg,#d81b60,#ec407a); color:#fff; border-bottom-right-radius:4px;'
+                        : role === 'System'
+                            ? 'background:#f5f5f5; color:#888; font-style:italic; border-radius:10px; text-align:center; width:100%;'
+                            : 'background:#fff0f5; color:#2c1825; border:1px solid #f8bbd0; border-bottom-left-radius:4px;');
+                wrap.appendChild(bubble);
+                liveChatMessages.appendChild(wrap);
+                liveChatMessages.scrollTop = liveChatMessages.scrollHeight;
+            }
+
+            async function startLiveChat() {
+                const savedCode = localStorage.getItem('kimton_cskh_session_code') || '';
+
+                // Chuyển sang live chat panel
+                aiBotPanel.style.display = 'none';
+                liveChatPanel.style.display = 'flex';
+                liveChatMessages.innerHTML = '';
+                addLiveMsg('⏳ Đang kết nối với nhân viên chăm sóc khách hàng...', 'System');
+
+                try {
+                    // Lấy hoặc tạo mới duy nhất 1 session cho tài khoản
+                    const res = await fetch('/api/customercare/start-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionCode: savedCode, customerName: liveChatGuestName || 'Khách hàng', customerPhone: '', customerEmail: '' })
+                    });
+                    const data = await res.json();
+                    if (!data.success) { addLiveMsg('❌ Không thể kết nối. Vui lòng thử lại.', 'System'); return; }
+                    liveChatSessionCode = data.sessionCode;
+                    localStorage.setItem('kimton_cskh_session_code', data.sessionCode);
+
+                    // Kết nối SignalR
+                    if (!liveChatConnection) {
+                        liveChatConnection = new signalR.HubConnectionBuilder()
+                            .withUrl('/supportChatHub')
+                            .withAutomaticReconnect()
+                            .build();
+
+                        liveChatConnection.on('ReceiveMessage', function(msg) {
+                            if (msg && msg.senderRole !== 'Customer') {
+                                addLiveMsg(msg.message, msg.senderRole);
+                            }
+                        });
+
+                        liveChatConnection.on('SessionStatusChanged', function(payload) {
+                            var st = (payload && typeof payload === 'object') ? payload.status : payload;
+                            if (st === 'Active') {
+                                var staffName = (payload && payload.assignedStaffName) ? payload.assignedStaffName : '';
+                                addLiveMsg('✅ Nhân viên ' + (staffName || 'CSKH') + ' đã tiếp nhận. Bạn có thể bắt đầu chat!', 'System');
+                            } else if (st === 'Closed') {
+                                addLiveMsg('📴 Phiên chat đã kết thúc. Cảm ơn bạn đã liên hệ KimTon!', 'System');
+                                liveChatInput.disabled = true;
+                                liveChatSendBtn.disabled = true;
+                            }
+                        });
+
+                        await liveChatConnection.start();
+                    }
+
+                    await liveChatConnection.invoke('JoinSessionGroup', liveChatSessionCode);
+
+                    liveChatMessages.innerHTML = '';
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(function(m) {
+                            addLiveMsg(m.message, m.senderRole);
+                        });
+                    } else {
+                        addLiveMsg('✅ Kết nối thành công! Đang chờ nhân viên tiếp nhận...', 'System');
+                    }
+
+                    liveChatInput.disabled = false;
+                    liveChatSendBtn.disabled = false;
+                    liveChatInput.focus();
+
+                } catch(err) {
+                    addLiveMsg('❌ Lỗi kết nối: ' + err.message, 'System');
+                    console.error('[LiveChat]', err);
+                }
+            }
+
+            async function sendLiveChatMsg() {
+                const text = liveChatInput.value.trim();
+                if (!text || !liveChatSessionCode) return;
+                liveChatInput.value = '';
+                addLiveMsg(text, 'Customer');
+                try {
+                    await fetch('/api/customercare/send-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionCode: liveChatSessionCode, message: text, senderName: liveChatGuestName })
+                    });
+                } catch(err) {
+                    addLiveMsg('⚠️ Không gửi được tin. Kiểm tra kết nối mạng.', 'System');
+                }
+            }
+
+            async function exitLiveChat() {
+                // Leave session group before stopping
+                if (liveChatConnection && liveChatSessionCode) {
+                    try { await liveChatConnection.invoke('LeaveSessionGroup', liveChatSessionCode); } catch(e) {}
+                }
+                if (liveChatConnection) {
+                    try { await liveChatConnection.stop(); } catch(e) {}
+                    liveChatConnection = null;
+                }
+                liveChatSessionCode = null;
+                liveChatGuestName = '';
+                liveChatPanel.style.display = 'none';
+                aiBotPanel.style.display = 'flex';
+                liveChatInput.disabled = true;
+                liveChatSendBtn.disabled = true;
+            }
+
+            if (btnOpenCskhLiveChat) btnOpenCskhLiveChat.addEventListener('click', startLiveChat);
+            if (btnExitLiveChat) btnExitLiveChat.addEventListener('click', exitLiveChat);
+            if (liveChatSendBtn) {
+                liveChatSendBtn.disabled = true;
+                liveChatSendBtn.addEventListener('click', sendLiveChatMsg);
+            }
+            if (liveChatInput) {
+                liveChatInput.disabled = true;
+                liveChatInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); sendLiveChatMsg(); }
+                });
+            }
+            // ======= END LIVE CHAT =======
+
 
             function setPanelOpen(open) {
                 if (open) {

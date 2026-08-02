@@ -87,6 +87,21 @@ using (var roleScope = app.Services.CreateScope())
                 await roleManager.CreateAsync(new IdentityRole(roleName));
         }
 
+        var dbContext = roleScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Branch defaultBranch = null;
+        if (!await dbContext.Branches.AnyAsync())
+        {
+            defaultBranch = new Branch
+            {
+                BranchName = "Chi nhánh Trụ sở Chính",
+                Address = "Hà Nội",
+                PhoneNumber = "0961137407",
+                IsActive = true
+            };
+            dbContext.Branches.Add(defaultBranch);
+            await dbContext.SaveChangesAsync();
+        }
+
         var userManager = roleScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
         var adminEmail = "admin@goldsys.com";
         var adminUser = await userManager.FindByEmailAsync(adminEmail);
@@ -101,6 +116,7 @@ using (var roleScope = app.Services.CreateScope())
                 EmailConfirmed = true,
                 PhoneNumber = "0961137407",
                 PhoneNumberConfirmed = true,
+                BranchId = defaultBranch?.Id,
                 CreatedAt = DateTime.UtcNow
             };
             var result = await userManager.CreateAsync(adminUser, "Admin@123");
@@ -113,6 +129,11 @@ using (var roleScope = app.Services.CreateScope())
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                 app.Logger.LogWarning($"Không thể tạo tài khoản Admin mặc định: {errors}");
             }
+        }
+        else if (adminUser.BranchId == null && defaultBranch != null)
+        {
+            adminUser.BranchId = defaultBranch.Id;
+            await userManager.UpdateAsync(adminUser);
         }
     }
     catch (Exception exception)
@@ -158,6 +179,7 @@ app.UseMiddleware<ManagementAccessMiddleware>();
 app.UseMiddleware<AuditTrailMiddleware>();
 
 app.MapHub<GoldManagementSystem.Hubs.NotificationHub>("/notificationHub");
+app.MapHub<GoldManagementSystem.Hubs.SupportChatHub>("/supportChatHub");
 
 app.MapControllerRoute(
     name: "default",

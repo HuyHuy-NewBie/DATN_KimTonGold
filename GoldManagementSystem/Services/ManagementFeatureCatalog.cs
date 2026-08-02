@@ -14,6 +14,8 @@ namespace GoldManagementSystem.Services
         public const string ProductsView = "products.view";
         public const string ProductsEdit = "products.edit";
         public const string RevenueView = "revenue.view";
+        public const string CustomerCareChat = "customercare.chat";
+        public const string CustomerCareFeedback = "customercare.feedback";
         public const string SystemUsers = "system.users";
         public const string SystemPermissions = "system.permissions";
         public const string SystemBranches = "system.branches";
@@ -29,7 +31,9 @@ namespace GoldManagementSystem.Services
             new ManagementFeature(PeoplePayroll, "Nhân sự", "Lương & ghi chú", "Xem lương, KPI và cập nhật ghi chú."),
             new ManagementFeature(ProductsView, "Sản phẩm", "Xem sản phẩm", "Xem dashboard vàng, bạc, kim cương."),
             new ManagementFeature(ProductsEdit, "Sản phẩm", "Chỉnh sửa sản phẩm", "Thêm, xóa, sửa và đặt ưu tiên."),
-            new ManagementFeature(RevenueView, "Doanh thu", "Báo cáo doanh thu", "Xem tổng hợp ngày, tháng và năm.")
+            new ManagementFeature(RevenueView, "Doanh thu", "Báo cáo doanh thu", "Xem tổng hợp ngày, tháng và năm."),
+            new ManagementFeature(CustomerCareChat, "Chăm sóc khách hàng", "Chat 1-1 hỗ trợ", "Tiếp nhận và hỗ trợ chat trực tiếp 1-1 với khách hàng."),
+            new ManagementFeature(CustomerCareFeedback, "Chăm sóc khách hàng", "Đánh giá & Feedback", "Xem và phản hồi đánh giá, góp ý của khách hàng.")
         };
 
         public static IReadOnlyList<ManagementFeature> SystemFeatures { get; } = new[]

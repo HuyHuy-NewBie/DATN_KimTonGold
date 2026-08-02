@@ -43,6 +43,9 @@ namespace GoldManagementSystem.Data
         public DbSet<SystemNotification> SystemNotifications { get; set; }
         public DbSet<ManagementAuditLog> ManagementAuditLogs { get; set; }
         public DbSet<BranchWarehouseAccess> BranchWarehouseAccesses { get; set; }
+        public DbSet<SupportChatSession> SupportChatSessions { get; set; }
+        public DbSet<SupportChatMessage> SupportChatMessages { get; set; }
+        public DbSet<CustomerFeedback> CustomerFeedbacks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
