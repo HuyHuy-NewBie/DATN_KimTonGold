@@ -1,0 +1,276 @@
+@{
+    ViewData["Title"] = "Bảng Thông Tin Thị Trường";
+}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        corePlugins: { preflight: false }
+    }
+</script>
+@using GoldManagementSystem.Models
+
+<div class="bg-gray-50 min-h-screen py-10" id="market-data-container">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="mb-12 text-center">
+            <h1 class="text-3xl font-bold text-gray-900 uppercase tracking-widest relative pb-4">
+                Bảng Thông Tin Thị Trường
+                <span class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-yellow-500"></span>
+            </h1>
+            <p class="mt-4 text-gray-500">Cập nhật Tỷ giá Vàng, Bạc và Ngoại Tệ trực tuyến liên tục</p>
+        </div>
+
+        <!-- PHẦN 1: TỶ GIÁ VÀNG -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 uppercase border-l-4 border-yellow-500 pl-3">Tỷ Giá Vàng</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-yellow-50 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path></svg>
+                    <h3 class="text-lg font-bold text-gray-800 uppercase">Khảo Sát Hôm Nay</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                            <tr>
+                                <th class="px-6 py-3 font-semibold">Loại Vàng</th>
+                                <th class="px-6 py-3 font-semibold">Mua Vào</th>
+                                <th class="px-6 py-3 font-semibold">Bán Ra</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 text-sm">
+                            @foreach (var rate in ViewBag.GoldRates ?? new List<MarketHistory>())
+                            {
+                                <tr class="hover:bg-yellow-50/50 transition">
+                                    <td class="px-6 py-4 font-semibold text-gray-800">@rate.Symbol</td>
+                                    <td class="px-6 py-4 font-medium text-green-600">@((rate.BuyPrice).ToString("N0")) ₫</td>
+                                    <td class="px-6 py-4 font-medium text-red-600">@((rate.SellPrice).ToString("N0")) ₫</td>
+                                </tr>
+                            }
+                            @if(((List<MarketHistory>)(ViewBag.GoldRates ?? new List<MarketHistory>())).Count == 0)
+                            {
+                                <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400">Đang chờ cập nhật dữ liệu...</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                    <h3 class="text-lg font-bold text-gray-800 uppercase">Biểu Đồ Xu Hướng (30 Ngày)</h3>
+                </div>
+                <div class="p-4 flex-grow relative h-64">
+                    <canvas id="goldChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- PHẦN 2: TỶ GIÁ BẠC -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 uppercase border-l-4 border-gray-400 pl-3">Tỷ Giá Bạc</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-100 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM6.5 9a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm7 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm-2.5 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" clip-rule="evenodd"></path></svg>
+                    <h3 class="text-lg font-bold text-gray-800 uppercase">Khảo Sát Hôm Nay</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                            <tr>
+                                <th class="px-6 py-3 font-semibold">Loại Bạc</th>
+                                <th class="px-6 py-3 font-semibold">Mua Vào</th>
+                                <th class="px-6 py-3 font-semibold">Bán Ra</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 text-sm">
+                            @foreach (var rate in ViewBag.SilverRates ?? new List<MarketHistory>())
+                            {
+                                <tr class="hover:bg-gray-50/80 transition">
+                                    <td class="px-6 py-4 font-semibold text-gray-800">@rate.Symbol</td>
+                                    <td class="px-6 py-4 font-medium text-green-600">@((rate.BuyPrice).ToString("N0")) ₫</td>
+                                    <td class="px-6 py-4 font-medium text-red-600">@((rate.SellPrice).ToString("N0")) ₫</td>
+                                </tr>
+                            }
+                            @if(((List<MarketHistory>)(ViewBag.SilverRates ?? new List<MarketHistory>())).Count == 0)
+                            {
+                                <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400">Đang chờ cập nhật dữ liệu...</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    <h3 class="text-lg font-bold text-gray-800 uppercase">Biểu Đồ Xu Hướng (30 Ngày)</h3>
+                </div>
+                <div class="p-4 flex-grow relative h-64">
+                    <canvas id="silverChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- PHẦN 3: TỶ GIÁ NGOẠI TỆ -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 uppercase border-l-4 border-green-500 pl-3">Tỷ Giá Ngoại Tệ (Niêm yết tại VCB)</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-green-50 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"></path><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"></path></svg>
+                    <h3 class="text-lg font-bold text-gray-800 uppercase">Tỷ Giá Hôm Nay</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                            <tr>
+                                <th class="px-6 py-3 font-semibold">Ngoại Tệ</th>
+                                <th class="px-6 py-3 font-semibold">Mua Tiền Mặt</th>
+                                <th class="px-6 py-3 font-semibold">Bán Ra</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 text-sm">
+                            @foreach (var rate in ViewBag.CurrencyRates ?? new List<MarketHistory>())
+                            {
+                                <tr class="hover:bg-green-50/50 transition">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center">
+                                            <span class="font-bold text-gray-800 mr-2">@rate.Symbol</span>
+                                            <span class="text-xs text-gray-500">(@rate.DisplayName)</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 font-medium text-green-600">@((rate.BuyPrice).ToString("N0")) ₫</td>
+                                    <td class="px-6 py-4 font-medium text-red-600">@((rate.SellPrice).ToString("N0")) ₫</td>
+                                </tr>
+                            }
+                            @if(((List<MarketHistory>)(ViewBag.CurrencyRates ?? new List<MarketHistory>())).Count == 0)
+                            {
+                                <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400">Đang chờ cập nhật dữ liệu...</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                    <h3 class="text-lg font-bold text-gray-800 uppercase">Biểu Đồ Xu Hướng (30 Ngày)</h3>
+                </div>
+                <div class="p-4 flex-grow relative h-64">
+                    <canvas id="currencyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const toDateKey = (value) => {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return "";
+            }
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const prepareChartData = (historyList, customColors) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const dayRange = Array.from({ length: 30 }, (_, index) => {
+                const date = new Date(today);
+                date.setDate(today.getDate() - 29 + index);
+                return date;
+            });
+
+            const labels = dayRange.map(date =>
+                date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+            );
+
+            if (!historyList || historyList.length === 0) {
+                return { labels, datasets: [] };
+            }
+
+            const types = [...new Set(historyList.map(h => h.Symbol))];
+            const dateKeys = dayRange.map(date => toDateKey(date));
+            const colors = customColors || ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+            const latestPointByDay = new Map();
+
+            historyList.forEach(item => {
+                const dateKey = toDateKey(item.Timestamp);
+                if (!dateKey || !item.Symbol) {
+                    return;
+                }
+
+                const mapKey = `${item.Symbol}|${dateKey}`;
+                const existing = latestPointByDay.get(mapKey);
+                if (!existing || new Date(item.Timestamp) > new Date(existing.Timestamp)) {
+                    latestPointByDay.set(mapKey, item);
+                }
+            });
+
+            const datasets = types.map((type, idx) => {
+                const dataPoints = dateKeys.map(dateKey => {
+                    const found = latestPointByDay.get(`${type}|${dateKey}`);
+                    return found ? found.SellPrice : null;
+                });
+
+                return {
+                    label: type,
+                    data: dataPoints,
+                    borderColor: colors[idx % colors.length],
+                    backgroundColor: colors[idx % colors.length],
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    spanGaps: false
+                };
+            });
+
+            return { labels, datasets };
+        };
+
+        const drawChart = (elementId, data) => {
+            const el = document.getElementById(elementId);
+            if(el) {
+                new Chart(el.getContext('2d'), {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    maxRotation: 0,
+                                    autoSkip: true,
+                                    maxTicksLimit: 10
+                                }
+                            },
+                            y: { beginAtZero: false, ticks: { callback: function(value) { return value.toLocaleString() + 'đ'; } } }
+                        }
+                    }
+                });
+            }
+        };
+
+        const rawGoldHistory = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.HistoryGold ?? new List<MarketHistory>()));
+        const rawSilverHistory = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.HistorySilver ?? new List<MarketHistory>()));
+        const rawCurrencyHistory = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.HistoryCurrency ?? new List<MarketHistory>()));
+
+        drawChart('goldChart', prepareChartData(rawGoldHistory, ['#f59e0b', '#3b82f6', '#10b981', '#ef4444']));
+        drawChart('silverChart', prepareChartData(rawSilverHistory, ['#64748b', '#475569', '#3b82f6', '#8b5cf6']));
+        drawChart('currencyChart', prepareChartData(rawCurrencyHistory, ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#0ea5e9']));
+    });
+</script>

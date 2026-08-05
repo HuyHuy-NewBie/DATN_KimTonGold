@@ -1,0 +1,428 @@
+@model GoldManagementSystem.Models.ViewModels.InventoryHistoryViewModel
+@using GoldManagementSystem.Models
+@using System
+
+@{
+    ViewData["Title"] = "Lịch sử nhập xuất kho";
+
+    string GetTransactionStatusClass(
+        InventoryTransaction transaction)
+    {
+        if (transaction.TransactionType
+            == InventoryTransaction.TypeSupplierReturn)
+        {
+            return "status-chip--warning";
+        }
+
+        if (transaction.QuantityChange > 0)
+        {
+            return "status-chip--success";
+        }
+
+        if (transaction.QuantityChange < 0)
+        {
+            return "status-chip--danger";
+        }
+
+        return "status-chip--neutral";
+    }
+
+    string FormatQuantityChange(int value)
+    {
+        if (value > 0)
+        {
+            return $"+{value:N0}";
+        }
+
+        return value.ToString("N0");
+    }
+
+    string FormatWeightChange(decimal value)
+    {
+        if (value > 0)
+        {
+            return $"+{value:N2} g";
+        }
+
+        return $"{value:N2} g";
+    }
+}
+
+<div class="dashboard-card dashboard-card--flush admin-panel">
+    <section class="admin-hero admin-hero--split">
+        <div>
+            <p class="admin-hero__eyebrow">
+                Theo dõi biến động kho
+            </p>
+
+            <h1>Lịch sử nhập xuất kho</h1>
+
+            <p class="admin-hero__text">
+                Theo dõi toàn bộ giao dịch làm thay đổi tồn kho,
+                nguồn phát sinh, người thực hiện và số lượng sau
+                mỗi lần nhập hoặc xuất.
+            </p>
+        </div>
+
+        <div class="admin-hero__actions">
+            <a asp-action="InventoryManagement"
+               asp-controller="Admin"
+               class="admin-button admin-button--primary">
+                Quay lại quản lý kho
+            </a>
+
+            <a asp-action="SupplierManagement"
+               asp-controller="Admin"
+               class="admin-button admin-button--secondary">
+                Nhà cung cấp
+            </a>
+        </div>
+    </section>
+
+    <div class="admin-panel__body">
+        @if (ViewBag.InventoryScopeWarning != null)
+        {
+            <div class="admin-alert admin-alert--danger">
+                @ViewBag.InventoryScopeWarning
+            </div>
+        }
+
+        <section class="admin-stats-grid">
+            <article class="admin-stat-card admin-stat-card--gold">
+                <div class="admin-stat-card__content">
+                    <p>Tổng giao dịch</p>
+
+                    <strong>
+                        @Model.TotalTransactions.ToString("N0")
+                    </strong>
+                </div>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--green">
+                <div class="admin-stat-card__content">
+                    <p>Tổng số lượng nhập</p>
+
+                    <strong>
+                        +@Model.TotalQuantityReceived.ToString("N0")
+                    </strong>
+                </div>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--rose">
+                <div class="admin-stat-card__content">
+                    <p>Tổng số lượng xuất</p>
+
+                    <strong>
+                        -@Model.TotalQuantityIssued.ToString("N0")
+                    </strong>
+                </div>
+            </article>
+
+            <article class="admin-stat-card admin-stat-card--blue">
+                <div class="admin-stat-card__content">
+                    <p>Trọng lượng biến động</p>
+
+                    <strong>
+                        @Model.TotalWeightMoved.ToString("N2") g
+                    </strong>
+                </div>
+            </article>
+        </section>
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow">
+                        Tra cứu giao dịch
+                    </p>
+
+                    <h2>Bộ lọc lịch sử kho</h2>
+                </div>
+            </div>
+
+            <form asp-action="InventoryHistory"
+                  asp-controller="Admin"
+                  method="get"
+                  class="admin-filter-grid">
+
+                <label class="admin-field">
+                    <span>Từ khóa</span>
+
+                    <input type="text"
+                           name="searchTerm"
+                           value="@Model.SearchTerm"
+                           placeholder="Mã giao dịch, mã tồn, tên hàng..." />
+                </label>
+
+                <label class="admin-field">
+                    <span>Chi nhánh</span>
+
+                    <select name="branchId"
+                            asp-items="Model.BranchOptions"
+                            class="admin-select">
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Kho</span>
+
+                    <select name="warehouseId"
+                            asp-items="Model.WarehouseOptions"
+                            class="admin-select">
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Loại giao dịch</span>
+
+                    <select name="transactionType"
+                            asp-items="Model.TransactionTypeOptions"
+                            class="admin-select">
+                    </select>
+                </label>
+
+                <label class="admin-field">
+                    <span>Từ ngày</span>
+
+                    <input type="date"
+                           name="fromDate"
+                           value="@(Model.FromDate?.ToString("yyyy-MM-dd"))" />
+                </label>
+
+                <label class="admin-field">
+                    <span>Đến ngày</span>
+
+                    <input type="date"
+                           name="toDate"
+                           value="@(Model.ToDate?.ToString("yyyy-MM-dd"))" />
+                </label>
+
+                <div class="admin-filter-actions admin-field--wide">
+                    <button type="submit"
+                            class="admin-button admin-button--primary">
+                        Lọc lịch sử
+                    </button>
+
+                    <a asp-action="InventoryHistory"
+                       asp-controller="Admin"
+                       class="admin-button admin-button--secondary">
+                        Xóa lọc
+                    </a>
+                </div>
+            </form>
+        </section>
+
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <div>
+                    <p class="admin-section__eyebrow">
+                        Nhật ký kho
+                    </p>
+
+                    <h2>Các giao dịch gần nhất</h2>
+                </div>
+
+                <span class="status-chip status-chip--info">
+                    Tối đa 500 giao dịch
+                </span>
+            </div>
+
+            <div class="admin-alert admin-alert--success">
+                Nhật ký kho không được sửa hoặc xóa trực tiếp.
+                Nếu tồn kho bị sai, hệ thống phải tạo một giao
+                dịch điều chỉnh tăng hoặc điều chỉnh giảm mới.
+            </div>
+
+            <div class="table-shell">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Mã giao dịch</th>
+                            <th>Loại giao dịch</th>
+                            <th>Hàng hóa</th>
+                            <th>Kho</th>
+                            <th>Biến động</th>
+                            <th>Sau giao dịch</th>
+                            <th>Nguồn</th>
+                            <th>Người thực hiện</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @if (Model.Transactions.Count > 0)
+                        {
+                            @foreach (var transaction
+                                in Model.Transactions)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <strong>
+                                                @transaction.CreatedAt
+                                                    .ToLocalTime()
+                                                    .ToString("dd/MM/yyyy")
+                                            </strong>
+
+                                            <span>
+                                                @transaction.CreatedAt
+                                                    .ToLocalTime()
+                                                    .ToString("HH:mm:ss")
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            @transaction.TransactionCode
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        <span class="status-chip @GetTransactionStatusClass(transaction)">
+                                            @transaction.TransactionType
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <strong>
+                                                @transaction.InventoryItem?
+                                                    .ProductName
+                                            </strong>
+
+                                            <span>
+                                                Mã tồn:
+                                                @transaction.InventoryItem?
+                                                    .StockCode
+                                            </span>
+
+                                            <span>
+                                                @transaction.InventoryItem?
+                                                    .ProductLine
+                                                ·
+                                                @transaction.InventoryItem?
+                                                    .MaterialType
+                                            </span>
+
+                                            @if (transaction.InventoryItem?
+                                                .Supplier != null)
+                                            {
+                                                <span>
+                                                    NCC:
+                                                    @transaction.InventoryItem
+                                                        .Supplier.Name
+                                                </span>
+                                            }
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <strong>
+                                                @transaction.Warehouse?.Name
+                                            </strong>
+
+                                            <span>
+                                                @transaction.Warehouse?.Code
+                                            </span>
+
+                                            <span>
+                                                @transaction.Warehouse?
+                                                    .Branch?
+                                                    .BranchName
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <strong>
+                                                @FormatQuantityChange(
+                                                    transaction.QuantityChange)
+                                            </strong>
+
+                                            <span>
+                                                @FormatWeightChange(
+                                                    transaction.WeightChange)
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <strong>
+                                                @transaction.QuantityAfter
+                                                    .ToString("N0")
+                                            </strong>
+
+                                            <span>
+                                                @transaction.WeightAfter
+                                                    .ToString("N2") g
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(
+                                            transaction.ReferenceType))
+                                        {
+                                            <div class="data-table__stack">
+                                                <strong>
+                                                    @transaction.ReferenceType
+                                                </strong>
+
+                                                <span>
+                                                    Mã tham chiếu:
+                                                    @(transaction.ReferenceId?
+                                                        .ToString()
+                                                        ?? "--")
+                                                </span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span>--</span>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        <div class="data-table__stack">
+                                            <strong>
+                                                @(transaction.CreatedByUser?
+                                                    .FullName
+                                                    ?? "Không xác định")
+                                            </strong>
+
+                                            <span>
+                                                @transaction.CreatedByUser?
+                                                    .Email
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        @(string.IsNullOrWhiteSpace(
+                                            transaction.Note)
+                                            ? "--"
+                                            : transaction.Note)
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="10">
+                                    Chưa phát sinh giao dịch kho hoặc không
+                                    có dữ liệu phù hợp với bộ lọc.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>

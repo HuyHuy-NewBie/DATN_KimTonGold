@@ -1,0 +1,1758 @@
+@using GoldManagementSystem.Data
+@using GoldManagementSystem.Services
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject IManagementPermissionService PermissionService
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - KimTon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/management.css" asp-append-version="true" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4BZmM8cw5lB0G1gka3idjF0A2/3+hHh5jzQ9J2KLL4jh00A1H4CuN+SBHEWmyX0x" crossorigin="anonymous">
+    <script>
+        (function() {
+            var lang = localStorage.getItem("preferredLanguage") || "vi";
+            document.documentElement.lang = lang;
+            if (lang === "en") {
+                document.documentElement.classList.add("lang-loading");
+            }
+        })();
+
+    </script>
+    <style>
+        html.lang-loading [data-i18n], 
+        html.lang-loading [data-auto-i18n],
+        html.lang-loading .data-table td,
+        html.lang-loading .status-chip,
+        html.lang-loading option {
+            opacity: 0 !important;
+        }  
+
+        /* Notification Bell Styles */
+        .notification-bell {
+            position: relative;
+            display: inline-block;
+        }
+        .notification-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border: 1px solid rgba(39, 37, 31, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 12px 36px rgba(17, 17, 17, 0.15);
+            display: none;
+            z-index: 1000;
+            margin-top: 0.75rem;
+            overflow: hidden;
+        }
+        .notification-dropdown.is-active {
+            display: block;
+        }
+        .notification-dropdown__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.85rem 1.1rem;
+            border-bottom: 1px solid rgba(39, 37, 31, 0.06);
+            background: #fff8fa;
+        } 
+        .notification-dropdown__header span {
+            font-weight: 700;
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--brand-ink, #111);
+        }
+        .notification-dropdown__header button {
+            background: none;
+            border: none;
+            color: #cb3a6a;
+            font-size: 0.74rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .notification-dropdown__list {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .notification-item {
+            padding: 0.95rem 1.1rem;
+            border-bottom: 1px solid rgba(39, 37, 31, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            text-decoration: none;
+            color: #111;
+            transition: background 0.2s ease;
+        }
+        .notification-item:hover {
+            background: #fff8fa;
+        }
+        .notification-item.is-unread {
+            background: #fff3f6;
+        }
+        .notification-item__title {
+            font-weight: 700;
+            font-size: 0.82rem;
+            color: #111;
+        }
+        .notification-item__body {
+            font-size: 0.78rem;
+            color: var(--brand-muted, #555);
+            line-height: 1.4;
+        }
+        .notification-item__time {
+            font-size: 0.7rem;
+            color: #999;
+            align-self: flex-end;
+            margin-top: 0.1rem;
+        }
+        .notification-dropdown__empty {
+            padding: 2.5rem 1.1rem;
+            text-align: center;
+            color: #999;
+            font-size: 0.82rem;
+        }
+        /* Toast notification at corner */
+        .toast-notification {
+            position: fixed;
+            bottom: 96px;
+            right: 24px;
+            background: #fff;
+            border-left: 4px solid #ef7a9d;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            padding: 1rem 1.25rem;
+            z-index: 9999;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .toast-notification.is-visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast-notification__title {
+            font-weight: 700;
+            font-size: 0.84rem;
+            color: #ef7a9d;
+        }
+        .toast-notification__body {
+            font-size: 0.8rem;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* Floating Chat Widget */
+        #floatingChatLauncher {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 1100;
+        }
+        #chatToggleButton {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #ff6eb4, #ffadd6);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 28px rgba(255,110,180,0.45);
+            cursor: pointer;
+            transition: transform 0.22s ease, box-shadow 0.22s ease;
+        }
+        #chatToggleButton:hover {
+            transform: translateY(-3px) scale(1.04);
+            box-shadow: 0 14px 36px rgba(255,110,180,0.50);
+        }
+        #supportWidgetPanel {
+            position: fixed;
+            right: 20px;
+            bottom: 24px;
+            width: 390px;
+            max-width: calc(100vw - 32px);
+            max-height: min(92vh, 650px);
+            border-radius: 22px;
+            overflow: hidden;
+            background: #ffffff;
+            border: 1.5px solid #fce4f0;
+            box-shadow: 0 16px 56px rgba(255,100,180,0.18), 0 2px 12px rgba(0,0,0,0.06);
+            display: none;
+            flex-direction: column;
+            animation: panelFadeIn 0.28s ease both;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            z-index: 1101;
+        }
+        #supportWidgetPanel.active {
+            display: flex;
+        }
+        #supportWidgetHeader {
+            padding: 16px 18px 14px;
+            background: #ffffff;
+            border-bottom: 1.5px solid #fce4f0;
+            color: #1a1a2e;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        #supportWidgetHeader .support-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            color: #ff6eb4;
+            text-transform: uppercase;
+            margin: 0 0 3px;
+        }
+        #supportWidgetHeader .support-heading {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 800;
+            color: #1a1a2e;
+        }
+        #supportCloseButton {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: #f5f5f5;
+            color: #888;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            transition: background 0.2s ease, color 0.2s ease;
+            flex-shrink: 0;
+        }
+        #supportCloseButton:hover {
+            background: #fce4f0;
+            color: #ff6eb4;
+        }
+        #supportWidgetBody {
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #ffffff;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .support-contact-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .support-pill {
+            min-height: 46px;
+            border: 1.5px solid #f0e0ea;
+            border-radius: 14px;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+            background: #fff9fc;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .support-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(255,110,180,0.15);
+        }
+        .support-pill .pill-icon {
+            font-size: 1.1rem;
+        }
+        .support-pill.support-messenger {
+            color: #1877f2;
+            border-color: #ddeeff;
+            background: #f0f6ff;
+        }
+        .support-pill.support-zalo {
+            color: #0068ff;
+            border-color: #cce0ff;
+            background: #f0f6ff;
+        }
+        .support-pill.support-hotline {
+            color: #ff4488;
+            border-color: #ffd6eb;
+            background: #fff0f7;
+        }
+        .support-chat {
+            background: #fff8fc;
+            border: 1.5px solid #fce4f0;
+            border-radius: 18px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1 1 auto;
+            min-height: 220px;
+            overflow: hidden;
+        }
+        .chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            padding-right: 2px;
+            flex: 1 1 auto;
+            min-height: 0;
+            /* Firefox */
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+            transition: scrollbar-color 0.3s;
+        }
+        .chat-messages:hover,
+        .chat-messages:focus-within {
+            scrollbar-color: rgba(139,92,246,0.5) transparent;
+        }
+    
+        /* Chrome / Edge 2*/
+        .chat-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        .chat-messages:hover::-webkit-scrollbar-thumb,
+        .chat-messages:focus-within::-webkit-scrollbar-thumb {
+            background: rgba(139,92,246,0.5);
+        }
+        .quick-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 104px;
+            overflow-y: auto;
+            scrollbar-width: none; /* Firefox: ẩn hoàn toàn */
+        }
+        .quick-chips::-webkit-scrollbar {
+            display: none; /* Chrome/Edge: ẩn hoàn toàn */
+        }
+
+        .chat-bubble {
+            max-width: 84%;
+            padding: 11px 14px;
+            border-radius: 18px;
+            line-height: 1.55;
+            font-size: 0.88rem;
+        }
+        .chat-bubble.ai {
+            align-self: flex-start;
+            background: #ffffff;
+            color: #333333;
+            border: 1.5px solid #fce4f0;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 8px rgba(255,100,180,0.08);
+        }
+        .chat-bubble.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #ff6eb4, #ffadd6);
+            color: #fff;
+            border-bottom-right-radius: 5px;
+            box-shadow: 0 4px 14px rgba(255,110,180,0.35);
+        }
+        .quick-chip {
+            border: 1.5px solid #f0d0e8;
+            background: #ffffff;
+            border-radius: 999px;
+            color: #cc4488;
+            padding: 7px 14px;
+            font-size: 0.79rem;
+            cursor: pointer;
+            transition: background 0.18s ease, transform 0.18s ease;
+            white-space: nowrap;
+        }
+        .quick-chip:hover {
+            background: #fff0f7;
+            border-color: #ff9cd6;
+            transform: translateY(-1px);
+        }
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: auto;
+        }
+        .chat-input {
+            flex: 1;
+            min-height: 42px;
+            border-radius: 999px;
+            border: 1.5px solid #f0d0e8;
+            background: #ffffff;
+            color: #333;
+            padding: 0 16px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        .chat-input::placeholder {
+            color: #c0a0b8;
+        }
+        .chat-input:focus {
+            border-color: #ff9cd6;
+        }
+        .send-button {
+            height: 42px;
+            padding: 0 18px;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #ff6eb4, #ffadd6);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(255,110,180,0.35);
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+            white-space: nowrap;
+        }
+        .send-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px rgba(255,110,180,0.45);
+        }
+        @@keyframes panelFadeIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        /* Loading dots animation */
+        @@keyframes chatDotBounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+            40%            { transform: translateY(-5px); opacity: 1; }
+        }
+        .chat-bubble.loading {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 14px 18px;
+        }
+        .chat-bubble.loading .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: rgba(200, 200, 255, 0.8);
+            animation: chatDotBounce 1.2s infinite ease-in-out;
+        }
+        .chat-bubble.loading .dot:nth-child(2) { animation-delay: 0.2s; }
+        .chat-bubble.loading .dot:nth-child(3) { animation-delay: 0.4s; }
+        @@media (max-width: 600px) {
+            #floatingChatLauncher {
+                right: 16px;
+                bottom: 16px;
+            }
+            #chatToggleButton {
+                width: 54px;
+                height: 54px;
+            }
+            #supportWidgetPanel {
+                right: 12px;
+                bottom: 16px;
+                width: min(100vw - 24px, 100%);
+                border-radius: 22px;
+            }
+            #supportWidgetHeader {
+                padding: 16px 16px 12px;
+            }
+            #supportWidgetBody {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body class="pandora-shell">
+    <div id="pageLoading" class="page-loading" aria-label="Đang tải">
+        <div class="page-loading__brand"><img src="~/images/logo/diamond-mark.png" alt="KimTon" /><span>KIMTON</span></div>
+    </div>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <form id="globalAntiforgery" hidden>@Html.AntiForgeryToken()</form>
+    }
+    @{
+        var activeBranches = await DbContext.Branches
+            .Where(branch => branch.IsActive)
+            .OrderBy(branch => branch.BranchName)
+            .ToListAsync();
+        var roles = User.Claims
+            .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+            .Select(c => c.Value)
+            .ToList();
+        var isStaffArea = RoleCatalog.IsPrivilegedPersistentRole(roles);
+        var isSystemAdmin = roles.Contains("Admin");
+        var signedInUser = User.Identity?.IsAuthenticated == true
+            ? await DbContext.Users.FirstOrDefaultAsync(user => user.UserName == User.Identity.Name)
+            : null;
+        var managementBranches = isStaffArea
+            ? await PermissionService.GetAccessibleBranchesAsync(User)
+            : new List<GoldManagementSystem.Models.Branch>();
+        var managementGrants = new Dictionary<int, HashSet<string>>();
+        foreach (var branch in managementBranches)
+        {
+            managementGrants[branch.Id] = await PermissionService.GetGrantedKeysAsync(User, branch.Id);
+        }
+        var hasManagementAccess = isSystemAdmin || managementBranches.Any();
+        var requestPath = Context.Request.Path.Value?.ToLowerInvariant() ?? "/";
+        var requestCategory = Context.Request.Query["category"].ToString();
+
+        bool pathMatches(params string[] candidates) =>
+            candidates.Any(candidate => string.Equals(requestPath, candidate.ToLowerInvariant(), StringComparison.OrdinalIgnoreCase));
+
+        bool categoryMatches(string category) =>
+            string.Equals(requestCategory, category, StringComparison.OrdinalIgnoreCase) &&
+            pathMatches("/products", "/products/index");
+
+        string navClass(bool isActive) => isActive ? "is-active" : string.Empty;
+        var isSupplierPurchaseOrdersPage =
+            pathMatches("/admin/supplierpurchaseorders");
+        var isDashboardPath = requestPath.StartsWith("/user/")
+            || requestPath.StartsWith("/management")
+            || requestPath.StartsWith("/admin/")
+            || requestPath.StartsWith("/products/admin");
+        var isManagementArea = requestPath.StartsWith("/management")
+            || requestPath.StartsWith("/admin/")
+            || requestPath.StartsWith("/products/admin");
+        int? selectedBranchId = int.TryParse(Context.Request.Query["branchId"], out var branchIdValue)
+            ? branchIdValue
+            : null;
+        var requestManagementTab = Context.Request.Query["tab"].ToString().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(requestManagementTab)) requestManagementTab = "overview";
+        var selectedManagementBranch = managementBranches.FirstOrDefault(branch => branch.Id == selectedBranchId)
+            ?? managementBranches.FirstOrDefault();
+    }
+
+
+    <header class="site-header">
+        <div class="site-header__utility">
+            <div class="site-header__container">
+                <div class="site-header__utility-group site-header__utility-group--left">
+                    <div class="site-header__utility-cluster">
+                        <button class="header-icon header-icon--search show-desktop-flex"
+                                type="button"
+                                aria-label="Tìm kiếm"
+                                data-toggle-search>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
+                            </svg>
+                            <span data-i18n data-i18n-vi="Tìm kiếm" data-i18n-en="Search">Tìm kiếm</span>
+                        </button>
+                    </div>
+
+                    <button class="header-icon show-mobile-flex" type="button" aria-label="Mở menu" data-toggle-menu>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="site-header__brand">
+                    <a href="/" aria-label="KimTon">
+                        <span class="site-header__logo-mark" aria-hidden="true">
+                            <img src="~/images/logo/diamond-mark.png" alt="KimTon diamond logo" asp-append-version="true" />
+                        </span>
+                        <span class="site-header__logo-text">KIMTON</span>
+                    </a>
+                </div>
+
+                <div class="site-header__actions">
+                    <button class="header-icon show-mobile-flex" type="button" aria-label="Tìm kiếm" data-toggle-search>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
+                        </svg>
+                    </button>
+
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <a href="/User/Favorites" class="header-icon show-desktop-flex" aria-label="Yêu thích">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m12 20.2-.9-.82C5.2 14.03 2 11.11 2 7.53 2 4.61 4.28 2.4 7.2 2.4c1.65 0 3.24.76 4.3 1.96A5.83 5.83 0 0 1 15.8 2.4C18.72 2.4 21 4.61 21 7.53c0 3.58-3.2 6.5-9.1 11.84l-.9.83Z" />
+                            </svg>
+                        </a>
+
+                        <!-- Notification Bell Dropdown -->
+                        <div class="notification-bell" id="notificationBellContainer">
+                            <button type="button" class="header-icon" id="notificationBellTrigger" aria-label="Thông báo">
+                                <svg class="notification-bell-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path class="notification-bell-icon__body" d="M12 4a4.5 4.5 0 0 0-4.5 4.5v3.15c0 1.68-.55 3.31-1.56 4.65l-.75.99a1 1 0 0 0 .8 1.61h12.02a1 1 0 0 0 .8-1.61l-.75-.99a7.75 7.75 0 0 1-1.56-4.65V8.5A4.5 4.5 0 0 0 12 4Z" />
+                                    <path class="notification-bell-icon__body" d="M9.65 20.05h4.7a2.35 2.35 0 0 1-4.7 0Z" />
+                                    <path class="notification-bell-icon__ring" d="M5.25 5.65A8.35 8.35 0 0 0 3.3 11.1M18.75 5.65a8.35 8.35 0 0 1 1.95 5.45" />
+                                </svg>
+                                <span class="header-badge" id="notificationBadge" style="display: none; background: #b42318;">0</span>
+                            </button>
+                            <div class="notification-dropdown" id="notificationDropdown">
+                                <div class="notification-dropdown__header">
+                                    <span data-i18n data-i18n-vi="Thông báo" data-i18n-en="Notifications">Thông báo</span>
+                                    <button type="button" id="clearNotifications" data-i18n data-i18n-vi="Xóa tất cả" data-i18n-en="Clear all">Xóa tất cả</button>
+                                </div>
+                                <div class="notification-dropdown__list" id="notificationList">
+                                    <div class="notification-dropdown__empty" data-i18n data-i18n-vi="Chưa có thông báo nào" data-i18n-en="No notifications yet">Chưa có thông báo nào</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <a href="@(User.Identity?.IsAuthenticated == true ? "/User/Orders" : "/Account/Login")"
+                       class="header-icon"
+                       aria-label="Giỏ hàng">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h2l2.5 10.4a1 1 0 0 0 1 .78h8.94a1 1 0 0 0 .97-.76L21 8H7" />
+                            <circle cx="10" cy="20" r="1.6" />
+                            <circle cx="18" cy="20" r="1.6" />
+                        </svg>
+                        <span class="header-badge">0</span>
+                    </a>
+
+                    <div class="account-menu">
+                        <button class="header-icon account-menu__trigger" type="button" aria-label="Tài khoản">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 1 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                            </svg>
+                        </button>
+                        <div class="account-menu__panel">
+                            @if (User.Identity?.IsAuthenticated == true)
+                            {
+                                <div class="account-menu__welcome">
+                        <span data-i18n data-i18n-vi="Xin chào" data-i18n-en="Hello">Xin chào</span>
+                                    <strong>@User.Identity.Name</strong>
+                                </div>
+                                <a href="/User/Profile" data-i18n data-i18n-vi="Thông tin cá nhân" data-i18n-en="Profile">Thông tin cá nhân</a>
+                                <a href="/User/Orders" data-i18n data-i18n-vi="Đơn hàng của tôi" data-i18n-en="My orders">Đơn hàng của tôi</a>
+                                <a href="/User/Favorites" data-i18n data-i18n-vi="Sản phẩm yêu thích" data-i18n-en="Favorites">Sản phẩm yêu thích</a>
+                                @if (hasManagementAccess)
+                                {
+                                    <span class="account-menu__divider" data-i18n data-i18n-vi="Khu vực quản trị" data-i18n-en="Admin area">Khu vực quản trị</span>
+                                    <a href="/Management" data-i18n data-i18n-vi="Quản lí" data-i18n-en="Management">Quản lí</a>
+                                }
+                                @if (isStaffArea && !isSystemAdmin)
+                                {
+                                    <form id="attendanceMenuForm" method="post" action="/Management/Attendance" class="attendance-menu-form" hidden>
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="assignmentId" />
+                                        <button type="submit" class="attendance-menu-button" data-attendance-button>Điểm danh</button>
+                                        <small data-attendance-context></small>
+                                    </form>
+                                }
+                                <a href="/Account/Logout" class="account-menu__logout" data-i18n data-i18n-vi="Đăng xuất" data-i18n-en="Log out">Đăng xuất</a>
+                            }
+                            else
+                            {
+                                <div class="account-menu__welcome">
+                                    <span data-i18n data-i18n-vi="Tài khoản thành viên" data-i18n-en="Member account">Tài khoản thành viên</span>
+                                    <strong data-i18n data-i18n-vi="Tận hưởng ưu đãi riêng và theo dõi đơn hàng dễ dàng." data-i18n-en="Enjoy exclusive benefits and track your orders with ease.">Tận hưởng ưu đãi riêng và theo dõi đơn hàng dễ dàng.</strong>
+                                </div>
+                                <a href="/Account/Login" data-i18n data-i18n-vi="Đăng nhập" data-i18n-en="Log in">Đăng nhập</a>
+                                <a href="/Account/Register" data-i18n data-i18n-vi="Đăng ký thành viên" data-i18n-en="Create account">Đăng ký thành viên</a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="site-header__nav">
+            <div class="site-header__container">
+                <nav class="main-nav">
+                    <a href="/" class="@navClass(pathMatches("/"))" data-i18n data-i18n-vi="Trang chủ" data-i18n-en="Home">Trang chủ</a>
+                    <a href="/Products" class="@navClass(pathMatches("/products", "/products/index") && string.IsNullOrWhiteSpace(requestCategory))" data-i18n data-i18n-vi="Tất cả sản phẩm" data-i18n-en="All products">Tất cả sản phẩm</a>
+                    <a href="/Home/Market" class="@navClass(pathMatches("/home/market"))" data-i18n data-i18n-vi="Thị trường" data-i18n-en="Market">Thị trường</a>
+                    <a href="/Products/Gold" class="@navClass(pathMatches("/products/gold"))" data-i18n data-i18n-vi="Trang sức vàng" data-i18n-en="Gold jewelry">Trang sức vàng</a>
+                    <a href="/Products/Silver" class="@navClass(pathMatches("/products/silver"))" data-i18n data-i18n-vi="Trang sức bạc" data-i18n-en="Silver jewelry">Trang sức bạc</a>
+                    <a href="/Products/Diamond" class="@navClass(pathMatches("/products/diamond"))" data-i18n data-i18n-vi="Kim Cương" data-i18n-en="Diamonds">Kim Cương</a>
+                    <a href="/Products?category=Nhẫn Cưới" class="@navClass(categoryMatches("Nhẫn Cưới"))" data-i18n data-i18n-vi="Nhẫn cưới" data-i18n-en="Wedding rings">Nhẫn cưới</a>
+                    <a href="/Products?category=Dây Chuyền" class="@navClass(categoryMatches("Dây Chuyền"))" data-i18n data-i18n-vi="Dây chuyền" data-i18n-en="Necklaces">Dây chuyền</a>
+                    <a href="/Products?category=Bông Tai" class="@navClass(categoryMatches("Bông Tai"))" data-i18n data-i18n-vi="Hoa tai" data-i18n-en="Earrings">Hoa tai</a>
+                    <a href="/#gift-zone" data-i18n data-i18n-vi="Quà tặng" data-i18n-en="Gifts">Quà tặng</a>
+                </nav>
+            </div>
+        </div>
+
+        <div class="search-sheet" data-search-panel>
+            <div class="search-sheet__backdrop" data-close-search></div>
+            <div class="search-sheet__dialog">
+                <button type="button" class="search-sheet__close" aria-label="Đóng tìm kiếm" data-close-search>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 6 18 18M6 18 18 6" />
+                    </svg>
+                </button>
+                <div class="search-sheet__content">
+                    <div class="search-sheet__intro">
+                        <p class="search-sheet__eyebrow" data-i18n data-i18n-vi="Tìm kiếm" data-i18n-en="Search">Tìm kiếm</p>
+                        <h2 data-i18n data-i18n-vi="Khám phá món trang sức dành riêng cho bạn" data-i18n-en="Discover jewelry selected just for you">Khám phá món trang sức dành riêng cho bạn</h2>
+                    </div>
+                    <form method="get" action="/Products" class="search-sheet__form">
+                        <label class="search-sheet__field">
+                            <span class="search-sheet__field-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
+                                </svg>
+                            </span>
+                            <input type="text"
+                                   name="searchString"
+                                   placeholder="Bạn cần tìm gì?"
+                                   data-i18n
+                                   data-i18n-attr="placeholder"
+                                   data-i18n-vi="Bạn cần tìm gì?"
+                                   data-i18n-en="What are you looking for?" />
+                        </label>
+                        <button type="submit" data-i18n data-i18n-vi="Tìm kiếm" data-i18n-en="Search">Tìm kiếm</button>
+                    </form>
+                    <div class="search-sheet__columns">
+                        <div>
+                            <p class="search-sheet__eyebrow" data-i18n data-i18n-vi="Được tìm kiếm nhiều" data-i18n-en="Trending searches">Được tìm kiếm nhiều</p>
+                            <div class="search-sheet__suggestions">
+                                <a href="/Products?searchString=hoa tai" data-i18n data-i18n-vi="hoa tai" data-i18n-en="earrings">hoa tai</a>
+                                <a href="/Products?searchString=vòng charm" data-i18n data-i18n-vi="vòng charm" data-i18n-en="charm bracelet">vòng charm</a>
+                                <a href="/Products?searchString=vòng tay bạc" data-i18n data-i18n-vi="vòng tay bạc" data-i18n-en="silver bracelet">vòng tay bạc</a>
+                                <a href="/Products?searchString=lắc tay" data-i18n data-i18n-vi="lắc tay" data-i18n-en="bangle">lắc tay</a>
+                                <a href="/Products?searchString=quà tặng" data-i18n data-i18n-vi="quà tặng" data-i18n-en="gift ideas">quà tặng</a>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="search-sheet__eyebrow" data-i18n data-i18n-vi="Gợi ý bộ sưu tập" data-i18n-en="Collection picks">Gợi ý bộ sưu tập</p>
+                            <div class="search-sheet__suggestions">
+                                <a href="/Products/Gold" data-i18n data-i18n-vi="Trang sức vàng" data-i18n-en="Gold jewelry">Trang sức vàng</a>
+                                <a href="/Products/Silver" data-i18n data-i18n-vi="Trang sức bạc" data-i18n-en="Silver jewelry">Trang sức bạc</a>
+                                <a href="/Products/Diamond" data-i18n data-i18n-vi="Kim cương" data-i18n-en="Diamonds">Kim cương</a>
+                                <a href="/Products?category=Nhẫn Cưới" data-i18n data-i18n-vi="Nhẫn cưới" data-i18n-en="Wedding rings">Nhẫn cưới</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mobile-menu" data-menu-panel>
+            <div class="mobile-menu__backdrop" data-close-menu></div>
+            <div class="mobile-menu__drawer">
+                <div class="mobile-menu__head">
+                    <span data-i18n data-i18n-vi="Khám phá" data-i18n-en="Explore">Khám phá</span>
+                    <button type="button" aria-label="Đóng menu" data-close-menu>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 6 18 18M6 18 18 6" />
+                        </svg>
+                    </button>
+                </div>
+
+                <nav class="mobile-menu__nav">
+                    <a href="/" class="@navClass(pathMatches("/"))" data-i18n data-i18n-vi="Trang chủ" data-i18n-en="Home">Trang chủ</a>
+                    <a href="/Products" class="@navClass(pathMatches("/products", "/products/index") && string.IsNullOrWhiteSpace(requestCategory))" data-i18n data-i18n-vi="Tất cả sản phẩm" data-i18n-en="All products">Tất cả sản phẩm</a>
+                    <a href="/Home/Market" class="@navClass(pathMatches("/home/market"))" data-i18n data-i18n-vi="Thị trường" data-i18n-en="Market">Thị trường</a>
+                    <a href="/Products/Gold" class="@navClass(pathMatches("/products/gold"))" data-i18n data-i18n-vi="Trang sức vàng" data-i18n-en="Gold jewelry">Trang sức vàng</a>
+                    <a href="/Products/Silver" class="@navClass(pathMatches("/products/silver"))" data-i18n data-i18n-vi="Trang sức bạc" data-i18n-en="Silver jewelry">Trang sức bạc</a>
+                    <a href="/Products/Diamond" class="@navClass(pathMatches("/products/diamond"))" data-i18n data-i18n-vi="Kim cương" data-i18n-en="Diamonds">Kim cương</a>
+                    <a href="/Products?category=Nhẫn Cưới" class="@navClass(categoryMatches("Nhẫn Cưới"))" data-i18n data-i18n-vi="Nhẫn cưới" data-i18n-en="Wedding rings">Nhẫn cưới</a>
+                    <a href="/Products?category=Dây Chuyền" class="@navClass(categoryMatches("Dây Chuyền"))" data-i18n data-i18n-vi="Dây chuyền" data-i18n-en="Necklaces">Dây chuyền</a>
+                    <a href="/Products?category=Bông Tai" class="@navClass(categoryMatches("Bông Tai"))" data-i18n data-i18n-vi="Hoa tai" data-i18n-en="Earrings">Hoa tai</a>
+                    <a href="/#gift-zone" data-i18n data-i18n-vi="Quà tặng" data-i18n-en="Gifts">Quà tặng</a>
+                </nav>
+
+                <div class="mobile-menu__auth">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <a href="/User/Profile" data-i18n data-i18n-vi="Hồ sơ của tôi" data-i18n-en="My profile">Hồ sơ của tôi</a>
+                        <a href="/User/Orders" data-i18n data-i18n-vi="Đơn hàng" data-i18n-en="Orders">Đơn hàng</a>
+                        <a href="/Account/Logout" data-i18n data-i18n-vi="Đăng xuất" data-i18n-en="Log out">Đăng xuất</a>
+                    }
+                    else
+                    {
+                        <a href="/Account/Login" data-i18n data-i18n-vi="Đăng nhập" data-i18n-en="Log in">Đăng nhập</a>
+                        <a href="/Account/Register" data-i18n data-i18n-vi="Đăng ký" data-i18n-en="Register">Đăng ký</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="site-main">
+        @if (isDashboardPath && User.Identity?.IsAuthenticated == true)
+        {
+            <div class="dashboard-shell">
+                <aside class="dashboard-sidebar">
+                    @if (!isManagementArea)
+                    {
+                        <div class="dashboard-sidebar__group">
+                            <span class="dashboard-sidebar__label" data-i18n data-i18n-vi="Tài khoản của tôi" data-i18n-en="My account">Tài khoản của tôi</span>
+                            <nav class="dashboard-sidebar__nav">
+                                <a href="/User/Profile" class="dashboard-sidebar__link @navClass(pathMatches("/user/profile"))" data-i18n data-i18n-vi="Thông tin cá nhân" data-i18n-en="Profile">Thông tin cá nhân</a>
+                                <a href="/User/Orders" class="dashboard-sidebar__link @navClass(pathMatches("/user/orders"))" data-i18n data-i18n-vi="Đơn hàng của tôi" data-i18n-en="My orders">Đơn hàng của tôi</a>
+                                <a href="/User/Favorites" class="dashboard-sidebar__link @navClass(pathMatches("/user/favorites"))" data-i18n data-i18n-vi="Sản phẩm yêu thích" data-i18n-en="Favorites">Sản phẩm yêu thích</a>
+                            </nav>
+                        </div>
+                    }
+
+                    @if (hasManagementAccess && isManagementArea)
+                    {
+                        <div class="dashboard-sidebar__group">
+                            <span class="dashboard-sidebar__label">Khu vực quản lí</span>
+                            <nav class="dashboard-sidebar__nav" data-management-tree>
+                                <a href="/Management?tab=overview&branchId=@selectedManagementBranch?.Id" class="dashboard-sidebar__link" data-dashboard-link>Tổng quan</a>
+                                @foreach (var branch in managementBranches)
+                                {
+                                    var branchGrants = managementGrants[branch.Id];
+
+                                    var canManageSuppliers =
+                                        branchGrants.Contains(
+                                            ManagementFeatureCatalog.WarehouseSuppliers);
+
+                                    var hasWarehouse =
+                                        branchGrants.Overlaps(new[]
+                                        {
+                                            ManagementFeatureCatalog.WarehouseReceipts,
+                                            ManagementFeatureCatalog.WarehouseApproval
+                                        });
+
+                                    var hasPeople =
+                                        branchGrants.Overlaps(new[]
+                                        {
+                                            ManagementFeatureCatalog.PeopleView,
+                                            ManagementFeatureCatalog.PeopleShifts,
+                                            ManagementFeatureCatalog.PeoplePayroll
+                                        });
+                                    var hasProducts = branchGrants.Overlaps(new[] { ManagementFeatureCatalog.ProductsView, ManagementFeatureCatalog.ProductsEdit });
+                                    var isActiveManagementBranch = selectedManagementBranch?.Id == branch.Id;
+                                    var isWarehousePurchasingPage =
+                                        pathMatches("/admin/warehousemanagement");
+
+                                    var isInventoryManagementPage =
+                                        pathMatches("/admin/inventorymanagement");
+
+                                    var isInventoryIssuePage =
+                                        pathMatches("/admin/inventoryissues");
+
+                                    var isInventoryHistoryPage =
+                                        pathMatches("/admin/inventoryhistory");
+                                    <details class="management-menu @(isActiveManagementBranch ? "management-menu--active" : string.Empty)" @(isActiveManagementBranch ? "open" : null)>
+                                        <summary>@branch.BranchName</summary>
+                                        
+                                        @if (canManageSuppliers)
+                                        {
+                                            <a class="@(pathMatches("/admin/suppliermanagement")
+                                                        && isActiveManagementBranch
+                                                            ? "is-active"
+                                                            : string.Empty)"
+                                            href="/Admin/SupplierManagement?branchId=@branch.Id">
+                                                Quản lí nhà cung cấp
+                                            </a>
+                                        }
+
+                                        @if (hasWarehouse)
+                                        {
+                                            <details class="management-menu__nested"
+                                                    @(
+                                                        isActiveManagementBranch
+                                                        && (
+                                                            requestManagementTab == "warehouse"
+                                                            || isWarehousePurchasingPage
+                                                            || isSupplierPurchaseOrdersPage
+                                                            || isInventoryManagementPage
+                                                            || isInventoryIssuePage
+                                                            || isInventoryHistoryPage
+                                                        )
+                                                            ? "open"
+                                                            : null
+                                                    )>
+
+                                                <summary>Quản lí kho</summary>
+
+                                                @if (branchGrants.Contains(
+                                                    ManagementFeatureCatalog.WarehouseReceipts))
+                                                {
+                                                    <a class="@(
+                                                            isSupplierPurchaseOrdersPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                        href="/Admin/SupplierPurchaseOrders?branchId=@branch.Id">
+                                                        Đặt hàng từ nhà cung cấp
+                                                    </a>
+
+                                                    <a class="@(
+                                                            isWarehousePurchasingPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                        href="/Admin/WarehouseManagement?branchId=@branch.Id&warehouseTab=orders">
+                                                        Phiếu nhập kho
+                                                    </a>
+
+                                                    <a class="@(
+                                                            isInventoryIssuePage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                    href="/Admin/InventoryIssues?branchId=@branch.Id">
+                                                        Phiếu xuất kho
+                                                    </a>
+
+                                                    <a class="@(
+                                                            isInventoryManagementPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                    href="/Admin/InventoryManagement?branchId=@branch.Id">
+                                                        Danh sách tồn kho
+                                                    </a>
+
+                                                    <span>
+                                                        Kiểm kê kho · đang phát triển
+                                                    </span>
+
+                                                    <a class="@(
+                                                            isInventoryHistoryPage
+                                                            && isActiveManagementBranch
+                                                                ? "is-active"
+                                                                : string.Empty)"
+                                                    href="/Admin/InventoryHistory?branchId=@branch.Id">
+                                                        Lịch sử nhập - xuất
+                                                    </a>
+                                                }
+
+                                                @if (branchGrants.Contains(
+                                                    ManagementFeatureCatalog.WarehouseApproval))
+                                                {
+                                                    @*
+                                                        Sau này khi tách quyền duyệt riêng,
+                                                        có thể đặt menu duyệt phiếu tại đây.
+                                                    *@
+                                                }
+                                            </details>
+                                        }
+                                        @if (hasPeople)
+                                        {
+                                            <a class="@(requestManagementTab == "people" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=people&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Quản lí nhân sự</a>
+                                        }
+                                        @if (hasProducts)
+                                        {
+                                            <a class="@(requestManagementTab == "products" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=products&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Quản lí sản phẩm</a>
+                                        }
+                                        <details class="management-menu__nested" @(requestManagementTab is "cskh" or "feedback" ? "open" : null)>
+                                            <summary>Khách hàng</summary>
+                                            <a class="@(requestManagementTab == "cskh" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=cskh&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Chăm sóc khách hàng</a>
+                                            <a class="@(requestManagementTab == "feedback" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=feedback&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Feedback / Đánh giá</a>
+                                        </details>
+                                        @if (branchGrants.Contains(ManagementFeatureCatalog.RevenueView))
+                                        {
+                                            <a class="@(requestManagementTab == "revenue" && isActiveManagementBranch ? "is-active" : string.Empty)" href="/Management?tab=revenue&branchId=@branch.Id" data-dashboard-link data-management-branch-name="@branch.BranchName">Doanh thu</a>
+                                        }
+                                    </details>
+                                }
+                                @if (isSystemAdmin)
+                                {
+                                    <details class="management-menu management-menu--system" @(requestManagementTab is "users" or "permissions" or "branches" or "audit" ? "open" : null)>
+                                        <summary>Hệ thống</summary>
+                                        <details class="management-menu__nested" @(requestManagementTab is "users" or "permissions" ? "open" : null)>
+                                            <summary>User</summary>
+                                            <a class="@(requestManagementTab == "users" ? "is-active" : string.Empty)" href="/Management?tab=users" data-dashboard-link data-management-system-link>Người dùng</a>
+                                            <a class="@(requestManagementTab == "permissions" ? "is-active" : string.Empty)" href="/Management?tab=permissions" data-dashboard-link data-management-system-link>Phân quyền</a>
+                                        </details>
+                                        <a class="@(requestManagementTab == "branches" ? "is-active" : string.Empty)" href="/Management?tab=branches" data-dashboard-link data-management-system-link>Chi nhánh</a>
+                                        <a class="@(requestManagementTab == "audit" ? "is-active" : string.Empty)" href="/Management?tab=audit" data-dashboard-link data-management-system-link>Lịch sử</a>
+                                    </details>
+                                }
+                            </nav>
+                        </div>
+                    }
+
+                    <div class="dashboard-sidebar__group">
+                        <nav class="dashboard-sidebar__nav">
+                            <a href="/Account/Logout" class="dashboard-sidebar__link dashboard-sidebar__link--logout" data-i18n data-i18n-vi="Đăng xuất" data-i18n-en="Log out">Đăng xuất</a>
+                        </nav>
+                    </div>
+                </aside>
+
+                <div class="dashboard-content">
+                    @RenderBody()
+                </div>
+            </div>
+        }
+        else
+        {
+            @RenderBody()
+        }
+    </main>
+
+    <footer class="site-footer">
+        @if (User.Identity?.IsAuthenticated != true)
+        {
+            <div class="site-footer__newsletter">
+                <div class="site-footer__container site-footer__newsletter-wrap">
+                    <div>
+                        <p class="site-footer__label" data-i18n data-i18n-vi="Nhận ưu đãi 10% cho khách hàng mới" data-i18n-en="Get 10% off for new customers">Nhận ưu đãi 10% cho khách hàng mới</p>
+                        <h2 data-i18n data-i18n-vi="Gia nhập KimTon để nhận khuyến mãi và bộ sưu tập mới sớm nhất." data-i18n-en="Join KimTon to receive promotions and preview new collections first.">Gia nhập KimTon để nhận khuyến mãi và bộ sưu tập mới sớm nhất.</h2>
+                    </div>
+                    <a href="/Account/Register" class="site-footer__cta" data-i18n data-i18n-vi="Đăng ký ngay" data-i18n-en="Sign up now">Đăng ký ngay</a>
+                </div>
+            </div>
+        }
+
+        <div class="site-footer__content">
+            <div class="site-footer__container site-footer__grid">
+                <div>
+                    <a href="/" class="site-footer__brand">KIMTON</a>
+                    <p class="site-footer__text" data-i18n data-i18n-vi="Trang sức được tuyển chọn để lưu giữ khoảnh khắc, tôn vinh dấu ấn cá nhân và những mối gắn kết đặc biệt." data-i18n-en="Curated jewelry designed to preserve memories, celebrate individuality, and honor meaningful connections.">Trang sức được tuyển chọn để lưu giữ khoảnh khắc, tôn vinh dấu ấn cá nhân và những mối gắn kết đặc biệt.</p>
+                    <div class="site-footer__social">
+                        <a href="javascript:void(0)" aria-label="Facebook">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 0C4.48 0 0 4.48 0 10a10 10 0 0 0 8.44 9.88v-6.99H5.9V10h2.54V7.8c0-2.52 1.5-3.92 3.8-3.92 1.1 0 2.25.2 2.25.2v2.48h-1.27c-1.25 0-1.64.78-1.64 1.57V10h2.79l-.45 2.89h-2.34v6.99A10 10 0 0 0 20 10c0-5.52-4.48-10-10-10Z" />
+                            </svg>
+                        </a>
+                        <a href="javascript:void(0)" aria-label="Instagram">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm0 2.2A2.8 2.8 0 0 0 4.2 7v10A2.8 2.8 0 0 0 7 19.8h10a2.8 2.8 0 0 0 2.8-2.8V7A2.8 2.8 0 0 0 17 4.2H7Zm10.45 1.65a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6Z" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h3 data-i18n data-i18n-vi="Khám phá" data-i18n-en="Explore">Khám phá</h3>
+                    <a href="/Products" data-i18n data-i18n-vi="Tất cả sản phẩm" data-i18n-en="All products">Tất cả sản phẩm</a>
+                    <a href="/Home/Market" data-i18n data-i18n-vi="Bảng thông tin thị trường" data-i18n-en="Market dashboard">Bảng thông tin thị trường</a>
+                    <a href="/Products/Gold" data-i18n data-i18n-vi="Trang sức vàng" data-i18n-en="Gold jewelry">Trang sức vàng</a>
+                    <a href="/Products/Silver" data-i18n data-i18n-vi="Trang sức bạc" data-i18n-en="Silver jewelry">Trang sức bạc</a>
+                    <a href="/Products/Diamond" data-i18n data-i18n-vi="Kim cương" data-i18n-en="Diamonds">Kim cương</a>
+                </div>
+                <div>
+                    <h3 data-i18n data-i18n-vi="Chăm sóc khách hàng" data-i18n-en="Customer care">Chăm sóc khách hàng</h3>
+                    <a href="/Account/Register" data-i18n data-i18n-vi="Chính sách thành viên" data-i18n-en="Membership policy">Chính sách thành viên</a>
+                    <a href="/Products?searchString=size" data-i18n data-i18n-vi="Hướng dẫn chọn size" data-i18n-en="Sizing guide">Hướng dẫn chọn size</a>
+                    <a href="/User/Orders" data-i18n data-i18n-vi="Theo dõi đơn hàng" data-i18n-en="Track orders">Theo dõi đơn hàng</a>
+                    <a href="/Products?searchString=bảo hành" data-i18n data-i18n-vi="Chính sách bảo hành" data-i18n-en="Warranty policy">Chính sách bảo hành</a>
+                </div>
+                <div>
+                    <h3 data-i18n data-i18n-vi="Liên hệ" data-i18n-en="Contact">Liên hệ</h3>
+                    <p class="site-footer__text" data-i18n data-i18n-vi="123 Đường Vàng Kim, Quận 1, TP. HCM" data-i18n-en="123 Golden Avenue, District 1, Ho Chi Minh City">123 Đường Vàng Kim, Quận 1, TP. HCM</p>
+                    <p class="site-footer__text" data-i18n data-i18n-vi="Hotline: 1800 9999" data-i18n-en="Hotline: 1800 9999">Hotline: 1800 9999</p>
+                    <p class="site-footer__text" data-i18n data-i18n-vi="Email: cskh@kimton.vn" data-i18n-en="Email: cskh@kimton.vn">Email: cskh@kimton.vn</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="site-footer__bottom">
+            <div class="site-footer__container">
+                <p data-i18n data-i18n-vi="© @DateTime.Now.Year KimTon. Bảo lưu mọi quyền." data-i18n-en="© @DateTime.Now.Year KimTon. All rights reserved.">&copy; @DateTime.Now.Year KimTon. Bảo lưu mọi quyền.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const trigger = document.getElementById("notificationBellTrigger");
+                const dropdown = document.getElementById("notificationDropdown");
+                const badge = document.getElementById("notificationBadge");
+                const list = document.getElementById("notificationList");
+                const clearBtn = document.getElementById("clearNotifications");
+
+                // Check authorization role to see if user is staff/admin
+                const isStaff = @(isStaffArea ? "true" : "false");
+
+                // Initialize local notifications from localStorage
+                let notifications = JSON.parse(localStorage.getItem("notifications_v1") || "[]");
+                const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+                function saveNotifications() {
+                    localStorage.setItem("notifications_v1", JSON.stringify(notifications));
+                }
+
+                function renderNotifications() {
+                    if (!list) return;
+                    if (notifications.length === 0) {
+                        list.innerHTML = '<div class="notification-dropdown__empty">Chưa có thông báo nào</div>';
+                        badge.style.display = "none";
+                        return;
+                    }
+
+                    const unreadCount = notifications.filter(n => !n.isRead).length;
+                    if (unreadCount > 0) {
+                        badge.textContent = unreadCount;
+                        badge.style.display = "inline-flex";
+                    } else {
+                        badge.style.display = "none";
+                    }
+
+                    list.innerHTML = notifications.map(n => `
+                        <a href="${escapeHtml(n.link || '#')}" class="notification-item ${n.isRead ? '' : 'is-unread'}" data-id="${escapeHtml(n.id)}" data-server-id="${n.serverId || ''}">
+                            <span class="notification-item__title">${escapeHtml(n.title)}</span>
+                            <span class="notification-item__body">${escapeHtml(n.body)}</span>
+                            <span class="notification-item__time">${escapeHtml(n.time)}</span>
+                        </a>
+                    `).join('');
+
+                    // Add click handlers to mark as read
+                    document.querySelectorAll(".notification-item").forEach(item => {
+                        item.addEventListener("click", function (e) {
+                            const id = this.getAttribute("data-id");
+                            const index = notifications.findIndex(n => String(n.id) === id);
+                            if (index !== -1) {
+                                notifications[index].isRead = true;
+                                saveNotifications();
+                            }
+                            const serverId = this.dataset.serverId;
+                            if (serverId) {
+                                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                                fetch('/Notifications/Read', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token || '' }, body: `id=${encodeURIComponent(serverId)}&__RequestVerificationToken=${encodeURIComponent(token || '')}` });
+                            }
+                        });
+                    });
+                }
+
+                if (trigger && dropdown) {
+                    trigger.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        dropdown.classList.toggle("is-active");
+                    });
+                    document.addEventListener("click", function () {
+                        dropdown.classList.remove("is-active");
+                    });
+                    dropdown.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                    });
+                }
+
+                if (clearBtn) {
+                    clearBtn.addEventListener("click", function () {
+                        notifications = [];
+                        saveNotifications();
+                        renderNotifications();
+                        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                        if (token) fetch('/Notifications/ReadAll', { method: 'POST', headers: { 'RequestVerificationToken': token, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `__RequestVerificationToken=${encodeURIComponent(token)}` });
+                    });
+                }
+
+                // Show visual toast notification in bottom right corner
+                function showToast(title, body) {
+                    const toast = document.createElement("div");
+                    toast.className = "toast-notification";
+                    toast.innerHTML = `
+                        <div class="toast-notification__title">${title}</div>
+                        <div class="toast-notification__body">${body}</div>
+                    `;
+                    document.body.appendChild(toast);
+                    
+                    setTimeout(() => {
+                        toast.classList.add("is-visible");
+                    }, 100);
+
+                    // Auto hide after 5 seconds
+                    setTimeout(() => {
+                        toast.classList.remove("is-visible");
+                        setTimeout(() => {
+                            toast.remove();
+                        }, 500);
+                    }, 5000);
+                }
+
+                function addNotification(title, body, link, time) {
+                    const newNotif = {
+                        id: Date.now().toString(),
+                        title: title,
+                        body: body,
+                        link: link || "#",
+                        time: time || new Date().toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'}),
+                        isRead: false
+                    };
+                    notifications.unshift(newNotif);
+                    // limit to 30 notifications max
+                    if (notifications.length > 30) notifications.pop();
+                    saveNotifications();
+                    renderNotifications();
+                    showToast(title, body);
+                }
+
+                renderNotifications();
+                fetch('/Notifications/List', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(response => response.ok ? response.json() : [])
+                    .then(items => {
+                        const serverItems = items.map(item => ({ id: `db-${item.id}`, serverId: item.id, title: item.title, body: item.body, link: item.link || '#', time: new Date(item.createdAt).toLocaleString('vi-VN'), isRead: item.isRead }));
+                        const localOnly = notifications.filter(item => !item.serverId);
+                        notifications = [...serverItems, ...localOnly].slice(0, 50);
+                        saveNotifications();
+                        renderNotifications();
+                    }).catch(() => {});
+
+                // Setup SignalR connection
+                if (typeof signalR !== "undefined") {
+                    const connection = new signalR.HubConnectionBuilder()
+                        .withUrl("/notificationHub")
+                        .withAutomaticReconnect()
+                        .build();
+
+                    // 1. Staff/Admin: new pending confirmation order
+                    connection.on("ReceiveOrderNotification", function (data) {
+                        if (isStaff) {
+                            const title = "🔔 Đơn Hàng Chờ Xác Nhận Mới";
+                            const body = `Mã đơn: #${data.orderNumber} | Khách: ${data.customerName} | Tổng: ${data.totalAmount.toLocaleString('vi-VN')} ₫`;
+                            const link = `/Admin/OrderManagement?orderId=${data.orderId}`;
+                            addNotification(title, body, link, data.time);
+                        }
+                    });
+
+                    // 2. Customer: order confirmed
+                    connection.on("ReceiveOrderConfirmedNotification", function (data) {
+                        const title = "✅ Đơn Hàng Đã Xác Nhận";
+                        const body = `Chúc mừng! Đơn hàng #${data.orderNumber} của bạn đã được duyệt thành công.`;
+                        const link = `/User/Orders`;
+                        addNotification(title, body, link, data.time);
+                    });
+
+                    // 3. Customer: order cancelled due to no deposit
+                    connection.on("ReceiveOrderCancelledNotification", function (data) {
+                        const title = "❌ Đơn Hàng Đã Bị Hủy";
+                        const body = `Đơn hàng #${data.orderNumber} đã bị tự động hủy do chưa nhận được thanh toán cọc.`;
+                        const link = `/User/Orders`;
+                        addNotification(title, body, link, data.time);
+                    });
+
+                    // 4. Customer: order rejected/cancelled by staff
+                    connection.on("ReceiveOrderRejectedNotification", function (data) {
+                        const title = "❌ Đơn Hàng Bị Từ Chối";
+                        const body = `Đơn hàng #${data.orderNumber} đã bị từ chối/hủy. Lý do: ${data.message.indexOf("Lý do: ") !== -1 ? data.message.split("Lý do: ")[1] : "Không xác định"}`;
+                        const link = `/User/Orders`;
+                        addNotification(title, body, link, data.time);
+                    });
+
+                    connection.on("ReceiveSystemNotification", function (data) {
+                        const item = { id: `db-${data.id}`, serverId: data.id, title: data.title, body: data.body, link: data.link || '#', time: new Date(data.time).toLocaleString('vi-VN'), isRead: false };
+                        notifications.unshift(item);
+                        notifications = notifications.slice(0, 50);
+                        saveNotifications();
+                        renderNotifications();
+                        showToast(data.title, data.body);
+                    });
+
+                    connection.start().then(function () {
+                        console.log("SignalR Connected to /notificationHub");
+                    }).catch(function (err) {
+                        console.error("SignalR Connection Error: ", err.toString());
+                    });
+                }
+
+                const attendanceForm = document.getElementById('attendanceMenuForm');
+                if (attendanceForm) {
+                    const refreshAttendance = () => fetch('/Management/AttendanceStatus', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(response => response.ok ? response.json() : { available: false })
+                        .then(state => {
+                            attendanceForm.hidden = !state.available;
+                            if (!state.available) return;
+                            attendanceForm.querySelector('[name="assignmentId"]').value = state.assignmentId;
+                            const button = attendanceForm.querySelector('[data-attendance-button]');
+                            button.textContent = state.label;
+                            button.disabled = !state.canSubmit;
+                            attendanceForm.querySelector('[data-attendance-context]').textContent = `${state.branch} · ${state.shift}`;
+                        }).catch(() => { attendanceForm.hidden = true; });
+                    attendanceForm.addEventListener('submit', event => {
+                        event.preventDefault();
+                        fetch(attendanceForm.action, { method: 'POST', body: new FormData(attendanceForm), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                            .then(async response => { if (!response.ok) throw new Error(await response.text()); return response.json(); })
+                            .then(result => { showToast('Điểm danh thành công', result.note || result.status); refreshAttendance(); })
+                            .catch(error => showToast('Không thể điểm danh', error.message));
+                    });
+                    refreshAttendance();
+                    window.setInterval(refreshAttendance, 30000);
+                }
+            });
+        </script>
+    }
+    @await RenderSectionAsync("Scripts", required: false)
+
+    <div id="floatingChatLauncher">
+        <button type="button" id="chatToggleButton" aria-label="Mở hỗ trợ khách hàng">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2.5c4.69 0 8.5 3.81 8.5 8.5 0 4.12-2.98 7.53-6.9 8.33l-1.14.27a1.51 1.51 0 0 1-1.1-.23l-2.56-1.87A8.46 8.46 0 0 1 3.5 11C3.5 6.31 7.31 2.5 12 2.5Z" fill="currentColor" opacity="0.95"/>
+                <path d="M8.5 10.5h7M8.5 13.5h4" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </div>
+
+    <aside id="supportWidgetPanel" aria-hidden="true">
+        <div id="supportWidgetHeader">
+            <div>
+                <p class="support-label">HỖ TRỢ KHÁCH HÀNG</p>
+                <p class="support-heading">KimTon tư vấn 24/7</p>
+            </div>
+            <button type="button" id="supportCloseButton" aria-label="Đóng hỗ trợ">✕</button>
+        </div>
+        <div id="supportWidgetBody">
+            <div class="support-contact-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 8px;">
+                <button type="button" class="support-pill support-messenger" data-url="https://www.facebook.com/tuan.anh.78948?locale=vi_VN">
+                    <span class="pill-icon">💬</span>
+                    Messenger
+                </button>
+                <button type="button" class="support-pill support-zalo" data-url="https://zalo.me/0961137407">
+                    <span class="pill-icon">📱</span>
+                    Zalo
+                </button>
+            </div>
+            <div class="support-contact-row" style="grid-template-columns: 1fr 1fr;">
+                <button type="button" class="support-pill support-cskh" id="btnOpenCskhLiveChat" style="color: #d81b60; border-color: #f8bbd0; background: #fff4f9;">
+                    <span class="pill-icon">🎧</span>
+                    Chăm sóc khách hàng
+                </button>
+                <button type="button" class="support-pill support-feedback" onclick="openClientFeedbackModal()" style="color: #ff9800; border-color: #ffe0b2; background: #fffde7;">
+                    <span class="pill-icon">⭐</span>
+                    Feedback
+                </button>
+            </div>
+            <!-- Chế độ AI chatbot (mặc định) -->
+            <div class="support-chat" id="aiBotPanel">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-bubble ai">Xin chào anh/chị! 👋 Em là trợ lý ảo KimTon. Anh/chị có thể hỏi em về giá sản phẩm, chọn size, bảo hành, thu đổi hoặc bấm <strong>Chăm sóc khách hàng</strong> để chat trực tiếp với nhân viên nhé!</div>
+                </div>
+                <div class="quick-chips" id="quickChips">
+                    <button type="button" class="quick-chip">Giá sản phẩm</button>
+                    <button type="button" class="quick-chip">Chọn size</button>
+                    <button type="button" class="quick-chip">Bảo hành</button>
+                    <button type="button" class="quick-chip">Đặt hàng</button>
+                    <button type="button" class="quick-chip">Chính sách thu đổi</button>
+                </div>
+                <div class="chat-actions">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Nhập câu hỏi của bạn..." aria-label="Nhập tin nhắn" />
+                    <button type="button" class="send-button" id="sendChatButton" aria-label="Gửi tin nhắn">Gửi</button>
+                </div>
+            </div>
+            <!-- Chế độ Live Chat CSKH (ẩn mặc định) -->
+            <div class="support-chat" id="liveChatPanel" style="display:none; flex-direction:column;">
+                <div style="background: linear-gradient(135deg,#d81b60,#ec407a); color:#fff; padding: 8px 14px; border-radius: 12px 12px 0 0; display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:700;">
+                    <span>🎧</span> <span>Chăm sóc khách hàng</span>
+                    <button type="button" id="btnExitLiveChat" style="margin-left:auto; background:rgba(255,255,255,0.25); border:none; color:#fff; border-radius:50%; width:24px; height:24px; font-size:0.8rem; cursor:pointer; font-weight:700;">✕</button>
+                </div>
+                <div class="chat-messages" id="liveChatMessages" style="flex:1; overflow-y:auto; padding:12px;"></div>
+                <div id="liveChatInputRow" class="chat-actions" style="border-top: 1px solid #f0dde6;">
+                    <input type="text" id="liveChatInput" class="chat-input" placeholder="Nhập tin nhắn cho nhân viên..." />
+                    <button type="button" class="send-button" id="liveChatSendBtn">Gửi</button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Modal Đánh giá / Feedback dành cho Khách hàng -->
+    <div id="clientFeedbackModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div style="background: #ffffff; border-radius: 24px; width: 450px; max-width: 92%; padding: 28px; box-shadow: 0 20px 60px rgba(216,27,96,0.25); border: 1.5px solid #fce4f0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #2c1825;">⭐ Đánh giá & Phản hồi</h3>
+                <button type="button" onclick="closeClientFeedbackModal()" style="border: none; background: #f5f5f5; border-radius: 50%; width: 32px; height: 32px; font-weight: 700; cursor: pointer;">✕</button>
+            </div>
+            
+            <form id="clientFeedbackForm" onsubmit="submitClientFeedback(event)">
+                <div style="margin-bottom: 14px; text-align: center;">
+                    <label style="display: block; font-size: 0.88rem; font-weight: 700; color: #555; margin-bottom: 6px;">Mức độ hài lòng của bạn</label>
+                    <div id="starRatingGroup" style="display: flex; justify-content: center; gap: 8px; font-size: 2rem; cursor: pointer;">
+                        <span data-star="1" onclick="setStarRating(1)">⭐</span>
+                        <span data-star="2" onclick="setStarRating(2)">⭐</span>
+                        <span data-star="3" onclick="setStarRating(3)">⭐</span>
+                        <span data-star="4" onclick="setStarRating(4)">⭐</span>
+                        <span data-star="5" onclick="setStarRating(5)">⭐</span>
+                    </div>
+                    <input type="hidden" id="fbStarValue" value="5" />
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 4px;">Danh mục đánh giá</label>
+                    <select id="fbCategory" style="width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid #e0c8d8; font-size: 0.88rem; outline: none;">
+                        <option value="Sản phẩm">Chất lượng Sản phẩm</option>
+                        <option value="Dịch vụ CSKH">Dịch vụ Chăm sóc khách hàng</option>
+                        <option value="Giao hàng">Vận chuyển & Giao hàng</option>
+                        <option value="Giá cả">Giá cả & Chương trình ưu đãi</option>
+                        <option value="Khác">Góp ý khác</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 4px;">Nội dung nhận xét / góp ý *</label>
+                    <textarea id="fbContent" rows="3" required style="width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid #e0c8d8; font-size: 0.88rem; outline: none;" placeholder="Hãy chia sẻ trải nghiệm của bạn với KimTon..."></textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+                    <div>
+                        <input type="text" id="fbName" placeholder="Họ và tên (Tùy chọn)" style="width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid #e0c8d8; font-size: 0.82rem; outline: none;" />
+                    </div>
+                    <div>
+                        <input type="text" id="fbContact" placeholder="SĐT hoặc Email" style="width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid #e0c8d8; font-size: 0.82rem; outline: none;" />
+                    </div>
+                </div>
+
+                <button type="submit" id="btnSubmitFeedback" style="width: 100%; padding: 12px; border-radius: 14px; border: none; background: linear-gradient(135deg, #d81b60, #ec407a); color: #fff; font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 6px 20px rgba(216,27,96,0.3);">Gửi Đánh Giá Ngay</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openClientFeedbackModal() {
+            document.getElementById('clientFeedbackModal').style.display = 'flex';
+        }
+        function closeClientFeedbackModal() {
+            document.getElementById('clientFeedbackModal').style.display = 'none';
+        }
+        function setStarRating(val) {
+            document.getElementById('fbStarValue').value = val;
+            var stars = document.querySelectorAll('#starRatingGroup span');
+            stars.forEach(function(s, idx) {
+                s.style.opacity = (idx < val) ? '1' : '0.3';
+            });
+        }
+        function submitClientFeedback(e) {
+            e.preventDefault();
+            var content = document.getElementById('fbContent').value.trim();
+            if (!content) return;
+
+            var rating = parseInt(document.getElementById('fbStarValue').value);
+            var category = document.getElementById('fbCategory').value;
+            var name = document.getElementById('fbName').value.trim();
+            var contact = document.getElementById('fbContact').value.trim();
+            var isEmail = contact.includes('@@');
+
+            var btn = document.getElementById('btnSubmitFeedback');
+            btn.disabled = true;
+            btn.textContent = '⏳ Đang gửi...';
+
+            fetch('/api/customercare/submit-feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rating: rating,
+                    category: category,
+                    content: content,
+                    customerName: name,
+                    customerEmail: isEmail ? contact : '',
+                    customerPhone: !isEmail ? contact : ''
+                })
+            }).then(res => res.json()).then(data => {
+                btn.disabled = false;
+                btn.textContent = 'Gửi Đánh Giá Ngay';
+                if (data.success) {
+                    alert(data.message || 'Cảm ơn bạn đã gửi đánh giá!');
+                    closeClientFeedbackModal();
+                    document.getElementById('clientFeedbackForm').reset();
+                    setStarRating(5);
+                }
+            }).catch(err => {
+                btn.disabled = false;
+                btn.textContent = 'Gửi Đánh Giá Ngay';
+                alert('Có lỗi xảy ra, vui lòng thử lại sau.');
+            });
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        (function() {
+            const chatToggleButton = document.getElementById('chatToggleButton');
+            const floatingChatLauncher = document.getElementById('floatingChatLauncher');
+            const supportWidgetPanel = document.getElementById('supportWidgetPanel');
+            const supportCloseButton = document.getElementById('supportCloseButton');
+            const supportOptions = document.querySelectorAll('.support-pill');
+            const chatMessages = document.getElementById('chatMessages');
+            const quickChips = document.getElementById('quickChips');
+            const chatInput = document.getElementById('chatInput');
+            const sendChatButton = document.getElementById('sendChatButton');
+
+            // ======= LIVE CHAT CSKH (SignalR) =======
+            let liveChatConnection = null;
+            let liveChatSessionCode = null;
+            let liveChatGuestName = '';
+
+            const aiBotPanel = document.getElementById('aiBotPanel');
+            const liveChatPanel = document.getElementById('liveChatPanel');
+            const liveChatMessages = document.getElementById('liveChatMessages');
+            const liveChatInput = document.getElementById('liveChatInput');
+            const liveChatSendBtn = document.getElementById('liveChatSendBtn');
+            const btnExitLiveChat = document.getElementById('btnExitLiveChat');
+            const btnOpenCskhLiveChat = document.getElementById('btnOpenCskhLiveChat');
+
+            function addLiveMsg(text, role) {
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex; margin-bottom:8px; ' + (role === 'Customer' ? 'justify-content:flex-end;' : 'justify-content:flex-start;');
+                const bubble = document.createElement('div');
+                bubble.textContent = text;
+                bubble.style.cssText = 'max-width:78%; padding:9px 13px; border-radius:16px; font-size:0.85rem; line-height:1.4; ' +
+                    (role === 'Customer'
+                        ? 'background:linear-gradient(135deg,#d81b60,#ec407a); color:#fff; border-bottom-right-radius:4px;'
+                        : role === 'System'
+                            ? 'background:#f5f5f5; color:#888; font-style:italic; border-radius:10px; text-align:center; width:100%;'
+                            : 'background:#fff0f5; color:#2c1825; border:1px solid #f8bbd0; border-bottom-left-radius:4px;');
+                wrap.appendChild(bubble);
+                liveChatMessages.appendChild(wrap);
+                liveChatMessages.scrollTop = liveChatMessages.scrollHeight;
+            }
+
+            async function startLiveChat() {
+                const savedCode = localStorage.getItem('kimton_cskh_session_code') || '';
+
+                // Chuyển sang live chat panel
+                aiBotPanel.style.display = 'none';
+                liveChatPanel.style.display = 'flex';
+                liveChatMessages.innerHTML = '';
+                addLiveMsg('⏳ Đang kết nối với nhân viên chăm sóc khách hàng...', 'System');
+
+                try {
+                    // Lấy hoặc tạo mới duy nhất 1 session cho tài khoản
+                    const res = await fetch('/api/customercare/start-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionCode: savedCode, customerName: liveChatGuestName || 'Khách hàng', customerPhone: '', customerEmail: '' })
+                    });
+                    const data = await res.json();
+                    if (!data.success) { addLiveMsg('❌ Không thể kết nối. Vui lòng thử lại.', 'System'); return; }
+                    liveChatSessionCode = data.sessionCode;
+                    localStorage.setItem('kimton_cskh_session_code', data.sessionCode);
+
+                    // Kết nối SignalR
+                    if (!liveChatConnection) {
+                        liveChatConnection = new signalR.HubConnectionBuilder()
+                            .withUrl('/supportChatHub')
+                            .withAutomaticReconnect()
+                            .build();
+
+                        liveChatConnection.on('ReceiveMessage', function(msg) {
+                            if (msg && msg.senderRole !== 'Customer') {
+                                addLiveMsg(msg.message, msg.senderRole);
+                            }
+                        });
+
+                        liveChatConnection.on('SessionStatusChanged', function(payload) {
+                            var st = (payload && typeof payload === 'object') ? payload.status : payload;
+                            if (st === 'Active') {
+                                var staffName = (payload && payload.assignedStaffName) ? payload.assignedStaffName : '';
+                                addLiveMsg('✅ Nhân viên ' + (staffName || 'CSKH') + ' đã tiếp nhận. Bạn có thể bắt đầu chat!', 'System');
+                            } else if (st === 'Closed') {
+                                addLiveMsg('📴 Phiên chat đã kết thúc. Cảm ơn bạn đã liên hệ KimTon!', 'System');
+                                liveChatInput.disabled = true;
+                                liveChatSendBtn.disabled = true;
+                            }
+                        });
+
+                        await liveChatConnection.start();
+                    }
+
+                    await liveChatConnection.invoke('JoinSessionGroup', liveChatSessionCode);
+
+                    liveChatMessages.innerHTML = '';
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(function(m) {
+                            addLiveMsg(m.message, m.senderRole);
+                        });
+                    } else {
+                        addLiveMsg('✅ Kết nối thành công! Đang chờ nhân viên tiếp nhận...', 'System');
+                    }
+
+                    liveChatInput.disabled = false;
+                    liveChatSendBtn.disabled = false;
+                    liveChatInput.focus();
+
+                } catch(err) {
+                    addLiveMsg('❌ Lỗi kết nối: ' + err.message, 'System');
+                    console.error('[LiveChat]', err);
+                }
+            }
+
+            async function sendLiveChatMsg() {
+                const text = liveChatInput.value.trim();
+                if (!text || !liveChatSessionCode) return;
+                liveChatInput.value = '';
+                addLiveMsg(text, 'Customer');
+                try {
+                    await fetch('/api/customercare/send-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionCode: liveChatSessionCode, message: text, senderName: liveChatGuestName })
+                    });
+                } catch(err) {
+                    addLiveMsg('⚠️ Không gửi được tin. Kiểm tra kết nối mạng.', 'System');
+                }
+            }
+
+            async function exitLiveChat() {
+                // Leave session group before stopping
+                if (liveChatConnection && liveChatSessionCode) {
+                    try { await liveChatConnection.invoke('LeaveSessionGroup', liveChatSessionCode); } catch(e) {}
+                }
+                if (liveChatConnection) {
+                    try { await liveChatConnection.stop(); } catch(e) {}
+                    liveChatConnection = null;
+                }
+                liveChatSessionCode = null;
+                liveChatGuestName = '';
+                liveChatPanel.style.display = 'none';
+                aiBotPanel.style.display = 'flex';
+                liveChatInput.disabled = true;
+                liveChatSendBtn.disabled = true;
+            }
+
+            if (btnOpenCskhLiveChat) btnOpenCskhLiveChat.addEventListener('click', startLiveChat);
+            if (btnExitLiveChat) btnExitLiveChat.addEventListener('click', exitLiveChat);
+            if (liveChatSendBtn) {
+                liveChatSendBtn.disabled = true;
+                liveChatSendBtn.addEventListener('click', sendLiveChatMsg);
+            }
+            if (liveChatInput) {
+                liveChatInput.disabled = true;
+                liveChatInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); sendLiveChatMsg(); }
+                });
+            }
+            // ======= END LIVE CHAT =======
+
+
+            function setPanelOpen(open) {
+                if (open) {
+                    supportWidgetPanel.classList.add('active');
+                    supportWidgetPanel.setAttribute('aria-hidden', 'false');
+                    if (floatingChatLauncher) {
+                        floatingChatLauncher.style.display = 'none';
+                    }
+                    if (quickChips) {
+                        quickChips.style.display = 'flex';
+                    }
+                } else {
+                    supportWidgetPanel.classList.remove('active');
+                    supportWidgetPanel.setAttribute('aria-hidden', 'true');
+                    if (floatingChatLauncher) {
+                        floatingChatLauncher.style.display = 'block';
+                    }
+                }
+            }
+
+            function addMessage(text, sender) {
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble ' + sender;
+                bubble.textContent = text;
+                chatMessages.appendChild(bubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // Lịch sử hội thoại cho multi-turn AI
+            const chatHistory = [];
+
+            function handleQuickChip(event) {
+                const chip = event.target.closest('.quick-chip');
+                if (!chip) return;
+                // Gửi ngay khi click chip, không chỉ điền vào input
+                sendMessage(chip.textContent.trim());
+                if (quickChips) {
+                    quickChips.style.display = 'none';
+                }
+            }
+
+            async function handleSend() {
+                const value = chatInput.value.trim();
+                if (!value) return;
+                chatInput.value = '';
+                await sendMessage(value);
+            }
+
+            async function sendMessage(text) {
+                if (!text) return;
+
+                addMessage(text, 'user');
+                sendChatButton.disabled = true;
+                sendChatButton.textContent = '⏳';
+
+                const loadingBubble = document.createElement('div');
+                loadingBubble.className = 'chat-bubble ai loading';
+                loadingBubble.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+                chatMessages.appendChild(loadingBubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                try {
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            history: chatHistory.slice(),   // gửi toàn bộ lịch sử
+                            userMessage: text
+                        })
+                    });
+
+                    const result = await response.json();
+                    const reply = result.reply || 'Em xin lỗi, hệ thống đang bận. Anh/chị vui lòng thử lại sau ạ.';
+
+                    loadingBubble.remove();
+                    addMessage(reply, 'ai');
+
+                    // Cập nhật lịch sử (giữ tối đa 10 lượt)
+                    chatHistory.push({ role: 'user', text: text });
+                    chatHistory.push({ role: 'model', text: reply });
+                    if (chatHistory.length > 20) chatHistory.splice(0, 2);
+
+                } catch (error) {
+                    loadingBubble.remove();
+                    addMessage('Em xin lỗi, kết nối gặp sự cố. Anh/chị vui lòng thử lại sau hoặc gọi Hotline nhé!', 'ai');
+                    console.error('[ChatBot]', error);
+                } finally {
+                    sendChatButton.disabled = false;
+                    sendChatButton.textContent = '→';
+                }
+            }
+
+            chatToggleButton.addEventListener('click', function() {
+                setPanelOpen(!supportWidgetPanel.classList.contains('active'));
+            });
+
+            supportCloseButton.addEventListener('click', function() {
+                setPanelOpen(false);
+            });
+
+            supportOptions.forEach(button => {
+                button.addEventListener('click', function() {
+                    const url = this.getAttribute('data-url');
+                    if (!url) return;
+                    if (url.startsWith('tel:')) {
+                        window.location.href = url;
+                    } else {
+                        window.open(url, '_blank');
+                    }
+                });
+            });
+
+            quickChips.addEventListener('click', handleQuickChip);
+            sendChatButton.addEventListener('click', handleSend);
+            chatInput.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleSend();
+                }
+            });
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && supportWidgetPanel.classList.contains('active')) {
+                    setPanelOpen(false);
+                }
+            });
+        })();
+    </script>
+    <script>
+        // Không giữ màn tải quá 5 giây cho một trang; nội dung hiện ngay khi DOM sẵn sàng.
+        (function () {
+            var hide = function () { document.getElementById('pageLoading')?.classList.add('page-loading--done'); };
+            document.addEventListener('DOMContentLoaded', function () { setTimeout(hide, 260); });
+            setTimeout(hide, 4800);
+        })();
+    </script>
+</body>
+</html>
