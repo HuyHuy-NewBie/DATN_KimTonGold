@@ -44,10 +44,10 @@
             order.Status
                 == SupplierPurchaseOrder.StatusShipping);
 
-    var pendingInventoryCount =
+    var rejectedReceiptCount =
         receipts.Count(receipt =>
             receipt.Status
-                == SupplierGoodsReceipt.StatusPendingApproval);
+                == SupplierGoodsReceipt.StatusRejected);
 
     var completedReceiptCount =
         receipts.Count(receipt =>
@@ -176,8 +176,8 @@
 
             <article class="admin-stat-card admin-stat-card--rose">
                 <div class="admin-stat-card__content">
-                    <p>Chờ nhập kho</p>
-                    <strong>@pendingInventoryCount</strong>
+                    <p>Không nhận hàng</p>
+                    <strong>@rejectedReceiptCount</strong>
                 </div>
             </article>
 
@@ -192,8 +192,7 @@
         <div class="warehouse-workflow-note">
             <span>1. Đang giao</span>
             <span>2. Kiểm hàng</span>
-            <span>3. Nhận hàng đạt</span>
-            <span>4. Nhập kho</span>
+            <span>3. Hàng đạt được nhập kho</span>
         </div>
         <div class="warehouse-tabs"
             role="tablist"
@@ -504,10 +503,6 @@
                             class="admin-select">
                         <option value="">Tất cả trạng thái</option>
 
-                        <option value="@SupplierGoodsReceipt.StatusPendingApproval">
-                            Chờ nhập kho
-                        </option>
-
                         <option value="@SupplierGoodsReceipt.StatusApproved">
                             Đã nhập kho
                         </option>
@@ -561,10 +556,6 @@
                                 var rejectedQuantity =
                                     receipt.Details?.Sum(detail =>
                                         detail.RejectedQuantity) ?? 0;
-
-                                var canPostInventory =
-                                    receipt.Status
-                                        == SupplierGoodsReceipt.StatusPendingApproval;
 
                                 var receiptSearchText =
                                     $"{receipt.ReceiptCode} "
@@ -621,23 +612,7 @@
                                                 Xem
                                             </button>
 
-                                            @if (canPostInventory)
-                                            {
-                                                <form asp-action="PostSupplierGoodsReceiptToInventory"
-                                                      asp-controller="Admin"
-                                                      method="post"
-                                                      onsubmit="return confirm('Xác nhận nhập số lượng đạt vào tồn kho?');">
-
-                                                    <input type="hidden"
-                                                           name="receiptId"
-                                                           value="@receipt.Id" />
-
-                                                    <button type="submit"
-                                                            class="admin-button admin-button--primary">
-                                                        Nhập kho
-                                                    </button>
-                                                </form>
-                                            }
+                                                
                                         </div>
                                     </td>
                                 </tr>
@@ -946,6 +921,13 @@
                     : 0;
             }
 
+            function formatInspectionMeasurement(value) {
+                return value.toLocaleString("vi-VN", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2
+                });
+            }
+
             document.querySelectorAll(".js-inspection-line")
                 .forEach(function (line) {
                     const deliveredInput =
@@ -960,11 +942,21 @@
                     const rejectionReason =
                         line.querySelector(".js-rejection-reason");
 
-                    const weightInput =
-                        line.querySelector(".js-accepted-weight");
+                    const calculatedWeight =
+                        line.querySelector(".js-calculated-weight");
 
-                    const caratInput =
-                        line.querySelector(".js-accepted-carat");
+                    const calculatedCarat =
+                        line.querySelector(".js-calculated-carat");
+
+                    const unitWeight =
+                        Number.parseFloat(
+                            line.dataset.unitWeight || "0"
+                        ) || 0;
+
+                    const unitCarat =
+                        Number.parseFloat(
+                            line.dataset.unitCarat || "0"
+                        ) || 0;
 
                     const remaining =
                         Number.parseInt(
@@ -1002,16 +994,24 @@
                                 rejected > 0;
                         }
 
-                        if (weightInput) {
-                            weightInput.required =
-                                accepted > 0
-                                && line.dataset.requiresWeight === "true";
+                        if (calculatedWeight) {
+                            const totalWeight =
+                                accepted * unitWeight;
+
+                            calculatedWeight.textContent =
+                                "Nhập kho: "
+                                + formatInspectionMeasurement(totalWeight)
+                                + " g";
                         }
 
-                        if (caratInput) {
-                            caratInput.required =
-                                accepted > 0
-                                && line.dataset.requiresCarat === "true";
+                        if (calculatedCarat) {
+                            const totalCarat =
+                                accepted * unitCarat;
+
+                            calculatedCarat.textContent =
+                                "Nhập kho: "
+                                + formatInspectionMeasurement(totalCarat)
+                                + " ct";
                         }
 
                         line.classList.toggle(

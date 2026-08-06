@@ -290,6 +290,223 @@ namespace GoldManagementSystem.Services
             return inventoryItem;
         }
 
+        public InventoryItem PrepareNewSupplierReceiptEntry(
+            SupplierGoodsReceiptDetail receiptDetail,
+            Warehouse warehouse,
+            string createdByUserId,
+            string note = null)
+        {
+            if (receiptDetail == null)
+            {
+                throw new InvalidOperationException(
+                    "Chi tiết phiếu nhập không hợp lệ.");
+            }
+
+            if (warehouse == null || warehouse.Id <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Kho nhập hàng không hợp lệ.");
+            }
+
+            if (string.IsNullOrWhiteSpace(createdByUserId))
+            {
+                throw new InvalidOperationException(
+                    "Không xác định được người nhập kho.");
+            }
+
+            if (receiptDetail.AcceptedQuantity <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Số lượng đạt phải lớn hơn 0.");
+            }
+
+            if (receiptDetail.ActualWeight < 0)
+            {
+                throw new InvalidOperationException(
+                    "Trọng lượng hàng đạt không được nhỏ hơn 0.");
+            }
+
+            var purchaseOrderDetail =
+                receiptDetail.SupplierPurchaseOrderDetail;
+
+            var receipt =
+                receiptDetail.SupplierGoodsReceipt;
+
+            var purchaseOrder =
+                receipt?.SupplierPurchaseOrder;
+
+            if (purchaseOrderDetail == null
+                || receipt == null
+                || purchaseOrder == null)
+            {
+                throw new InvalidOperationException(
+                    "Phiếu nhập chưa liên kết đầy đủ với đơn đặt hàng.");
+            }
+
+            if (!warehouse.IsActive)
+            {
+                throw new InvalidOperationException(
+                    $"Kho {warehouse.Code} đang tạm ngưng.");
+            }
+
+            if (warehouse.LocationType
+                != Warehouse.LocationTypeStorage)
+            {
+                throw new InvalidOperationException(
+                    "Hàng nhà cung cấp chỉ được nhập vào kho lưu trữ.");
+            }
+
+            if (warehouse.BranchId
+                != purchaseOrder.BranchId)
+            {
+                throw new InvalidOperationException(
+                    "Kho nhập không thuộc chi nhánh nhận hàng.");
+            }
+
+            var resolvedUnitCost =
+                receiptDetail.ActualUnitCost > 0
+                    ? receiptDetail.ActualUnitCost
+                    : purchaseOrderDetail.UnitCost;
+
+            if (resolvedUnitCost <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Đơn giá nhập kho phải lớn hơn 0.");
+            }
+
+            var now = DateTime.UtcNow;
+
+            var inventoryItem =
+                new InventoryItem
+                {
+                    StockCode =
+                        BuildStockCode(),
+
+                    WarehouseId =
+                        warehouse.Id,
+
+                    Warehouse =
+                        warehouse,
+
+                    SupplierId =
+                        purchaseOrder.SupplierId,
+
+                    SupplierPurchaseOrderId =
+                        purchaseOrder.Id,
+
+                    SupplierPurchaseOrder =
+                        purchaseOrder,
+
+                    /*
+                    * Dùng navigation property vì chi tiết phiếu
+                    * chưa có Id trước SaveChanges.
+                    */
+                    SupplierGoodsReceiptDetail =
+                        receiptDetail,
+
+                    ProductLine =
+                        purchaseOrderDetail.ProductLine,
+
+                    Category =
+                        purchaseOrderDetail.Category,
+
+                    ProductName =
+                        purchaseOrderDetail.ProductName,
+
+                    MaterialType =
+                        purchaseOrderDetail.GoldType,
+
+                    QuantityOnHand =
+                        receiptDetail.AcceptedQuantity,
+
+                    WeightOnHand =
+                        receiptDetail.ActualWeight,
+
+                    DiamondCarat =
+                        receiptDetail.ActualDiamondCarat,
+
+                    CertificateCode =
+                        !string.IsNullOrWhiteSpace(
+                            receiptDetail.ActualDiamondCertificate)
+                            ? receiptDetail.ActualDiamondCertificate
+                            : purchaseOrderDetail.DiamondCertificate,
+
+                    UnitCost =
+                        resolvedUnitCost,
+
+                    Status =
+                        InventoryItem.StatusAvailable,
+
+                    Note =
+                        NormalizeNote(note),
+
+                    CreatedAt =
+                        now,
+
+                    UpdatedAt =
+                        now
+                };
+
+            var inventoryTransaction =
+                new InventoryTransaction
+                {
+                    TransactionCode =
+                        BuildTransactionCode(),
+
+                    WarehouseId =
+                        warehouse.Id,
+
+                    Warehouse =
+                        warehouse,
+
+                    InventoryItem =
+                        inventoryItem,
+
+                    TransactionType =
+                        InventoryTransaction.TypeSupplierReceipt,
+
+                    QuantityChange =
+                        receiptDetail.AcceptedQuantity,
+
+                    WeightChange =
+                        receiptDetail.ActualWeight,
+
+                    QuantityAfter =
+                        receiptDetail.AcceptedQuantity,
+
+                    WeightAfter =
+                        receiptDetail.ActualWeight,
+
+                    /*
+                    * Đơn đặt hàng đã có Id, nên sử dụng làm
+                    * tham chiếu cho lần SaveChanges duy nhất.
+                    */
+                    ReferenceType =
+                        "Đơn đặt hàng NCC",
+
+                    ReferenceId =
+                        purchaseOrder.Id,
+
+                    Note =
+                        NormalizeNote(note)
+                        ?? $"Nhập kho từ phiếu {receipt.ReceiptCode}.",
+
+                    CreatedByUserId =
+                        createdByUserId,
+
+                    CreatedAt =
+                        now
+                };
+
+            _context.InventoryItems.Add(
+                inventoryItem);
+
+            _context.InventoryTransactions.Add(
+                inventoryTransaction);
+
+            return inventoryItem;
+        }
+
         private static string BuildStockCode()
         {
             var suffix = Guid.NewGuid()

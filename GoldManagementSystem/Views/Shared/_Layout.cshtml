@@ -844,6 +844,10 @@
 
                                     var isInventoryHistoryPage =
                                         pathMatches("/admin/inventoryhistory");
+
+                                    var isInventoryStocktakePage =
+                                        pathMatches("/admin/inventorystocktakes");
+
                                     <details class="management-menu @(isActiveManagementBranch ? "management-menu--active" : string.Empty)" @(isActiveManagementBranch ? "open" : null)>
                                         <summary>@branch.BranchName</summary>
                                         
@@ -870,6 +874,7 @@
                                                             || isInventoryManagementPage
                                                             || isInventoryIssuePage
                                                             || isInventoryHistoryPage
+                                                            || isInventoryStocktakePage
                                                         )
                                                             ? "open"
                                                             : null
@@ -916,9 +921,10 @@
                                                         Danh sách tồn kho
                                                     </a>
 
-                                                    <span>
-                                                        Kiểm kê kho · đang phát triển
-                                                    </span>
+                                                    <a class="@(isInventoryStocktakePage ? "active" : "")"
+                                                        href="/Admin/InventoryStocktakes?branchId=@branch.Id">
+                                                        Kiểm kê kho
+                                                    </a>
 
                                                     <a class="@(
                                                             isInventoryHistoryPage

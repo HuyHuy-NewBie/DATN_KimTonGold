@@ -185,19 +185,6 @@
                                     order.Status == SupplierPurchaseOrder.StatusOrdered
                                     && (order.Receipts == null || !order.Receipts.Any())
                                     && (order.Payments == null || !order.Payments.Any());
-                                var remainingOrderQuantity =
-                                    order.Details?.Sum(detail =>
-                                        Math.Max(
-                                            0,
-                                            detail.Quantity - detail.ReceivedQuantity))
-                                    ?? 0;
-
-                                var canReceiveOrder =
-                                    remainingOrderQuantity > 0
-                                    && (
-                                        order.Status == SupplierPurchaseOrder.StatusOrdered
-                                        || order.Status == SupplierPurchaseOrder.StatusPartiallyReceived
-                                    );
                                 var orderedQuantity = order.Details?
                                     .Sum(detail => detail.Quantity) ?? 0;
 
@@ -287,15 +274,7 @@
                                                     class="admin-button admin-button--secondary"
                                                     data-open-modal="purchaseOrderDetailModal-@order.Id">
                                                 Xem
-                                            </button>
-                                            @if (canReceiveOrder)
-                                            {
-                                                <button type="button"
-                                                        class="admin-button admin-button--primary"
-                                                        data-open-modal="supplierGoodsReceiptCreateModal-@order.Id">
-                                                    Tiếp nhận hàng
-                                                </button>
-                                            }    
+                                            </button>  
                                             @if (canEditOrder)
                                             {
                                                 <button type="button"
@@ -352,7 +331,9 @@
     </div>
 </div>
 
-<div class="supplier-modal" id="purchaseOrderCreateModal" aria-hidden="true">
+<div class="supplier-modal purchase-order-scope"
+     id="purchaseOrderCreateModal"
+     aria-hidden="true">
     <div class="supplier-modal__backdrop" data-close-modal></div>
 
     <div class="supplier-modal__dialog supplier-modal__dialog--large">
@@ -407,11 +388,11 @@
                 </label>
 
                 <label class="admin-field">
-                    <span>Ngày dự kiến giao *</span>
+                    <span>Ngày dự kiến hàng đến *</span>
                     <input type="date"
                            name="ExpectedDeliveryDate"
                            required
-                           min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                           min="@DateTime.Today.ToString("yyyy-MM-dd")" />                   
                 </label>
 
                 <label class="admin-field">
@@ -425,7 +406,6 @@
 
             <div class="purchase-order-line-toolbar">
                 <div>
-                    <p class="admin-section__eyebrow">Chi tiết hàng đặt</p>
                     <h3>Danh sách dòng hàng</h3>
                 </div>
 
@@ -467,7 +447,7 @@
                         </label>
 
                         <label class="admin-field">
-                            <span>Chất liệu / phân loại *</span>
+                            <span class="js-type-label">Chất liệu / phân loại *</span>
                             <select name="GoldTypes"
                                     class="admin-select js-purchase-type"
                                     required>
@@ -475,7 +455,7 @@
                             </select>
                         </label>
 
-                        <label class="admin-field">
+                        <label class="admin-field purchase-field--span-2">
                             <span>Tên sản phẩm dự kiến nhập *</span>
                             <input type="text"
                                    name="ProductNames"
@@ -494,43 +474,76 @@
                         </label>
 
                         <label class="admin-field">
-                            <span>Đơn giá nhập *</span>
-                            <input type="number"
-                                   name="UnitCosts"
-                                   required
-                                   min="1"
-                                   step="1000" />
-                        </label>
+                            <span>Đơn giá/chiếc (VNĐ) *</span>
 
-                        <label class="admin-field">
-                            <span class="js-weight-label">Trọng lượng gram</span>
-                            <input type="number"
-                                   name="Weights"
-                                   min="0"
-                                   step="0.01"
-                                   value="0" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span class="js-carat-label">Carat</span>
-                            <input type="number"
-                                   name="DiamondCarats"
-                                   min="0"
-                                   step="0.01" />
-                        </label>
-
-                        <label class="admin-field">
-                            <span>Mã kiểm định</span>
                             <input type="text"
-                                   name="DiamondCertificates"
-                                   maxlength="120" />
+                                class="js-unit-cost-display"
+                                inputmode="numeric"
+                                autocomplete="off"
+                                maxlength="19"
+                                placeholder="Ví dụ: 1.500.000"
+                                required />
+
+                            <input type="hidden"
+                                name="UnitCosts"
+                                class="js-unit-cost-value" />
                         </label>
 
-                        <label class="admin-field">
+                        <label class="admin-field js-weight-field" hidden>
+                            <span class="js-weight-label">Trọng lượng/chiếc (g) *</span>
+
+                            <input type="number"
+                                name="Weights"
+                                min="0"
+                                step="0.01"
+                                value="0" />
+                        </label>
+
+                        <label class="admin-field js-carat-field" hidden>
+                            <span class="js-carat-label">Carat/viên (ct) *</span>
+
+                            <input type="number"
+                                name="DiamondCarats"
+                                min="0.01"
+                                step="0.01" />
+                        </label>
+
+                        <label class="admin-field js-certificate-field" hidden>
+                            <span>Mã chứng thư kiểm định (nếu có)</span>
+
+                            <input type="text"
+                                name="DiamondCertificates"
+                                maxlength="50"
+                                pattern="[A-Za-z0-9][A-Za-z0-9./-]{5,49}"
+                                placeholder="Ví dụ: GIA-1234567890"
+                                title="Mã gồm 6–50 ký tự: chữ, số, dấu chấm, gạch ngang hoặc gạch chéo." />
+
+                        </label>
+
+                        <div class="purchase-line-summary">
+                            <span>
+                                Thành tiền dự kiến:
+                                <strong class="js-line-total-cost">0 ₫</strong>
+                            </span>
+
+                            <span class="js-total-weight-row" hidden>
+                                Tổng trọng lượng dự kiến:
+                                <strong class="js-line-total-weight">0 g</strong>
+                            </span>
+
+                            <span class="js-total-carat-row" hidden>
+                                Tổng Carat dự kiến:
+                                <strong class="js-line-total-carat">0 ct</strong>
+                            </span>
+                        </div>
+
+                        <label class="admin-field purchase-field--full">
                             <span>Ghi chú dòng hàng</span>
+
                             <textarea name="DetailNotes"
-                                      rows="2"
-                                      maxlength="500"></textarea>
+                                    rows="1"
+                                    maxlength="500"
+                                    placeholder="Ghi chú riêng cho dòng hàng này..."></textarea>
                         </label>
                     </div>
                 </article>
@@ -564,19 +577,6 @@
         @await Html.PartialAsync(
             "_SupplierPurchaseOrderDetailModal",
             order)
-        var remainingOrderQuantity =
-            order.Details?.Sum(detail =>
-                Math.Max(
-                    0,
-                    detail.Quantity - detail.ReceivedQuantity))
-            ?? 0;
-
-        var canReceiveOrder =
-            remainingOrderQuantity > 0
-            && (
-                order.Status == SupplierPurchaseOrder.StatusOrdered
-                || order.Status == SupplierPurchaseOrder.StatusPartiallyReceived
-            );
 
         if (canEditOrder)
         {
@@ -640,63 +640,242 @@
                 });
             }
 
+            function isWeightProductLine(productLine) {
+                return productLine === "Vàng" || productLine === "Bạc";
+            }
+
+            function isCaratProductLine(productLine) {
+                return productLine === "Kim cương" || productLine === "Đá quý";
+            }
+
+            function getNumericValue(input) {
+                if (!input) return 0;
+
+                const value = Number(
+                    String(input.value || "0").replace(",", ".")
+                );
+
+                return Number.isFinite(value) ? value : 0;
+            }
+
+            function formatMeasurement(value) {
+                return value.toLocaleString("vi-VN", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2
+                });
+            }
+
+            function syncUnitCost(line, sourceValue) {
+                const displayInput =
+                    line.querySelector(".js-unit-cost-display");
+
+                const valueInput =
+                    line.querySelector(".js-unit-cost-value");
+
+                if (!displayInput || !valueInput) return;
+
+                const digits = String(sourceValue || "")
+                    .replace(/\D/g, "")
+                    .replace(/^0+(?=\d)/, "")
+                    .slice(0, 15);
+
+                valueInput.value = digits;
+
+                displayInput.value = digits
+                    ? Number(digits).toLocaleString("vi-VN")
+                    : "";
+            }
+
+            function updateCertificateField(line) {
+                const productLine =
+                    line.querySelector(".js-purchase-product-line")?.value || "";
+
+                const certificateField =
+                    line.querySelector(".js-certificate-field");
+
+                const certificateInput =
+                    line.querySelector('input[name="DiamondCertificates"]');
+
+                const showCertificate = isCaratProductLine(productLine);
+
+                if (certificateField) {
+                    certificateField.hidden = !showCertificate;
+                }
+
+                if (!showCertificate && certificateInput) {
+                    certificateInput.required = false;
+                    certificateInput.value = "";
+                }
+            }
+
+            function updateLineSummary(line) {
+                const productLine =
+                    line.querySelector(".js-purchase-product-line")?.value || "";
+
+                const quantity = Math.max(
+                    0,
+                    parseInt(
+                        line.querySelector('input[name="Quantities"]')?.value || "0",
+                        10
+                    ) || 0
+                );
+
+                const unitCost = Number(
+                    line.querySelector(".js-unit-cost-value")?.value || "0"
+                );
+
+                const unitWeight = getNumericValue(
+                    line.querySelector('input[name="Weights"]')
+                );
+
+                const unitCarat = getNumericValue(
+                    line.querySelector('input[name="DiamondCarats"]')
+                );
+
+                const totalCostElement =
+                    line.querySelector(".js-line-total-cost");
+
+                const totalWeightRow =
+                    line.querySelector(".js-total-weight-row");
+
+                const totalWeightElement =
+                    line.querySelector(".js-line-total-weight");
+
+                const totalCaratRow =
+                    line.querySelector(".js-total-carat-row");
+
+                const totalCaratElement =
+                    line.querySelector(".js-line-total-carat");
+
+                if (totalCostElement) {
+                    totalCostElement.textContent =
+                        (quantity * unitCost).toLocaleString("vi-VN") + " ₫";
+                }
+
+                if (totalWeightRow) {
+                    totalWeightRow.hidden = !isWeightProductLine(productLine);
+                }
+
+                if (totalWeightElement) {
+                    totalWeightElement.textContent =
+                        formatMeasurement(quantity * unitWeight) + " g";
+                }
+
+                if (totalCaratRow) {
+                    totalCaratRow.hidden = !isCaratProductLine(productLine);
+                }
+
+                if (totalCaratElement) {
+                    totalCaratElement.textContent =
+                        formatMeasurement(quantity * unitCarat) + " ct";
+                }
+            }
+
             function updatePurchaseLineFields(line) {
                 const productLineSelect =
                     line.querySelector(".js-purchase-product-line");
+
                 const categorySelect =
                     line.querySelector(".js-purchase-category");
+
                 const typeSelect =
                     line.querySelector(".js-purchase-type");
+
+                const typeLabel =
+                    line.querySelector(".js-type-label");
+
+                const weightField =
+                    line.querySelector(".js-weight-field");
+
+                const caratField =
+                    line.querySelector(".js-carat-field");
+
                 const weightInput =
                     line.querySelector('input[name="Weights"]');
+
                 const caratInput =
                     line.querySelector('input[name="DiamondCarats"]');
-                const weightLabel =
-                    line.querySelector(".js-weight-label");
-                const caratLabel =
-                    line.querySelector(".js-carat-label");
 
                 if (!productLineSelect || !categorySelect || !typeSelect) {
                     return;
                 }
 
                 const selectedLine = productLineSelect.value;
-                const currentCategory = categorySelect.dataset.currentValue || "";
-                const currentType = typeSelect.dataset.currentValue || "";
+                const currentCategory =
+                    categorySelect.dataset.currentValue || "";
+
+                const currentType =
+                    typeSelect.dataset.currentValue || "";
 
                 fillSelectOptions(
                     categorySelect,
                     purchaseCategoryOptions[selectedLine] || [],
-                    selectedLine ? "-- Chọn danh mục --" : "-- Chọn nhóm hàng trước --",
+                    selectedLine
+                        ? "-- Chọn danh mục --"
+                        : "-- Chọn nhóm hàng trước --",
                     currentCategory
                 );
 
                 fillSelectOptions(
                     typeSelect,
                     purchaseTypeOptions[selectedLine] || [],
-                    selectedLine ? "-- Chọn phân loại --" : "-- Chọn nhóm hàng trước --",
+                    selectedLine
+                        ? "-- Chọn phân loại --"
+                        : "-- Chọn nhóm hàng trước --",
                     currentType
                 );
 
                 categorySelect.disabled = !selectedLine;
                 typeSelect.disabled = !selectedLine;
 
-                if (selectedLine === "Vàng" || selectedLine === "Bạc") {
-                    if (weightInput) weightInput.required = true;
-                    if (caratInput) caratInput.required = false;
-                    if (weightLabel) weightLabel.textContent = "Trọng lượng gram *";
-                    if (caratLabel) caratLabel.textContent = "Carat";
-                } else if (selectedLine === "Kim cương" || selectedLine === "Đá quý") {
-                    if (weightInput) weightInput.required = false;
-                    if (caratInput) caratInput.required = true;
-                    if (weightLabel) weightLabel.textContent = "Trọng lượng gram";
-                    if (caratLabel) caratLabel.textContent = "Carat *";
-                } else {
-                    if (weightInput) weightInput.required = false;
-                    if (caratInput) caratInput.required = false;
-                    if (weightLabel) weightLabel.textContent = "Trọng lượng gram";
-                    if (caratLabel) caratLabel.textContent = "Carat";
+                const needsWeight = isWeightProductLine(selectedLine);
+                const needsCarat = isCaratProductLine(selectedLine);
+
+                if (weightField) {
+                    weightField.hidden = !needsWeight;
                 }
+
+                if (weightInput) {
+                    weightInput.required = needsWeight;
+
+                    // Vàng/bạc phải lớn hơn hoặc bằng 0.01 g.
+                    // Nhóm không dùng trọng lượng được phép gửi giá trị 0.
+                    weightInput.min = needsWeight ? "0.01" : "0";
+
+                    if (!needsWeight) {
+                        weightInput.value = "0";
+                    }
+                }
+
+                if (caratField) {
+                    caratField.hidden = !needsCarat;
+                }
+
+                if (caratInput) {
+                    caratInput.required = needsCarat;
+                    caratInput.min = needsCarat ? "0.01" : "0";
+
+                    if (!needsCarat) {
+                        caratInput.value = "";
+                    }
+                }
+
+                if (typeLabel) {
+                    if (selectedLine === "Vàng") {
+                        typeLabel.textContent = "Tuổi vàng / phân loại *";
+                    } else if (selectedLine === "Bạc") {
+                        typeLabel.textContent = "Loại bạc / phân loại *";
+                    } else if (needsCarat) {
+                        typeLabel.textContent = "Loại đá / nguồn gốc *";
+                    } else if (selectedLine === "Phụ kiện / hộp đựng") {
+                        typeLabel.textContent = "Quy cách / phân loại *";
+                    } else {
+                        typeLabel.textContent = "Chất liệu / phân loại *";
+                    }
+                }
+
+                updateCertificateField(line);
+                updateLineSummary(line);
             }
 
             function getSelectedSupplierProductLines() {
@@ -835,8 +1014,48 @@
             function setupPurchaseLine(line, container) {
                 const productLineSelect =
                     line.querySelector(".js-purchase-product-line");
+
+                const categorySelect =
+                    line.querySelector(".js-purchase-category");
+
                 const removeButton =
                     line.querySelector(".js-remove-purchase-line");
+
+                const moneyDisplay =
+                    line.querySelector(".js-unit-cost-display");
+
+                const moneyValue =
+                    line.querySelector(".js-unit-cost-value");
+
+                if (moneyDisplay) {
+                    syncUnitCost(
+                        line,
+                        moneyValue?.value || moneyDisplay.value
+                    );
+
+                    moneyDisplay.addEventListener("input", function () {
+                        syncUnitCost(line, moneyDisplay.value);
+                        updateLineSummary(line);
+                    });
+                }
+
+                [
+                    line.querySelector('input[name="Quantities"]'),
+                    line.querySelector('input[name="Weights"]'),
+                    line.querySelector('input[name="DiamondCarats"]')
+                ].forEach(function (input) {
+                    if (!input) return;
+
+                    input.addEventListener("input", function () {
+                        updateLineSummary(line);
+                    });
+                });
+
+                if (categorySelect) {
+                    categorySelect.addEventListener("change", function () {
+                        updateCertificateField(line);
+                    });
+                }
 
                 if (productLineSelect) {
                     const currentValue =
@@ -847,13 +1066,19 @@
                     }
 
                     productLineSelect.addEventListener("change", function () {
-                        const categorySelect =
+                        const currentCategorySelect =
                             line.querySelector(".js-purchase-category");
+
                         const typeSelect =
                             line.querySelector(".js-purchase-type");
 
-                        if (categorySelect) categorySelect.dataset.currentValue = "";
-                        if (typeSelect) typeSelect.dataset.currentValue = "";
+                        if (currentCategorySelect) {
+                            currentCategorySelect.dataset.currentValue = "";
+                        }
+
+                        if (typeSelect) {
+                            typeSelect.dataset.currentValue = "";
+                        }
 
                         updatePurchaseLineFields(line);
                     });
@@ -878,6 +1103,7 @@
                 }
 
                 updatePurchaseLineFields(line);
+                updateLineSummary(line);
             }
 
             if (purchaseOrderSupplierSelect) {

@@ -1,7 +1,10 @@
 @model GoldManagementSystem.Models.SupplierPurchaseOrder
 @using GoldManagementSystem.Models
+@using System.Globalization
 
-<div class="supplier-modal" id="purchaseOrderEditModal-@Model.Id" aria-hidden="true">
+<div class="supplier-modal purchase-order-scope"
+     id="purchaseOrderEditModal-@Model.Id"
+     aria-hidden="true">
     <div class="supplier-modal__backdrop" data-close-modal></div>
 
     <div class="supplier-modal__dialog supplier-modal__dialog--large">
@@ -60,11 +63,10 @@
                 </label>
 
                 <label class="admin-field">
-                    <span>Ngày dự kiến giao *</span>
+                    <span>Ngày dự hàng đến *</span>
                     <input type="date"
                            name="ExpectedDeliveryDate"
                            required
-                           min="@DateTime.Today.ToString("yyyy-MM-dd")"
                            value="@(Model.ExpectedDeliveryDate.HasValue ? Model.ExpectedDeliveryDate.Value.ToString("yyyy-MM-dd") : "")" />
                 </label>
 
@@ -75,8 +77,7 @@
             </div>
 
             <div class="purchase-order-line-toolbar">
-                <div>
-                    <p class="admin-section__eyebrow">Chi tiết hàng đặt</p>
+                <div>                  
                     <h3>Danh sách dòng hàng</h3>
                 </div>
 
@@ -135,15 +136,20 @@
                             </label>
 
                             <label class="admin-field">
-                                <span>Chất liệu / phân loại *</span>
+                                <span class="js-type-label">Chất liệu / phân loại *</span>
                                 <select name="GoldTypes" class="admin-select js-purchase-type" required data-current-value="@detail.GoldType">
                                     <option value="">-- Chọn phân loại --</option>
                                 </select>
                             </label>
 
-                            <label class="admin-field">
+                            <label class="admin-field purchase-field--span-2">
                                 <span>Tên sản phẩm dự kiến nhập *</span>
-                                <input type="text" name="ProductNames" required maxlength="220" value="@detail.ProductName" />
+
+                                <input type="text"
+                                    name="ProductNames"
+                                    required
+                                    maxlength="220"
+                                    value="@detail.ProductName" />
                             </label>
 
                             <label class="admin-field">
@@ -152,28 +158,79 @@
                             </label>
 
                             <label class="admin-field">
-                                <span>Đơn giá nhập *</span>
-                                <input type="number" name="UnitCosts" required min="1" step="1000" value="@detail.UnitCost.ToString("0")" />
+                                <span>Đơn giá/chiếc (VNĐ) *</span>
+
+                                <input type="text"
+                                    class="js-unit-cost-display"
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                    maxlength="19"
+                                    value="@detail.UnitCost.ToString("0", CultureInfo.InvariantCulture)"
+                                    required />
+
+                                <input type="hidden"
+                                    name="UnitCosts"
+                                    class="js-unit-cost-value"
+                                    value="@detail.UnitCost.ToString("0", CultureInfo.InvariantCulture)" />
                             </label>
 
-                            <label class="admin-field">
-                                <span class="js-weight-label">Trọng lượng gram</span>
-                                <input type="number" name="Weights" min="0" step="0.01" value="@detail.Weight.ToString("0.##")" />
+                            <label class="admin-field js-weight-field" hidden>
+                                <span class="js-weight-label">Trọng lượng 1 sản phẩm (g) *</span>
+
+                                <input type="number"
+                                    name="Weights"
+                                    min="0"
+                                    step="0.01"
+                                    value="@detail.Weight.ToString("0.##", CultureInfo.InvariantCulture)" />
                             </label>
 
-                            <label class="admin-field">
-                                <span class="js-carat-label">Carat</span>
-                                <input type="number" name="DiamondCarats" min="0" step="0.01" value="@(detail.DiamondCarat.HasValue ? detail.DiamondCarat.Value.ToString("0.##") : "")" />
+                            <label class="admin-field js-carat-field" hidden>
+                                <span class="js-carat-label">Carat 1 sản phẩm (ct) *</span>
+
+                                <input type="number"
+                                    name="DiamondCarats"
+                                    min="0.01"
+                                    step="0.01"
+                                    value="@(detail.DiamondCarat.HasValue
+                                        ? detail.DiamondCarat.Value.ToString("0.##", CultureInfo.InvariantCulture)
+                                        : "")" />
                             </label>
 
-                            <label class="admin-field">
-                                <span>Mã kiểm định</span>
-                                <input type="text" name="DiamondCertificates" maxlength="120" value="@detail.DiamondCertificate" />
+                            <label class="admin-field js-certificate-field" hidden>
+                                <span>Số chứng thư kiểm định</span>
+
+                                <input type="text"
+                                    name="DiamondCertificates"
+                                    maxlength="50"
+                                    pattern="[A-Za-z0-9][A-Za-z0-9./-]{5,49}"
+                                    placeholder="Ví dụ: GIA-1234567890"
+                                    value="@detail.DiamondCertificate" />
                             </label>
 
-                            <label class="admin-field">
+                            <div class="purchase-line-summary">
+                                <span>
+                                    Thành tiền dự kiến:
+                                    <strong class="js-line-total-cost">0 ₫</strong>
+                                </span>
+
+                                <span class="js-total-weight-row" hidden>
+                                    Tổng trọng lượng dự kiến:
+                                    <strong class="js-line-total-weight">0 g</strong>
+                                </span>
+
+                                <span class="js-total-carat-row" hidden>
+                                    Tổng Carat dự kiến:
+                                    <strong class="js-line-total-carat">0 ct</strong>
+                                </span>
+                            </div>
+
+                            <label class="admin-field purchase-field--full">
                                 <span>Ghi chú dòng hàng</span>
-                                <textarea name="DetailNotes" rows="2" maxlength="500">@detail.Note</textarea>
+
+                                <textarea name="DetailNotes"
+                                        rows="1"
+                                        maxlength="500"
+                                        placeholder="Ghi chú riêng cho dòng hàng này...">@detail.Note</textarea>
                             </label>
                         </div>
                     </article>
@@ -181,8 +238,15 @@
             </div>
 
             <div class="admin-form-actions">
-                <button type="submit" class="admin-button admin-button--primary">
-                    Lưu thay đổi đơn
+                <button type="button"
+                        class="admin-button admin-button--ghost"
+                        data-close-modal>
+                    Hủy
+                </button>
+
+                <button type="submit"
+                        class="admin-button admin-button--primary">
+                    Lưu thay đổi
                 </button>
             </div>
         </form>

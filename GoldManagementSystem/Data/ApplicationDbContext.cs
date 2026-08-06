@@ -34,6 +34,8 @@ namespace GoldManagementSystem.Data
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
         public DbSet<InventoryIssue> InventoryIssues { get; set; }
         public DbSet<InventoryIssueDetail> InventoryIssueDetails { get; set; }
+        public DbSet<InventoryStocktake> InventoryStocktakes { get; set; }
+        public DbSet<InventoryStocktakeDetail> InventoryStocktakeDetails { get; set; }
         public DbSet<ChatSettings> ChatSettings { get; set; }
         public DbSet<WorkShift> WorkShifts { get; set; }
         public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
@@ -340,6 +342,37 @@ namespace GoldManagementSystem.Data
                 .HasForeignKey(issue => issue.ConfirmedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            builder.Entity<InventoryStocktake>()
+                .HasIndex(x => x.StocktakeCode)
+                .IsUnique();
+
+            builder.Entity<InventoryStocktake>()
+                .HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<InventoryStocktake>()
+                .HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<InventoryStocktakeDetail>()
+                .HasIndex(x => new { x.InventoryStocktakeId, x.InventoryItemId })
+                .IsUnique();
+
+            builder.Entity<InventoryStocktakeDetail>()
+                .HasOne(x => x.InventoryStocktake)
+                .WithMany(x => x.Details)
+                .HasForeignKey(x => x.InventoryStocktakeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<InventoryStocktakeDetail>()
+                .HasOne(x => x.InventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.InventoryItemId)
+                .OnDelete(DeleteBehavior.Restrict);
             /*
             * Một mã tồn không được xuất lặp lại
             * nhiều lần trong cùng một phiếu.

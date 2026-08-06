@@ -27,6 +27,19 @@
     url.searchParams.delete("partial");
     return url;
   };
+  /*
+ * Hai tab này chứa JavaScript riêng trong partial view.
+ * Cần tải lại toàn trang để các script được trình duyệt thực thi.
+ */
+const requiresFullPageReload = rawUrl => {
+    const url = cleanUrl(rawUrl);
+
+    const tab = (
+        url.searchParams.get("tab") || "overview"
+    ).toLowerCase();
+
+    return tab === "cskh" || tab === "feedback";
+};
 
   const buildFormData = (form, submitter) => submitter
     ? new FormData(form, submitter)
@@ -93,9 +106,20 @@
     afterDashboardRender();
   };
 
-  const loadDashboard = async (rawUrl, pushState) => {
+const loadDashboard = async (rawUrl, pushState) => {
     if (isSubmitting) return;
+
     const displayUrl = cleanUrl(rawUrl);
+
+    /*
+     * Không nạp tab CSKH và Feedback bằng innerHTML,
+     * vì script trong partial view sẽ không chạy.
+     */
+    if (requiresFullPageReload(displayUrl)) {
+        window.location.href = displayUrl.toString();
+        return;
+    }
+
     const requestUrl = new URL(displayUrl);
     requestUrl.searchParams.set("partial", "true");
     requestController?.abort();
@@ -223,7 +247,20 @@
   afterDashboardRender();
   window.addEventListener("popstate", () => loadDashboard(window.location.href, false));
   window.setInterval(() => {
-    if (!isSubmitting && !host.querySelector("input:focus, textarea:focus, select:focus, details[open] form"))
-      loadDashboard(window.location.href, false);
-  }, 60000);
+    /*
+     * Không thay nội dung tab Feedback/CSKH bằng innerHTML
+     * vì sẽ làm mất toàn bộ JavaScript của hai tab.
+     */
+    if (requiresFullPageReload(window.location.href)) {
+        return;
+    }
+
+    const isEditing = host.querySelector(
+        "input:focus, textarea:focus, select:focus, details[open] form"
+    );
+
+    if (!isSubmitting && !isEditing) {
+        loadDashboard(window.location.href, false);
+    }
+}, 60000);
 })();

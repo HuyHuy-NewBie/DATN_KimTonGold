@@ -115,14 +115,16 @@ namespace GoldManagementSystem.Models
         public int RejectedQuantity { get; set; }
 
         /*
-         * Trọng lượng thực tế của hàng trong lần giao này.
-         */
+        * Tổng trọng lượng của số lượng đạt.
+        * Tự tính: số lượng đạt × trọng lượng một sản phẩm.
+        */
         [Column(TypeName = "decimal(18,2)")]
         public decimal ActualWeight { get; set; }
 
         /*
-         * Carat thực tế, dùng cho kim cương hoặc đá quý.
-         */
+        * Tổng Carat của số lượng đạt.
+        * Tự tính: số lượng đạt × Carat một sản phẩm.
+        */
         [Column(TypeName = "decimal(18,2)")]
         public decimal? ActualDiamondCarat { get; set; }
 
