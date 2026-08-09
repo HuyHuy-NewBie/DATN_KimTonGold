@@ -1,0 +1,195 @@
+@model GoldManagementSystem.Models.Product
+@using System.Collections.Generic
+@using GoldManagementSystem.Models
+@using System.Linq
+@{
+    ViewData["Title"] = Model.Name;
+    const string fallbackImageUrl = "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80";
+    var images = Model.GalleryImages.Any()
+        ? Model.GalleryImages.ToList()
+        : new List<string>();
+
+    if (!images.Any())
+    {
+        images.Add(fallbackImageUrl);
+    }
+
+    var relatedProducts = ViewBag.RelatedProducts as IEnumerable<Product> ?? Enumerable.Empty<Product>();
+    var branchName = Model.Branch?.BranchName ?? "Trụ sở chính";
+    var branchNameEn = Model.Branch?.BranchName ?? "Head office";
+    var orderNowLink = User.Identity?.IsAuthenticated == true
+        ? $"/User/Checkout/{Model.Id}"
+        : $"/Account/Login?returnUrl=/User/Checkout/{Model.Id}";
+    var isDiamond = Model.IsDiamondProduct || (!string.IsNullOrWhiteSpace(Model.DiamondShape) && Model.DiamondCarat.HasValue);
+}
+
+<section class="details-shell">
+    <div class="details-shell__inner">
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--danger" style="margin-bottom: 1.5rem;">@TempData["ErrorMessage"]</div>
+        }
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="admin-alert admin-alert--success" style="margin-bottom: 1.5rem;">@TempData["SuccessMessage"]</div>
+        }
+        <div class="details-grid">
+            <div class="details-gallery">
+                <div class="details-gallery__main">
+                    <div class="details-gallery__main-rail"
+                         data-rotating-gallery="@(images.Count > 1 ? "true" : "false")"
+                         data-rotation-interval="4200">
+                        @for (var index = 0; index < images.Count; index++)
+                        {
+                            var image = images[index];
+                            <img src="@image"
+                                 alt="@Model.Name"
+                                 class="@(index == 0 ? "is-active" : string.Empty)"
+                                 onerror="this.onerror=null;this.src='@fallbackImageUrl';" />
+                        }
+                    </div>
+                </div>
+
+                <div class="details-gallery__thumbs">
+                    @for (var index = 0; index < images.Count; index++)
+                    {
+                        var image = images[index];
+                        <button type="button"
+                                class="details-gallery__thumb @(index == 0 ? "is-active" : string.Empty)"
+                                data-gallery-thumb
+                                data-gallery-index="@index"
+                                aria-label="Xem ảnh @(index + 1) của @Model.Name">
+                            <img src="@image" alt="@Model.Name" onerror="this.onerror=null;this.src='@fallbackImageUrl';" />
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="details-main">
+                <span class="details-main__pill" data-auto-i18n>@Model.Category</span>
+                <p class="collection-meta__eyebrow" data-auto-i18n>@Model.GoldType</p>
+                <h1 class="details-main__title" data-auto-i18n>@Model.Name</h1>
+                <p class="details-main__text">@(string.IsNullOrWhiteSpace(Model.Description) ? "Thiết kế nổi bật với đường nét tinh tế, cảm giác thanh lịch và chất liệu được tuyển chọn để lưu giữ vẻ đẹp bền lâu." : Model.Description)</p>
+                <div class="details-main__price">@Model.SellPrice.ToString("N0") ₫</div>
+
+                <div class="details-main__actions">
+                    <a href="tel:18009999" class="btn-solid details-main__action-item" data-i18n data-i18n-vi="Tư vấn ngay" data-i18n-en="Consult now">Tư vấn ngay</a>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <form method="post" action="/User/ToggleFavorite" data-favorite-form class="details-main__action-item">
+                            <input type="hidden" name="productId" value="@Model.Id" />
+                            <button type="submit"
+                                    class="btn-outline"
+                                    data-i18n
+                                    data-i18n-vi="Yêu thích"
+                                    data-i18n-en="Save">
+                                Yêu thích
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a href="/Account/Login"
+                           class="btn-outline details-main__action-item"
+                           data-i18n
+                           data-i18n-vi="Đăng nhập để lưu"
+                           data-i18n-en="Log in to save">
+                            Đăng nhập để lưu
+                        </a>
+                    }
+                    @if (Model.Status == "Hết hàng" || Model.Status == "Đã bán")
+                    {
+                        <button class="btn-solid details-main__action-item" style="background: var(--brand-muted, #777); cursor: not-allowed; opacity: 0.65; pointer-events: none;" disabled>
+                            @if (Model.Status == "Hết hàng")
+                            {
+                                <span data-i18n data-i18n-vi="Hết hàng" data-i18n-en="Out of stock">Hết hàng</span>
+                            }
+                            else
+                            {
+                                <span data-i18n data-i18n-vi="Đã bán" data-i18n-en="Sold">Đã bán</span>
+                            }
+                        </button>
+                    }
+                    else
+                    {
+                        <a href="@orderNowLink"
+                           class="btn-solid details-main__action-item"
+                           data-i18n
+                           data-i18n-vi="Đặt ngay"
+                           data-i18n-en="Order now">
+                            Đặt ngay
+                        </a>
+                    }
+                </div>
+
+                <div class="details-specs">
+                    <div class="details-specs__row">
+                        <span data-i18n data-i18n-vi="Danh mục" data-i18n-en="Category">Danh mục</span>
+                        <strong data-auto-i18n>@Model.Category</strong>
+                    </div>
+                    <div class="details-specs__row">
+                        <span data-i18n data-i18n-vi="Chất liệu" data-i18n-en="Material">Chất liệu</span>
+                        <strong data-auto-i18n>@Model.GoldType</strong>
+                    </div>
+                    <div class="details-specs__row">
+                        <span data-i18n data-i18n-vi="Trọng lượng" data-i18n-en="Weight">Trọng lượng</span>
+                        <strong>@(isDiamond ? (Model.DiamondCarat.HasValue ? $"{Model.DiamondCarat:0.##} ct" : $"{Model.DiamondSize:0.#} ly") : $"{Model.Weight:0.0} chỉ")</strong>
+                    </div>
+                    <div class="details-specs__row">
+                        <span data-i18n data-i18n-vi="Phí chế tác" data-i18n-en="Processing fee">Phí chế tác</span>
+                        <strong>@Model.ProcessingFee.ToString("N0") ₫</strong>
+                    </div>
+                    @if (isDiamond)
+                    {
+                        <div class="details-specs__row">
+                            <span>Shape</span>
+                            <strong>@Model.DiamondShape</strong>
+                        </div>
+                        <div class="details-specs__row">
+                            <span>Cut</span>
+                            <strong>@Model.DiamondCut</strong>
+                        </div>
+                        <div class="details-specs__row">
+                            <span>Color</span>
+                            <strong>@Model.DiamondColor</strong>
+                        </div>
+                        <div class="details-specs__row">
+                            <span>Clarity</span>
+                            <strong>@Model.DiamondClarity</strong>
+                        </div>
+                        <div class="details-specs__row">
+                            <span>Chứng nhận</span>
+                            <strong>@Model.DiamondCertificate</strong>
+                        </div>
+                    }
+                    <div class="details-specs__row">
+                        <span data-i18n data-i18n-vi="Trạng thái" data-i18n-en="Status">Trạng thái</span>
+                        <strong data-auto-i18n>@Model.Status</strong>
+                    </div>
+                    <div class="details-specs__row">
+                        <span data-i18n data-i18n-vi="Chi nhánh" data-i18n-en="Branch">Chi nhánh</span>
+                        <strong data-i18n data-i18n-vi="@branchName" data-i18n-en="@branchNameEn">@branchName</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="details-summary">
+            <h3 data-i18n data-i18n-vi="Thông tin sản phẩm" data-i18n-en="Product information">Thông tin sản phẩm</h3>
+            <p>@(string.IsNullOrWhiteSpace(Model.Description) ? $"{Model.Name} thuộc dòng {Model.Category}, hoàn thiện trên nền chất liệu {Model.GoldType} để mang đến vẻ đẹp tinh xảo và cảm giác đeo thoải mái. Thiết kế phù hợp để diện hằng ngày hoặc làm món quà trang trọng trong những dịp đáng nhớ." : Model.Description)</p>
+        </div>
+
+        @if (relatedProducts.Any())
+        {
+            <div class="related-section">
+                <h2 data-i18n data-i18n-vi="Sản phẩm liên quan" data-i18n-en="Related products">Sản phẩm liên quan</h2>
+                <div class="related-grid">
+                    @foreach (var product in relatedProducts)
+                    {
+                        @await Html.PartialAsync("_ProductCard", product)
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</section>

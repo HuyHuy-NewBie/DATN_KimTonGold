@@ -1,0 +1,820 @@
+@model GoldManagementSystem.Models.Order
+@{
+    Layout = null;
+    var isExpired = Model.DepositDueAt.HasValue && Model.DepositDueAt.Value <= DateTime.UtcNow;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cổng thanh toán trực tuyến - KimTon Gold</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-primary: #ef7a9d;
+            --brand-primary-hover: #dd5e88;
+            --brand-success: #0f8b6d;
+            --brand-warning: #b97a00;
+            --brand-danger: #b42318;
+            --neutral-light: #faf8f5;
+            --neutral-dark: #111111;
+            --border-color: rgba(39, 37, 31, 0.08);
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #f4f1eb;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Header styling */
+        .gateway-header {
+            background: #fff;
+            padding: 1.25rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+        }
+        .gateway-header__logo {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+            color: var(--neutral-dark);
+        }
+        .gateway-header__logo img {
+            width: 34px;
+            height: 34px;
+        }
+        .gateway-header__logo span {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.65rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+        .gateway-header__badge {
+            background: var(--neutral-light);
+            border: 1px solid var(--border-color);
+            padding: 0.45rem 1rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: #777;
+            text-transform: uppercase;
+        }
+
+        /* Container */
+        .gateway-container {
+            max-width: 1100px;
+            width: 100%;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            flex-grow: 1;
+            display: grid;
+            grid-template-columns: 1fr 1.6fr;
+            gap: 2.5rem;
+            align-items: start;
+        }
+        @@media (max-width: 992px) {
+            .gateway-container {
+                grid-template-columns: 1fr;
+                margin: 1rem auto;
+                gap: 1.5rem;
+            }
+        }
+
+        /* Sidebar: Order info card */
+        .order-info-card {
+            background: #fff;
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(17, 17, 17, 0.02);
+            position: sticky;
+            top: 2rem;
+        }
+        .order-info-card__merchant {
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: var(--brand-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.5rem;
+        }
+        .order-info-card__amount-label {
+            font-size: 0.82rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+        .order-info-card__amount {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--neutral-dark);
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            padding-bottom: 1rem;
+        }
+        .order-info-card__details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+        }
+        .detail-item span {
+            color: #777;
+        }
+        .detail-item strong {
+            color: #111;
+        }
+        .timer-box {
+            background: #fff8f8;
+            border: 1px solid rgba(180, 35, 24, 0.08);
+            border-radius: 16px;
+            padding: 1.1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .timer-box__label {
+            font-size: 0.76rem;
+            color: var(--brand-danger);
+            font-weight: 600;
+        }
+        .timer-box__time {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--brand-danger);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.02em;
+        }
+
+        /* Main Panel: Gateway Payment Card */
+        .gateway-card {
+            background: #fff;
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(17, 17, 17, 0.02);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 550px;
+        }
+        .gateway-tabs {
+            display: flex;
+            background: #faf8f5;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .gateway-tab {
+            flex: 1;
+            padding: 1.35rem 1rem;
+            text-align: center;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border-bottom: 3px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        .gateway-tab svg {
+            width: 1.35rem;
+            height: 1.35rem;
+        }
+        .gateway-tab.is-active {
+            color: var(--brand-primary);
+            border-bottom-color: var(--brand-primary);
+            background: #fff;
+        }
+        
+        .gateway-content {
+            padding: 2.25rem 2rem;
+            flex-grow: 1;
+        }
+        .gateway-panel {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .gateway-panel.is-active {
+            display: block;
+        }
+        
+        @@keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Panel 1: QR Payment styling */
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .qr-wrapper {
+            background: #faf8f5;
+            padding: 1.25rem;
+            border-radius: 20px;
+            border: 1px solid rgba(0,0,0,0.04);
+            box-shadow: 0 8px 24px rgba(239, 122, 157, 0.04);
+            transition: transform 0.3s ease;
+        }
+        .qr-wrapper:hover {
+            transform: scale(1.02);
+            box-shadow: 0 12px 32px rgba(239, 122, 157, 0.12);
+        }
+        .qr-wrapper img {
+            width: 240px;
+            height: 240px;
+            display: block;
+        }
+        .qr-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--neutral-dark);
+            margin-top: -0.5rem;
+        }
+        .qr-instruction-text {
+            font-size: 0.8rem;
+            color: #666;
+            text-align: center;
+            line-height: 1.5;
+            max-width: 340px;
+        }
+
+        /* Panel 2 & 3: Input Form styling */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.25rem;
+            margin-top: 1rem;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .form-grid .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+        .form-grid .form-field label {
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.06rem;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            font-family: inherit;
+            font-size: 0.86rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 3px rgba(239, 122, 157, 0.12);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* Bank list mock selection */
+        .bank-select-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        @@media (max-width: 576px) {
+            .bank-select-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .bank-item {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.74rem;
+            font-weight: 700;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+        }
+        .bank-item.is-selected {
+            border-color: var(--brand-primary);
+            background: rgba(239, 122, 157, 0.05);
+            box-shadow: 0 4px 10px rgba(239, 122, 157, 0.1);
+        }
+
+        /* Custom copy alerts & actions */
+        .action-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            background: var(--brand-primary);
+            color: #fff;
+            border: none;
+            padding: 0.9rem 1.5rem;
+            border-radius: 14px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.86rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(239, 122, 157, 0.2);
+        }
+        .action-button:hover {
+            background: var(--brand-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(239, 122, 157, 0.3);
+        }
+        .action-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .cancel-link {
+            display: block;
+            text-align: center;
+            font-size: 0.82rem;
+            color: #888;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s ease;
+            margin-top: 1.25rem;
+        }
+        .cancel-link:hover {
+            color: var(--brand-danger);
+            text-decoration: underline;
+        }
+
+        /* Copy details box */
+        .transfer-details {
+            width: 100%;
+            background: #fdfcfb;
+            border-radius: 18px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.95rem;
+            border: 1px solid rgba(39, 37, 31, 0.06);
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.01);
+        }
+        .transfer-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.84rem;
+        }
+        .transfer-row span {
+            color: #666;
+            font-weight: 500;
+        }
+        .transfer-row__value {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 700;
+            color: #111;
+        }
+        .btn-copy {
+            background: #fff;
+            border: 1px solid rgba(239, 122, 157, 0.25);
+            color: #ef7a9d;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0.25rem 0.65rem;
+            border-radius: 20px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(239, 122, 157, 0.03);
+        }
+        .btn-copy:hover {
+            background: #ef7a9d;
+            color: #fff;
+            border-color: #ef7a9d;
+            box-shadow: 0 4px 10px rgba(239, 122, 157, 0.15);
+        }
+
+        /* Warning alert styling */
+        .payment-warning {
+            background: #fff6f6;
+            border: 1px solid rgba(180, 35, 24, 0.06);
+            color: #b42318;
+            padding: 0.9rem 1.1rem;
+            border-radius: 16px;
+            font-size: 0.78rem;
+            text-align: left;
+            line-height: 1.5;
+            width: 100%;
+        }
+
+        /* Loader Overlay */
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 99999;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.25rem;
+        }
+        .spinner {
+            width: 54px;
+            height: 54px;
+            border: 4px solid rgba(239, 122, 157, 0.15);
+            border-top-color: var(--brand-primary);
+            border-radius: 50%;
+            animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        @@keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loader-overlay span {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #222;
+        }
+
+        /* Footer styling */
+        .gateway-footer {
+            background: #fff;
+            padding: 1.75rem;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.76rem;
+            color: #888;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div class="loader-overlay" id="loaderOverlay">
+        <div class="spinner"></div>
+        <span id="loaderText">Hệ thống đang kết nối an toàn với máy chủ ngân hàng... Vui lòng giữ kết nối.</span>
+    </div>
+
+    <!-- Header -->
+    <header class="gateway-header">
+        <a href="/" class="gateway-header__logo">
+            <img src="/images/logo/diamond-mark.png" alt="KimTon logo" onerror="this.style.display='none';" />
+            <span>KIMTON</span>
+        </a>
+        <div class="gateway-header__badge">
+            Cổng thanh toán an toàn
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="gateway-container">
+        <!-- Left Column: Order Summary -->
+        <aside class="order-info-card">
+            <div class="order-info-card__merchant">ĐƠN VỊ THỤ HƯỞNG</div>
+            <h2 style="font-size: 0.95rem; font-weight: 700; color: #111; margin-bottom: 1.25rem;">CÔNG TY VÀNG BẠC ĐÁ QUÝ KIMTON</h2>
+            
+            <div class="order-info-card__amount-label">Số tiền cần thanh toán</div>
+            <div class="order-info-card__amount">@Model.DepositAmount.ToString("N0") ₫</div>
+            
+            <div class="order-info-card__details">
+                <div class="detail-item">
+                    <span>Mã đơn hàng:</span>
+                    <strong>#@Model.OrderNumber</strong>
+                </div>
+                <div class="detail-item">
+                    <span>Nội dung chuyển khoản:</span>
+                    <strong style="color: var(--brand-warning); font-family: monospace; font-size: 0.88rem;">KIMTON @Model.OrderNumber</strong>
+                </div>
+                <div class="detail-item">
+                    <span>Hình thức mua:</span>
+                    <strong>@(Model.DepositRate == 100m ? "Thanh toán toàn bộ (100%)" : $"Thanh toán cọc ({Model.DepositRate:0.##}%)")</strong>
+                </div>
+            </div>
+
+            <!-- Timer -->
+            <div class="timer-box">
+                <div class="timer-box__label">Thời gian hiệu lực của giao dịch</div>
+                <div class="timer-box__time" id="countdown-timer">--:--:--</div>
+            </div>
+        </aside>
+
+        <!-- Right Column: Payment Cards -->
+        <main class="gateway-card">
+            <!-- Tabs -->
+            <div class="gateway-tabs">
+                <div class="gateway-tab is-active" data-target="qr-payment">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.875 15.75a1.125 1.125 0 0 1-1.125-1.125v-1.5a1.125 1.125 0 0 1 1.125-1.125h1.5a1.125 1.125 0 0 1 1.125 1.125v1.5a1.125 1.125 0 0 1-1.125 1.125h-1.5ZM13.5 18.75c0-.621.504-1.125 1.125-1.125h1.5c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5Z" />
+                    </svg>
+                    Quét mã VietQR
+                </div>
+                <div class="gateway-tab" data-target="atm-payment">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                    </svg>
+                    Thẻ ATM nội địa (Napas)
+                </div>
+                <div class="gateway-tab" data-target="intl-card-payment">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.905 0-5.625-.733-8.002-2.023m16.004 0a11.96 11.96 0 0 1-2.908 6.643M3.998 8.497A11.96 11.96 0 0 0 6.9 15.14" />
+                    </svg>
+                    Thẻ tín dụng Quốc tế
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="gateway-content">
+                <!-- Panel 1: VietQR -->
+                <div class="gateway-panel is-active" id="qr-payment">
+                    <div class="qr-section">
+                        <div class="qr-wrapper">
+                            <img src="https://img.vietqr.io/image/MB-0961137407-compact.png?amount=@((long)Math.Round(Model.DepositAmount))&addInfo=KIMTON%20@Model.OrderNumber" 
+                                 alt="Mã QR thanh toán chuyển khoản MBBank" />
+                        </div>
+                        
+                        <div class="qr-name">TÊN CHỦ TK: HA ANH TUAN</div>
+                        <p class="qr-instruction-text">Vui lòng mở ứng dụng ngân hàng và sử dụng chức năng quét mã QR (QR Pay) để thanh toán tự động.</p>
+
+                        <!-- Copy details section -->
+                        <div class="transfer-details">
+                            <div class="transfer-row">
+                                <span>Ngân hàng thụ hưởng</span>
+                                <strong class="transfer-row__value">MBBank (Ngân hàng Quân đội)</strong>
+                            </div>
+                            <div class="transfer-row">
+                                <span>Số tài khoản</span>
+                                <div class="transfer-row__value">
+                                    <span>0961137407</span>
+                                    <button type="button" class="btn-copy" id="btnCopyAccount" onclick="copyToClipboard('0961137407', 'btnCopyAccount')">Sao chép</button>
+                                </div>
+                            </div>
+                            <div class="transfer-row">
+                                <span>Số tiền chuyển khoản</span>
+                                <div class="transfer-row__value" style="color: var(--brand-primary);">
+                                    <span>@Model.DepositAmount.ToString("N0") ₫</span>
+                                    <button type="button" class="btn-copy" id="btnCopyAmount" onclick="copyToClipboard('@((long)Math.Round(Model.DepositAmount))', 'btnCopyAmount')">Sao chép</button>
+                                </div>
+                            </div>
+                            <div class="transfer-row">
+                                <span>Nội dung chuyển khoản</span>
+                                <div class="transfer-row__value" style="color: var(--brand-warning);">
+                                    <span style="font-family: monospace;">KIMTON @Model.OrderNumber</span>
+                                    <button type="button" class="btn-copy" id="btnCopyMessage" onclick="copyToClipboard('KIMTON @Model.OrderNumber', 'btnCopyMessage')">Sao chép</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Info note -->
+                        <div class="payment-warning">
+                            <div style="display: flex; gap: 0.6rem; align-items: flex-start;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 1.3rem; height: 1.3rem; flex-shrink: 0; color: #b42318; margin-top: 0.05rem;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <span><strong>Lưu ý quan trọng:</strong> Quý khách vui lòng chuyển đúng số tiền và điền chính xác nội dung chuyển khoản ở trên để hệ thống tự động nhận diện giao dịch nhanh nhất.</span>
+                            </div>
+                        </div>
+
+                        <!-- Manual verify form -->
+                        @if (!isExpired)
+                        {
+                            <form asp-action="ConfirmDepositPayment" method="post" id="qrPaymentForm" style="width: 100%; margin: 0;">
+                                <input type="hidden" name="orderId" value="@Model.Id" />
+                                <button type="button" class="action-button" onclick="submitWithLoader('qrPaymentForm')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 1.15rem; height: 1.15rem;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Xác nhận đã chuyển khoản thành công
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </div>
+
+                <!-- Panel 2: ATM Card -->
+                <div class="gateway-panel" id="atm-payment">
+                    <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1.25rem;">Vui lòng chọn ngân hàng phát hành thẻ ATM</h3>
+                    
+                    <div class="bank-select-grid">
+                        <div class="bank-item is-selected" onclick="selectBank(this)">Vietcombank</div>
+                        <div class="bank-item" onclick="selectBank(this)">Techcombank</div>
+                        <div class="bank-item" onclick="selectBank(this)">BIDV</div>
+                        <div class="bank-item" onclick="selectBank(this)">Vietinbank</div>
+                        <div class="bank-item" onclick="selectBank(this)">MBBank</div>
+                        <div class="bank-item" onclick="selectBank(this)">ACB</div>
+                        <div class="bank-item" onclick="selectBank(this)">VPBank</div>
+                        <div class="bank-item" onclick="selectBank(this)">TPBank</div>
+                    </div>
+
+                    <form asp-action="ConfirmDepositPayment" method="post" id="atmPaymentForm">
+                        <input type="hidden" name="orderId" value="@Model.Id" />
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label>Số thẻ ghi nợ nội địa (ATM)</label>
+                                <input type="text" class="form-input" placeholder="9704 0000 0000 0000" required pattern="\d{12,19}" maxlength="19" />
+                            </div>
+                            <div class="form-field">
+                                <label>Họ và tên chủ thẻ (Viết hoa không dấu)</label>
+                                <input type="text" class="form-input" placeholder="NGUYEN VAN A" required style="text-transform: uppercase;" />
+                            </div>
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Tháng/Năm phát hành (MM/YY)</label>
+                                    <input type="text" class="form-input" placeholder="MM/YY" required maxlength="5" />
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="action-button" style="margin-top: 1.25rem;" onclick="submitWithLoader('atmPaymentForm')">
+                                Xác nhận thanh toán qua thẻ nội địa
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Panel 3: Credit Card (Visa/Master) -->
+                <div class="gateway-panel" id="intl-card-payment">
+                    <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1.25rem;">Cung cấp thông tin thẻ thanh toán quốc tế</h3>
+
+                    <form asp-action="ConfirmDepositPayment" method="post" id="intlPaymentForm">
+                        <input type="hidden" name="orderId" value="@Model.Id" />
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label>Số thẻ tín dụng / ghi nợ quốc tế (Visa / Mastercard)</label>
+                                <input type="text" class="form-input" placeholder="4000 1234 5678 9010" required pattern="\d{13,16}" maxlength="16" />
+                            </div>
+                            <div class="form-field">
+                                <label>Họ và tên chủ thẻ (Viết hoa không dấu)</label>
+                                <input type="text" class="form-input" placeholder="NGUYEN VAN A" required style="text-transform: uppercase;" />
+                            </div>
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Ngày hết hạn (MM/YY)</label>
+                                    <input type="text" class="form-input" placeholder="MM/YY" required maxlength="5" />
+                                </div>
+                                <div class="form-field">
+                                    <label>Mã CVV / CVC (3 số bảo mật ở mặt sau)</label>
+                                    <input type="password" class="form-input" placeholder="123" required maxlength="3" pattern="\d{3}" />
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="action-button" style="margin-top: 1.25rem;" onclick="submitWithLoader('intlPaymentForm')">
+                                Xác nhận thanh toán thẻ quốc tế
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Cancel / Go back link -->
+                <a href="/User/Orders" class="cancel-link">← Quay lại trang lịch sử mua hàng</a>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="gateway-footer">
+        <div>© @DateTime.Now.Year Cổng thanh toán trực tuyến Napas 24/7 & VietQR.</div>
+        <div style="font-size: 0.72rem; color: #a5a29c;">Tiêu chuẩn bảo mật kết nối mã hóa SSL/TLS cùng cấu trúc PCI DSS tối ưu.</div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Tab switching logic
+        document.querySelectorAll(".gateway-tab").forEach(tab => {
+            tab.addEventListener("click", function() {
+                // Remove active classes
+                document.querySelectorAll(".gateway-tab").forEach(t => t.classList.remove("is-active"));
+                document.querySelectorAll(".gateway-panel").forEach(p => p.classList.remove("is-active"));
+
+                // Add active class to current tab
+                this.classList.add("is-active");
+                
+                // Show matching panel
+                const targetId = this.getAttribute("data-target");
+                document.getElementById(targetId).classList.add("is-active");
+            });
+        });
+
+        // Copy details logic
+        function copyToClipboard(text, buttonId) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById(buttonId);
+                const originalText = btn.textContent;
+                btn.textContent = 'Đã chép ✓';
+                btn.style.backgroundColor = 'var(--brand-success)';
+                btn.style.color = '#fff';
+                btn.style.borderColor = 'var(--brand-success)';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.backgroundColor = '';
+                    btn.style.color = '';
+                    btn.style.borderColor = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Lỗi khi sao chép: ', err);
+            });
+        }
+
+        // Mock bank selection
+        function selectBank(element) {
+            document.querySelectorAll(".bank-item").forEach(item => item.classList.remove("is-selected"));
+            element.classList.add("is-selected");
+        }
+
+        // Transaction submitting effect loader
+        function submitWithLoader(formId) {
+            const form = document.getElementById(formId);
+            if (!form) return;
+            
+            // Check form validity for text inputs
+            if (form.checkValidity && !form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const overlay = document.getElementById("loaderOverlay");
+            overlay.style.display = "flex";
+
+            // Delay submission slightly to simulate real validation & gateway callback
+            setTimeout(() => {
+                form.submit();
+            }, 2000);
+        }
+
+        // Timer Countdown logic
+        const depositDueAt = new Date("@Model.DepositDueAt?.ToString("yyyy-MM-ddTHH:mm:ssZ")");
+        function startTimer() {
+            const timerElement = document.getElementById("countdown-timer");
+            if (!timerElement) return;
+
+            const interval = setInterval(() => {
+                const now = new Date();
+                const diff = depositDueAt - now;
+
+                if (diff <= 0) {
+                    clearInterval(interval);
+                    timerElement.textContent = "Giao dịch hết hiệu lực";
+                    timerElement.style.color = "var(--brand-danger)";
+                    document.querySelectorAll(".action-button").forEach(btn => btn.disabled = true);
+                    return;
+                }
+
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                const hDisplay = hours.toString().padStart(2, '0');
+                const mDisplay = minutes.toString().padStart(2, '0');
+                const sDisplay = seconds.toString().padStart(2, '0');
+
+                timerElement.textContent = `${hDisplay}:${mDisplay}:${sDisplay}`;
+            }, 1000);
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            startTimer();
+        });
+    </script>
+</body>
+</html>

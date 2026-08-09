@@ -1,0 +1,243 @@
+@model GoldManagementSystem.Models.SupplierGoodsReceipt
+@using GoldManagementSystem.Models
+@using System.Linq
+
+<div class="supplier-modal"
+     id="supplierGoodsReceiptDetailModal-@Model.Id"
+     aria-hidden="true">
+
+    <div class="supplier-modal__backdrop"
+         data-close-modal>
+    </div>
+
+    <div class="supplier-modal__dialog supplier-modal__dialog--large">
+        <div class="supplier-modal__header">
+            <div>
+                <p class="admin-section__eyebrow">
+                    Chi tiết phiếu nhận hàng
+                </p>
+
+                <h2>@Model.ReceiptCode</h2>
+            </div>
+
+            <button type="button"
+                    class="supplier-modal__close"
+                    data-close-modal
+                    aria-label="Đóng">
+                ×
+            </button>
+        </div>
+
+        <div class="admin-alert admin-alert--success">
+            Kết quả kiểm hàng đã được xác nhận.
+            Chỉ số lượng đạt được ghi nhận vào tồn kho;
+            hàng không đạt không được cộng tồn.
+        </div>
+
+        <div class="supplier-detail-grid">
+            <div>
+                <span>Đơn đặt hàng</span>
+
+                <strong>
+                    @(Model.SupplierPurchaseOrder?.OrderCode ?? "--")
+                </strong>
+            </div>
+
+            <div>
+                <span>Nhà cung cấp</span>
+
+                <strong>
+                    @(Model.SupplierPurchaseOrder?.Supplier?.Name ?? "--")
+                </strong>
+            </div>
+
+            <div>
+                <span>Chi nhánh</span>
+
+                <strong>
+                    @(Model.SupplierPurchaseOrder?.Branch?.BranchName ?? "--")
+                </strong>
+            </div>
+
+            <div>
+                <span>Kho nhận</span>
+
+                <strong>
+                    @(Model.Warehouse?.Code ?? "--")
+                    -
+                    @(Model.Warehouse?.Name ?? "--")
+                </strong>
+            </div>
+
+            <div>
+                <span>Thời điểm nhận</span>
+
+                <strong>
+                    @Model.ReceivedAt.ToString("dd/MM/yyyy HH:mm")
+                </strong>
+            </div>
+
+            <div>
+                <span>Trạng thái</span>
+
+                <strong>@Model.Status</strong>
+            </div>
+
+            <div>
+                <span>Số chứng từ</span>
+
+                <strong>
+                    @(string.IsNullOrWhiteSpace(Model.DeliveryDocumentNumber)
+                        ? "--"
+                        : Model.DeliveryDocumentNumber)
+                </strong>
+            </div>
+
+            <div>
+                <span>Người giao hàng</span>
+
+                <strong>
+                    @(string.IsNullOrWhiteSpace(Model.DeliveredBy)
+                        ? "--"
+                        : Model.DeliveredBy)
+                </strong>
+            </div>
+
+            <div>
+                <span>Người tiếp nhận</span>
+
+                <strong>
+                    @(Model.CreatedByUser?.FullName ?? "--")
+                </strong>
+            </div>
+
+            <div>
+                <span>Tổng số lượng nhận</span>
+
+                <strong>
+                    @Model.Details.Sum(detail => detail.ReceivedQuantity).ToString("N0")
+                </strong>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Note))
+        {
+            <div class="supplier-detail-note">
+                <span>Ghi chú phiếu nhận</span>
+                <p>@Model.Note</p>
+            </div>
+        }
+
+        <div class="table-shell">
+            <table class="data-table supplier-table">
+                <thead>
+                    <tr>
+                        <th>Hàng hóa</th>
+                        <th>Số lượng nhận</th>
+                        <th>Tổng trọng lượng đạt</th>
+                        <th>Tổng Carat đạt</th>
+                        <th>Mã kiểm định</th>
+                        <th>Kết quả kiểm tra</th>
+                        <th>Ghi chú lúc nhận</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var detail in Model.Details)
+                    {
+                        <tr>
+                            <td>
+                                <div class="data-table__stack">
+                                    <strong>
+                                        @(detail.SupplierPurchaseOrderDetail?.ProductName ?? "--")
+                                    </strong>
+
+                                    <span>
+                                        @(detail.SupplierPurchaseOrderDetail?.ProductLine ?? "--")
+                                        ·
+                                        @(detail.SupplierPurchaseOrderDetail?.Category ?? "--")
+                                        ·
+                                        @(detail.SupplierPurchaseOrderDetail?.GoldType ?? "--")
+                                    </span>
+                                </div>
+                            </td>
+
+                            <td>
+                                @detail.ReceivedQuantity.ToString("N0")
+                            </td>
+
+                            <td>
+                                @if (detail.ActualWeight > 0)
+                                {
+                                    <span>
+                                        @detail.ActualWeight.ToString("N2") g
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span>--</span>
+                                }
+                            </td>
+
+                            <td>
+                                @(detail.ActualDiamondCarat.HasValue
+                                    ? detail.ActualDiamondCarat.Value.ToString("N2")
+                                    : "--")
+                            </td>
+
+                            <td>
+                                @(string.IsNullOrWhiteSpace(detail.ActualDiamondCertificate)
+                                    ? "--"
+                                    : detail.ActualDiamondCertificate)
+                            </td>
+
+                            <td>
+                                @if (detail.QualityStatus ==
+                                    SupplierGoodsReceiptDetail.QualityPending)
+                                {
+                                    <span class="status-chip status-chip--warning">
+                                        @detail.QualityStatus
+                                    </span>
+                                }
+                                else if (detail.QualityStatus ==
+                                    SupplierGoodsReceiptDetail.QualityPassed)
+                                {
+                                    <span class="status-chip status-chip--success">
+                                        @detail.QualityStatus
+                                    </span>
+                                }
+                                else if (detail.QualityStatus ==
+                                    SupplierGoodsReceiptDetail.QualityFailed)
+                                {
+                                    <span class="status-chip status-chip--danger">
+                                        @detail.QualityStatus
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="status-chip status-chip--info">
+                                        @detail.QualityStatus
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                @(string.IsNullOrWhiteSpace(detail.ReceivingNote)
+                                    ? "--"
+                                    : detail.ReceivingNote)
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="admin-form-actions">
+            <button type="button"
+                    class="admin-button admin-button--secondary"
+                    data-close-modal>
+                Đóng
+            </button>
+        </div>
+    </div>
+</div>

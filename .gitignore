@@ -1,0 +1,30 @@
+# Visual Studio / .NET
+bin/
+obj/
+*.user
+*.vs/
+*.log
+*.db
+*.suo
+*.cache
+*.pdb
+*.runtimeconfig.json
+*.deps.json
+*.dll
+*.exe
+*.nuget
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*~
+runlog.txt
+dotnet_procs.txt

@@ -1,0 +1,51 @@
+@using GoldManagementSystem.Models
+@using GoldManagementSystem.Services
+@{
+    ViewData["Title"] = "Trung tâm quản lí";
+    var branches = ViewBag.Branches as IEnumerable<Branch> ?? Enumerable.Empty<Branch>();
+    var tab = ViewBag.Tab as string ?? "overview";
+    var branchId = ViewBag.SelectedBranchId as int?;
+    var isAdmin = ViewBag.IsAdmin is bool value && value;
+    bool Is(string key) => tab == key;
+}
+
+<section class="management-page">
+    <div class="management-hero">
+        <div><p>TRUNG TÂM ĐIỀU HÀNH</p><h1>@ViewBag.SelectedBranchName</h1><span>Quản lí theo quyền được cấp · Dữ liệu đồng bộ với bán hàng</span></div>
+        <a class="management-back" href="/">← Về giao diện bán hàng</a>
+    </div>
+
+    @if (Is("overview"))
+    {
+        <div class="management-kpis">
+            <article><span>Doanh thu hôm nay</span><strong>@(((decimal)ViewBag.TodayRevenue).ToString("N0")) ₫</strong></article>
+            <article><span>Doanh thu tháng</span><strong>@(((decimal)ViewBag.MonthRevenue).ToString("N0")) ₫</strong></article>
+            <article><span>Doanh thu năm</span><strong>@(((decimal)ViewBag.YearRevenue).ToString("N0")) ₫</strong></article>
+            <article><span>Nhân sự hoạt động</span><strong>@ViewBag.EmployeeCount</strong></article>
+        </div>
+        <div class="management-grid">
+            <article class="management-card"><h2>Quản lí kho</h2><p>Nhà cung cấp, nhập hàng và tồn kho của chi nhánh.</p><div><a href="/Admin/SupplierManagement">Nhà cung cấp</a><a href="/Admin/InventoryManagement">Quản lí nhập hàng</a><button disabled>Kiểm duyệt · đang phát triển</button></div></article>
+            <article class="management-card"><h2>Quản lí nhân sự</h2><p>Nhân viên trực thuộc, ca làm, lương và ghi chú hệ thống.</p><a href="/Admin/Management?tab=people&branchId=@branchId">Mở dashboard nhân sự</a></article>
+            <article class="management-card"><h2>Quản lí sản phẩm</h2><p>Thêm, sửa, xóa và ưu tiên sản phẩm vàng, bạc, kim cương.</p><a href="/Admin/Management?tab=products&branchId=@branchId">Mở dashboard sản phẩm</a></article>
+            <article class="management-card"><h2>Doanh thu</h2><p>Tổng hợp linh hoạt theo ngày, tháng, năm.</p><a href="/Admin/Management?tab=revenue&branchId=@branchId">Xem doanh thu</a></article>
+        </div>
+    }
+    else if (Is("people"))
+    {
+        <div class="management-card management-card--wide"><h2>Nhân sự, ca làm & lương</h2><p>Ca sáng 08:00–16:00 · Ca chiều 16:00–00:00. Mỗi nhân viên tối đa 2 ca/ngày; khi còn dưới 30 phút, mọi thay đổi được ghi vào bảng bổ sung.</p><div class="management-actions"><a href="/Admin/BranchTeam?branchId=@branchId">Danh sách nhân viên</a><a href="/Admin/UserManagement">Sắp xếp nhân sự</a><button type="button" data-note-toggle>Ghi chú hệ thống</button></div><div class="salary-grid"><div><b>Quản lí</b><br>17.000.000 ₫ + 3.000.000 ₫/chi nhánh + 0,5% KPI tháng</div><div><b>Quản lí kho</b><br>15.000.000 ₫ + 1% chuyên cần</div><div><b>Nhân viên sale</b><br>13.000.000 ₫ + 1% KPI + 1% chuyên cần</div><div><b>Kế toán</b><br>15.000.000 ₫ + 3.000.000 ₫ trách nhiệm + 1% chuyên cần</div></div><textarea class="management-note" data-note-panel placeholder="Ghi chú cho ca làm / nhân viên (lưu tại trình duyệt cho phiên hiện tại)"></textarea></div>
+    }
+    else if (Is("products"))
+    {
+        <div class="management-card management-card--wide"><h2>Dashboard sản phẩm</h2><p>Quản lí theo dòng hàng, tái sử dụng đầy đủ chức năng danh mục hiện tại.</p><div class="management-actions"><a href="/Products/AdminGold">Vàng</a><a href="/Products/AdminSilver">Bạc</a><a href="/Products/AdminDiamond">Kim cương</a></div></div>
+    }
+    else if (Is("revenue"))
+    {
+        <div class="management-card management-card--wide"><h2>Dashboard doanh thu</h2><p>Chọn dashboard cần theo dõi.</p><div class="management-kpis"><article><span>Ngày</span><strong>@(((decimal)ViewBag.TodayRevenue).ToString("N0")) ₫</strong></article><article><span>Tháng</span><strong>@(((decimal)ViewBag.MonthRevenue).ToString("N0")) ₫</strong></article><article><span>Năm</span><strong>@(((decimal)ViewBag.YearRevenue).ToString("N0")) ₫</strong></article></div><a class="management-report" href="/Admin/OrderManagement">Xem chi tiết giao dịch</a></div>
+    }
+    else if (Is("system") && isAdmin)
+    {
+        <div class="management-grid"><article class="management-card"><h2>User</h2><p>Người dùng và vai trò tài khoản.</p><a href="/Admin/UserManagement">Người dùng · phân quyền</a></article><article class="management-card"><h2>Chi nhánh</h2><p>Tạo, xem chi tiết và quản lí kho theo chi nhánh.</p><a href="/Admin/BranchManagement">Quản lí chi nhánh</a></article><article class="management-card"><h2>Lịch sử</h2><p>Xem hoạt động bán hàng và quản trị trong ngày.</p><a href="/Admin/OrderManagement">Lịch sử bán hàng</a></article></div>
+    }
+</section>
+
+@section Scripts { <script>document.querySelector('[data-note-toggle]')?.addEventListener('click',()=>document.querySelector('[data-note-panel]').classList.toggle('show'));</script> }

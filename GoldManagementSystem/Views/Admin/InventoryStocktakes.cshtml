@@ -1,0 +1,739 @@
+@model GoldManagementSystem.Models.ViewModels.InventoryStocktakeViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Kiểm kê kho";
+    var nowValue = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+}
+
+<div class="stocktake-page">
+    <div class="stocktake-header">
+        <div>
+            <p class="stocktake-eyebrow">QUẢN LÝ KHO</p>
+            <h1>Kiểm kê kho</h1>
+            <p>
+                Đối chiếu tồn hệ thống với số lượng kiểm đếm thực tế.
+            </p>
+        </div>
+
+        @if (Model.SelectedWarehouse != null &&
+             Model.InventoryItems.Count > 0)
+        {
+            <button type="button"
+                class="stocktake-button stocktake-button--primary stocktake-start-button"
+                id="openStocktakeModal">
+            <span class="stocktake-button__icon">✓</span>
+            Bắt đầu kiểm kê
+        </button>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["SuccessMessage"]
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["ErrorMessage"]
+        </div>
+    }
+
+    @if (ViewBag.ErrorMessage != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.ErrorMessage
+        </div>
+    }
+
+    <section class="stocktake-filter">
+        <form asp-action="InventoryStocktakes"
+              asp-controller="Admin"
+              method="get">
+            @if (Model.BranchId.HasValue)
+            {
+                <input type="hidden"
+                       name="branchId"
+                       value="@Model.BranchId" />
+            }
+
+            <div class="stocktake-filter-row">
+                <div class="form-group">
+                    <label for="warehouseId">Kho cần kiểm kê</label>
+
+                    <select id="warehouseId"
+                            name="warehouseId"
+                            class="form-control"
+                            asp-items="Model.WarehouseOptions">
+                        <option value="">-- Chọn kho --</option>
+                    </select>
+                </div>
+
+                <button type="submit"
+                        class="stocktake-button stocktake-button--secondary">
+                    Xem tồn kho
+                </button>
+            </div>
+        </form>
+    </section>
+
+    @if (Model.SelectedWarehouse == null)
+    {
+        <div class="stocktake-empty">
+            Chọn một kho để xem hàng tồn và bắt đầu kiểm kê.
+        </div>
+    }
+    else
+    {
+        <div class="stocktake-stats">
+            <div class="stocktake-stat">
+                <span>Dòng hàng</span>
+                <strong>@Model.TotalLines</strong>
+            </div>
+
+            <div class="stocktake-stat">
+                <span>Tổng số lượng</span>
+                <strong>@Model.TotalQuantity</strong>
+            </div>
+
+            <div class="stocktake-stat">
+                <span>Tổng trọng lượng</span>
+                <strong>@Model.TotalWeight.ToString("N2") g</strong>
+            </div>
+
+            <div class="stocktake-stat">
+                <span>Tổng carat</span>
+                <strong>@Model.TotalCarat.ToString("N2") ct</strong>
+            </div>
+        </div>
+
+        <section class="stocktake-card">
+            <div class="stocktake-card-heading">
+                <div>
+                    <h2>Tồn hiện tại</h2>
+                    <p>
+                        @Model.SelectedWarehouse.Code -
+                        @Model.SelectedWarehouse.Name
+                    </p>
+                </div>
+            </div>
+
+            @if (Model.InventoryItems.Count == 0)
+            {
+                <div class="stocktake-empty">
+                    Kho này hiện không có hàng tồn để kiểm kê.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="stocktake-table">
+                        <thead>
+                            <tr>
+                                <th>Mã tồn</th>
+                                <th>Sản phẩm</th>
+                                <th>Nhóm hàng</th>
+                                <th class="text-right">Số lượng</th>
+                                <th class="text-right">Trọng lượng</th>
+                                <th class="text-right">Carat</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in Model.InventoryItems)
+                            {
+                                <tr>
+                                    <td>@item.StockCode</td>
+                                    <td>
+                                        <strong>@item.ProductName</strong>
+                                        <small>
+                                            @item.Category
+                                            @if (!string.IsNullOrWhiteSpace(
+                                                item.MaterialType))
+                                            {
+                                                <span>
+                                                    · @item.MaterialType
+                                                </span>
+                                            }
+                                        </small>
+                                    </td>
+                                    <td>@item.ProductLine</td>
+                                    <td class="text-right">
+                                        @item.QuantityOnHand
+                                    </td>
+                                    <td class="text-right">
+                                        @if (IsWeightLine(item.ProductLine))
+                                        {
+                                            <span>
+                                                @item.WeightOnHand.ToString("N2") g
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
+                                    <td class="text-right">
+                                        @if (IsCaratLine(item.ProductLine))
+                                        {
+                                            <span>
+                                                @((item.DiamondCarat ?? 0)
+                                                    .ToString("N2")) ct
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+
+    <section class="stocktake-card">
+        <div class="stocktake-card-heading">
+            <div>
+                <h2>Lịch sử kiểm kê</h2>
+                <p>20 phiếu kiểm kê gần nhất.</p>
+            </div>
+        </div>
+
+        @if (Model.RecentStocktakes.Count == 0)
+        {
+            <div class="stocktake-empty">
+                Chưa có phiếu kiểm kê nào.
+            </div>
+        }
+        else
+        {
+            <div class="stocktake-history">
+                @foreach (var stocktake in Model.RecentStocktakes)
+                {
+                    <details class="stocktake-history-item">
+                        <summary>
+                            <span>
+                                <strong>@stocktake.StocktakeCode</strong>
+                                <small>
+                                    @stocktake.Warehouse?.Name
+                                    ·
+                                    @(stocktake.CountedAt
+                                        .ToLocalTime()
+                                        .ToString("dd/MM/yyyy HH:mm"))
+                                </small>
+                            </span>
+
+                            <span class="stocktake-history-result">
+                                @if (stocktake.DifferenceLines == 0)
+                                {
+                                    <span class="stocktake-badge success">
+                                        Khớp tồn
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="stocktake-badge warning">
+                                        @stocktake.DifferenceLines dòng lệch
+                                    </span>
+                                }
+                            </span>
+                        </summary>
+
+                        <div class="stocktake-history-body">
+                            <p>
+                                Người kiểm:
+                                <strong>
+                                    @stocktake.CreatedByUser?.FullName
+                                </strong>
+                            </p>
+
+                            @if (!string.IsNullOrWhiteSpace(stocktake.Note))
+                            {
+                                <p>
+                                    Ghi chú:
+                                    <strong>@stocktake.Note</strong>
+                                </p>
+                            }
+
+                            <div class="table-responsive">
+                                <table class="stocktake-table compact">
+                                    <thead>
+                                        <tr>
+                                            <th>Sản phẩm</th>
+                                            <th>SL hệ thống</th>
+                                            <th>SL thực tế</th>
+                                            <th>Chênh lệch</th>
+                                            <th>Lý do</th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        @foreach (var detail in
+                                            stocktake.Details)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <strong>
+                                                        @(detail.InventoryItem?.ProductName
+                                                            ?? "Sản phẩm không còn tồn tại")
+                                                    </strong>
+
+                                                    @if (!string.IsNullOrWhiteSpace(
+                                                        detail.InventoryItem?.StockCode))
+                                                    {
+                                                        <small>
+                                                            Mã tồn: @detail.InventoryItem.StockCode
+                                                        </small>
+                                                    }
+                                                </td>
+                                                <td>@detail.SystemQuantity</td>
+                                                <td>@detail.ActualQuantity</td>
+                                                <td>
+                                                    @FormatSigned(
+                                                        detail.QuantityDifference)
+                                                </td>
+                                                <td>
+                                                    @(detail.DifferenceNote
+                                                        ?? "Không chênh lệch")
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </details>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@if (Model.SelectedWarehouse != null &&
+     Model.InventoryItems.Count > 0)
+{
+    <div class="stocktake-modal" id="stocktakeModal">
+        <div class="stocktake-modal-backdrop"
+             data-close-stocktake></div>
+
+        <div class="stocktake-modal-dialog">
+            <form asp-action="ConfirmInventoryStocktake"
+                  asp-controller="Admin"
+                  method="post"
+                  id="stocktakeForm">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       name="warehouseId"
+                       value="@Model.SelectedWarehouse.Id" />
+
+                @if (Model.BranchId.HasValue)
+                {
+                    <input type="hidden"
+                           name="branchId"
+                           value="@Model.BranchId" />
+                }
+
+                <div class="stocktake-modal-header">
+                    <div>
+                        <p class="stocktake-eyebrow">KIỂM KÊ THỦ CÔNG</p>
+                        <h2>@Model.SelectedWarehouse.Name</h2>
+                        <p>
+                            Nhập đúng kết quả đã kiểm đếm ngoài thực tế.
+                        </p>
+                    </div>
+
+                    <button type="button"
+                            class="stocktake-modal-close"
+                            data-close-stocktake
+                            aria-label="Đóng">
+                        ×
+                    </button>
+                </div>
+
+                <div class="stocktake-modal-meta">
+                    <div class="form-group">
+                        <label for="countedAt">Thời gian kiểm kê</label>
+                        <input id="countedAt"
+                               type="datetime-local"
+                               name="countedAt"
+                               class="form-control"
+                               value="@nowValue"
+                               required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stocktakeNote">
+                            Ghi chú chung
+                        </label>
+                        <input id="stocktakeNote"
+                               name="stocktakeNote"
+                               class="form-control"
+                               maxlength="1000"
+                               placeholder="Ví dụ: Kiểm kê cuối ca" />
+                    </div>
+                </div>
+
+                <div class="stocktake-modal-content">
+                    @for (var index = 0;
+                          index < Model.InventoryItems.Count;
+                          index++)
+                    {
+                        var item = Model.InventoryItems[index];
+                        var requiresWeight =
+                            IsWeightLine(item.ProductLine);
+                        var requiresCarat =
+                            IsCaratLine(item.ProductLine);
+
+                        <article class="stocktake-line js-stocktake-line"
+                                 data-system-quantity="@item.QuantityOnHand"
+                                 data-system-weight="@item.WeightOnHand.ToString(
+                                     "0.##",
+                                     CultureInfo.InvariantCulture)"
+                                 data-system-carat="@((item.DiamondCarat ?? 0)
+                                     .ToString(
+                                         "0.##",
+                                         CultureInfo.InvariantCulture))">
+
+                            <input type="hidden"
+                                   name="inventoryItemIds"
+                                   value="@item.Id" />
+
+                            <input type="hidden"
+                                   name="expectedQuantities"
+                                   value="@item.QuantityOnHand" />
+
+                            <input type="hidden"
+                                   name="expectedWeights"
+                                   value="@item.WeightOnHand.ToString(
+                                       "0.##",
+                                       CultureInfo.InvariantCulture)" />
+
+                            <input type="hidden"
+                                   name="expectedCarats"
+                                   value="@((item.DiamondCarat ?? 0).ToString(
+                                       "0.##",
+                                       CultureInfo.InvariantCulture))" />
+
+                            <div class="stocktake-line-product">
+                                <strong>
+                                    @item.ProductLine ·
+                                    @item.Category ·
+                                    @item.ProductName
+                                </strong>
+
+                                <span>
+                                    Mã tồn: @item.StockCode
+                                </span>
+                            </div>
+
+                            <div class="stocktake-line-grid">
+                                <div class="stocktake-system-value">
+                                    <label>Tồn hệ thống</label>
+
+                                    <strong>
+                                        @item.QuantityOnHand chiếc
+                                    </strong>
+
+                                    @if (requiresWeight)
+                                    {
+                                        <span>
+                                            @item.WeightOnHand.ToString("N2") g
+                                        </span>
+                                    }
+
+                                    @if (requiresCarat)
+                                    {
+                                        <span>
+                                            @((item.DiamondCarat ?? 0)
+                                                .ToString("N2")) ct
+                                        </span>
+                                    }
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Số lượng thực tế</label>
+                                    <input type="number"
+                                           name="actualQuantities"
+                                           class="form-control js-actual-quantity"
+                                           min="0"
+                                           step="1"
+                                           required />
+                                </div>
+
+                                @if (requiresWeight)
+                                {
+                                    <div class="form-group">
+                                        <label>Tổng trọng lượng thực tế (g)</label>
+                                        <input type="number"
+                                               name="actualWeights"
+                                               class="form-control js-actual-weight"
+                                               min="0"
+                                               step="0.01"
+                                               required />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <input type="hidden"
+                                           name="actualWeights"
+                                           value="0" />
+                                }
+
+                                @if (requiresCarat)
+                                {
+                                    <div class="form-group">
+                                        <label>Tổng carat thực tế</label>
+                                        <input type="number"
+                                               name="actualCarats"
+                                               class="form-control js-actual-carat"
+                                               min="0"
+                                               step="0.01"
+                                               required />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <input type="hidden"
+                                           name="actualCarats"
+                                           value="0" />
+                                }
+
+                                <div class="stocktake-difference">
+                                    <label>Chênh lệch</label>
+                                    <strong class="js-difference">
+                                        Chưa nhập
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div class="form-group stocktake-reason">
+                                <label>
+                                    Lý do chênh lệch
+                                </label>
+                                <input type="text"
+                                       name="differenceNotes"
+                                       class="form-control js-difference-note"
+                                       maxlength="500"
+                                       placeholder="Chỉ bắt buộc khi có chênh lệch" />
+                            </div>
+                        </article>
+                    }
+                </div>
+
+                <div class="stocktake-modal-footer">
+                    <button type="button"
+                            class="stocktake-button stocktake-button--secondary"
+                            data-close-stocktake>
+                        Hủy
+                    </button>
+
+                    <button type="submit"
+                            class="stocktake-button stocktake-button--primary">
+                        <span class="stocktake-button__icon">✓</span>
+                        Xác nhận và điều chỉnh tồn
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        (() => {
+            const modal = document.getElementById("stocktakeModal");
+            const openButton =
+                document.getElementById("openStocktakeModal");
+            const form = document.getElementById("stocktakeForm");
+
+            if (!modal || !openButton || !form) {
+                return;
+            }
+
+            const openModal = () => {
+                modal.classList.add("is-open");
+                document.body.classList.add("stocktake-modal-open");
+            };
+
+            const closeModal = () => {
+                modal.classList.remove("is-open");
+                document.body.classList.remove("stocktake-modal-open");
+            };
+
+            openButton.addEventListener("click", openModal);
+
+            modal.querySelectorAll("[data-close-stocktake]")
+                .forEach(button => {
+                    button.addEventListener("click", closeModal);
+                });
+
+            document.addEventListener("keydown", event => {
+                if (event.key === "Escape") {
+                    closeModal();
+                }
+            });
+
+            const numberValue = input => {
+                if (!input || input.value.trim() === "") {
+                    return null;
+                }
+
+                const value = Number(input.value);
+                return Number.isFinite(value) ? value : null;
+            };
+
+            const signed = value => {
+                if (Math.abs(value) < 0.001) {
+                    return "0";
+                }
+
+                return value > 0
+                    ? `+${value.toFixed(2).replace(/\.00$/, "")}`
+                    : value.toFixed(2).replace(/\.00$/, "");
+            };
+
+            form.querySelectorAll(".js-stocktake-line")
+                .forEach(line => {
+                    const quantityInput =
+                        line.querySelector(".js-actual-quantity");
+                    const weightInput =
+                        line.querySelector(".js-actual-weight");
+                    const caratInput =
+                        line.querySelector(".js-actual-carat");
+                    const noteInput =
+                        line.querySelector(".js-difference-note");
+                    const differenceText =
+                        line.querySelector(".js-difference");
+
+                    const updateDifference = () => {
+                        const actualQuantity =
+                            numberValue(quantityInput);
+                        const actualWeight =
+                            numberValue(weightInput);
+                        const actualCarat =
+                            numberValue(caratInput);
+
+                        if (actualQuantity === null ||
+                            (weightInput && actualWeight === null) ||
+                            (caratInput && actualCarat === null)) {
+                            differenceText.textContent = "Chưa nhập";
+                            differenceText.className =
+                                "js-difference";
+                            noteInput.required = false;
+                            line.classList.remove("has-difference");
+                            return;
+                        }
+
+                        const quantityDifference =
+                            actualQuantity -
+                            Number(line.dataset.systemQuantity);
+
+                        const differences = [
+                            `SL ${signed(quantityDifference)}`
+                        ];
+
+                        let hasDifference =
+                            Math.abs(quantityDifference) > 0.001;
+
+                        if (weightInput) {
+                            const weightDifference =
+                                actualWeight -
+                                Number(line.dataset.systemWeight);
+
+                            differences.push(
+                                `TL ${signed(weightDifference)} g`);
+
+                            hasDifference =
+                                hasDifference ||
+                                Math.abs(weightDifference) > 0.001;
+                        }
+
+                        if (caratInput) {
+                            const caratDifference =
+                                actualCarat -
+                                Number(line.dataset.systemCarat);
+
+                            differences.push(
+                                `Carat ${signed(caratDifference)} ct`);
+
+                            hasDifference =
+                                hasDifference ||
+                                Math.abs(caratDifference) > 0.001;
+                        }
+
+                        differenceText.textContent =
+                            differences.join(" · ");
+
+                        differenceText.className = hasDifference
+                            ? "js-difference has-difference"
+                            : "js-difference no-difference";
+
+                        noteInput.required = hasDifference;
+                        line.classList.toggle(
+                            "has-difference",
+                            hasDifference
+                        );
+                    };
+
+                    [quantityInput, weightInput, caratInput]
+                        .filter(Boolean)
+                        .forEach(input => {
+                            input.addEventListener(
+                                "input",
+                                updateDifference);
+                        });
+                });
+
+            form.addEventListener("submit", event => {
+                if (!form.checkValidity()) {
+                    return;
+                }
+
+                const confirmed = window.confirm(
+                    "Sau khi xác nhận, tồn hệ thống sẽ được " +
+                    "điều chỉnh theo số thực tế. Bạn có chắc chắn không?"
+                );
+
+                if (!confirmed) {
+                    event.preventDefault();
+                }
+            });
+        })();
+    </script>
+}
+
+@functions {
+    private static bool IsWeightLine(string? productLine)
+    {
+        var value = productLine?.Trim().ToLowerInvariant() ?? "";
+
+        return value.Contains("vàng") ||
+               value.Contains("vang") ||
+               value.Contains("bạc") ||
+               value.Contains("bac");
+    }
+
+    private static bool IsCaratLine(string? productLine)
+    {
+        var value = productLine?.Trim().ToLowerInvariant() ?? "";
+
+        return value.Contains("kim cương") ||
+               value.Contains("kim cuong") ||
+               value.Contains("đá quý") ||
+               value.Contains("da quy");
+    }
+
+    private static string FormatSigned(int value)
+    {
+        return value > 0 ? $"+{value}" : value.ToString();
+    }
+}
