@@ -15,3 +15,658 @@
 .management-hero .management-back:hover{border-color:#fff;background:#fff;color:#8f2f59}
 
 .management-menu>a.is-active,.management-menu__nested>a.is-active{background:#fff0f5;color:#a34a70;font-weight:700}
+
+/* Management workspace: reuse KimTon's blush, burgundy and gold palette. */
+.dashboard-sidebar--management {
+  width: 310px;
+  padding: 1.35rem 1rem 1.6rem;
+  background:
+    radial-gradient(circle at 0 0, rgba(198, 79, 122, .13), transparent 31%),
+    linear-gradient(180deg, #fffefe 0%, #fff6f8 100%);
+  border-right-color: #efd9e0;
+}
+
+.dashboard-sidebar--management .dashboard-sidebar__group {
+  margin: 0 0 .8rem;
+  padding: .8rem;
+  border-color: #f1dfe5;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .78);
+  box-shadow: 0 10px 28px rgba(105, 40, 66, .045);
+}
+
+.management-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: .72rem;
+  margin: 0 .45rem 1.15rem;
+  color: #382016;
+  text-decoration: none;
+}
+
+.management-sidebar__brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #f0dce3;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(120, 46, 76, .1);
+}
+
+.management-sidebar__brand-mark img {
+  width: 31px;
+  height: 31px;
+  object-fit: contain;
+}
+
+.management-sidebar__brand > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.management-sidebar__brand strong {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4rem;
+  letter-spacing: .11em;
+  line-height: 1;
+}
+
+.management-sidebar__brand small,
+.management-sidebar__context > span,
+.dashboard-sidebar--management .dashboard-sidebar__label {
+  color: #9a6377;
+  font-size: .61rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.management-sidebar__context {
+  display: grid;
+  gap: .33rem;
+  margin: 0 0 1rem;
+  padding: .85rem 1rem;
+  border: 1px solid #f0dce3;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #fff 0%, #fff6f8 100%);
+}
+
+.management-sidebar__context strong {
+  overflow: hidden;
+  color: #64334a;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.16rem;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-sidebar--management .dashboard-sidebar__label {
+  display: block;
+  padding: .1rem .3rem .55rem;
+}
+
+.dashboard-sidebar--management .dashboard-sidebar__nav {
+  display: grid;
+  gap: .42rem;
+}
+
+.dashboard-sidebar--management .dashboard-sidebar__link {
+  display: flex;
+  align-items: center;
+  min-height: 39px;
+  padding: .62rem .78rem;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #5c4150;
+  font-size: .79rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+.dashboard-sidebar--management .dashboard-sidebar__link:hover,
+.dashboard-sidebar--management .dashboard-sidebar__link.is-active {
+  border-color: #efccda;
+  background: #fff0f5;
+  color: #9b315b;
+  transform: translateX(2px);
+}
+
+.dashboard-sidebar--management .dashboard-sidebar__link--logout {
+  color: #9b315b;
+}
+
+.dashboard-sidebar--management .management-menu {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #f0dfe5;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.dashboard-sidebar--management .management-menu + .management-menu {
+  margin-top: .42rem;
+}
+
+.dashboard-sidebar--management .management-menu--system {
+  margin-top: .85rem;
+}
+
+.dashboard-sidebar--management .management-menu summary {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: .66rem .78rem;
+  color: #573847;
+  font-size: .78rem;
+  font-weight: 700;
+  list-style: none;
+  transition: background .18s ease, color .18s ease;
+}
+
+.dashboard-sidebar--management .management-menu summary:hover {
+  background: #fff6f8;
+  color: #9b315b;
+}
+
+.dashboard-sidebar--management .management-menu summary::after {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  float: none;
+  place-items: center;
+  border-radius: 50%;
+  background: #fce7ee;
+  color: #9b315b;
+  content: '⌄';
+  font-size: .8rem;
+  line-height: 1;
+}
+
+.dashboard-sidebar--management .management-menu > a,
+.dashboard-sidebar--management .management-menu__nested > a,
+.dashboard-sidebar--management .management-menu__nested > span {
+  padding: .56rem .78rem .56rem 1.15rem;
+  border-top-color: #f7e9ed;
+  color: #755767;
+  font-size: .74rem;
+}
+
+.dashboard-sidebar--management .management-menu > a:hover,
+.dashboard-sidebar--management .management-menu__nested > a:hover,
+.dashboard-sidebar--management .management-menu > a.is-active,
+.dashboard-sidebar--management .management-menu__nested > a.is-active {
+  background: #fff0f5;
+  color: #9b315b;
+}
+
+.dashboard-sidebar--management .management-menu__nested {
+  margin: .15rem .72rem .5rem;
+  border-left-color: #e9b7c9;
+}
+
+.dashboard-sidebar--management .management-menu__nested > summary {
+  min-height: 34px;
+  padding: .48rem .48rem;
+  color: #785466;
+  font-size: .72rem;
+}
+
+.dashboard-sidebar--management .management-menu__nested > a,
+.dashboard-sidebar--management .management-menu__nested > span {
+  padding: .48rem .5rem .48rem .95rem;
+  font-size: .7rem;
+}
+
+.dashboard-sidebar--management .management-menu--active {
+  border-color: #dda7ba;
+  box-shadow: 0 0 0 2px rgba(196, 79, 122, .08);
+}
+
+.dashboard-sidebar--management .management-menu--active > summary {
+  background: linear-gradient(90deg, #fff0f5, #fff);
+  color: #9b315b;
+}
+
+.management-page {
+  gap: 20px;
+}
+
+.management-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 164px;
+  padding: 32px 34px;
+}
+
+.management-hero::after {
+  position: absolute;
+  right: -72px;
+  bottom: -114px;
+  width: 285px;
+  height: 285px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 50%;
+  box-shadow: 0 0 0 38px rgba(255, 255, 255, .045), 0 0 0 76px rgba(255, 255, 255, .03);
+  content: '';
+  pointer-events: none;
+}
+
+.management-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.management-hero h1 {
+  max-width: 760px;
+  font-size: clamp(2.1rem, 3.6vw, 3.25rem);
+}
+
+.management-hero .management-back {
+  backdrop-filter: blur(8px);
+}
+
+.management-kpis article {
+  position: relative;
+  overflow: hidden;
+  min-height: 108px;
+  border-color: #f0e2e5;
+  background: linear-gradient(135deg, #fff 0%, #fffafb 100%);
+}
+
+.management-kpis article::after {
+  position: absolute;
+  top: -28px;
+  right: -25px;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: rgba(198, 79, 122, .08);
+  content: '';
+}
+
+.management-kpis strong {
+  position: relative;
+  z-index: 1;
+  color: #4e2437;
+}
+
+.management-insights {
+  padding: 22px;
+  border: 1px solid #f0e1e5;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .82);
+  box-shadow: 0 16px 38px rgba(90, 37, 60, .045);
+}
+
+.management-insights__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.management-insights__heading p,
+.management-chart-card__header > div > span {
+  margin: 0 0 5px;
+  color: #a45470;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .15em;
+}
+
+.management-insights__heading h2 {
+  margin: 0;
+  color: #3f2631;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.9rem;
+}
+
+.management-demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid #f0d5df;
+  border-radius: 999px;
+  background: #fff6f8;
+  color: #99506d;
+  font-size: .7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.management-demo-badge::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c64f7a;
+  content: '';
+}
+
+.management-insights__grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.management-chart-card {
+  min-width: 0;
+  padding: 19px;
+  border: 1px solid #f1e3e6;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(86, 32, 55, .035);
+}
+
+.management-chart-card--revenue,
+.management-chart-card--progress {
+  grid-column: span 7;
+}
+
+.management-chart-card--rate,
+.management-chart-card--mix {
+  grid-column: span 5;
+}
+
+.management-chart-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.management-chart-card__header h3 {
+  margin: 0;
+  color: #432631;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.38rem;
+  line-height: 1.05;
+}
+
+.management-chart-card__trend,
+.management-chart-card__value,
+.management-status-dot {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: .7rem;
+  font-weight: 700;
+}
+
+.management-chart-card__trend {
+  background: #ecf8f0;
+  color: #19734a;
+}
+
+.management-chart-card__value {
+  background: #fff5df;
+  color: #9b6a19;
+}
+
+.management-line-chart-wrap {
+  height: 203px;
+  margin-top: 11px;
+}
+
+.management-line-chart,
+.management-rate-chart {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.management-line-chart__grid line,
+.management-rate-chart__grid line {
+  stroke: #f2e6e9;
+  stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.management-line-chart__area {
+  fill: url(#managementRevenueFill);
+}
+
+.management-line-chart__stroke {
+  fill: none;
+  stroke: #c64f7a;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.management-line-chart__points circle {
+  fill: #fff;
+  stroke: #c64f7a;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.management-chart-card__axis {
+  display: flex;
+  justify-content: space-between;
+  margin: -2px 2px 0;
+  color: #9a7e8a;
+  font-size: .65rem;
+}
+
+.management-chart-card__note {
+  margin: 13px 0 0;
+  color: #9b7f8b;
+  font-size: .69rem;
+  line-height: 1.4;
+}
+
+.management-rate-chart-wrap {
+  height: 157px;
+  margin: 20px 0 0;
+}
+
+.management-rate-chart__gold,
+.management-rate-chart__usd {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.management-rate-chart__gold { stroke: #b78a42; }
+.management-rate-chart__usd { stroke: #b34a75; stroke-dasharray: 5 4; }
+
+.management-rate-chart__legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+  color: #806572;
+  font-size: .68rem;
+}
+
+.management-rate-chart__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.management-rate-chart__legend i {
+  width: 18px;
+  height: 3px;
+  border-radius: 99px;
+  background: #b78a42;
+}
+
+.management-rate-chart__legend i.is-usd { background: #b34a75; }
+
+.management-donut-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: 188px;
+  padding-top: 9px;
+}
+
+.management-donut {
+  display: grid;
+  width: 144px;
+  height: 144px;
+  flex: 0 0 144px;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(#b78a42 0 56%, #bd547d 56% 85%, #d9c5cd 85% 100%);
+  box-shadow: 0 10px 26px rgba(115, 60, 79, .12);
+}
+
+.management-donut > div {
+  display: grid;
+  width: 101px;
+  height: 101px;
+  place-content: center;
+  border-radius: 50%;
+  background: #fff;
+  text-align: center;
+}
+
+.management-donut strong {
+  color: #4b2a37;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.management-donut span {
+  margin-top: 3px;
+  color: #967887;
+  font-size: .61rem;
+}
+
+.management-donut-legend {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.management-donut-legend li {
+  display: grid;
+  grid-template-columns: 8px minmax(56px, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  color: #705361;
+  font-size: .71rem;
+}
+
+.management-donut-legend li > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.management-donut-legend .is-gold { background: #b78a42; }
+.management-donut-legend .is-diamond { background: #bd547d; }
+.management-donut-legend .is-silver { background: #d9c5cd; }
+.management-donut-legend strong { color: #4e2d3b; }
+
+.management-status-dot {
+  gap: 6px;
+  background: #eef9f2;
+  color: #377752;
+}
+
+.management-status-dot::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3a9c63;
+  content: '';
+}
+
+.management-progress-list {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.management-progress-list > div {
+  display: grid;
+  gap: 7px;
+}
+
+.management-progress-list header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #795c6a;
+  font-size: .72rem;
+}
+
+.management-progress-list header strong { color: #583342; }
+
+.management-progress {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f4e9ed;
+}
+
+.management-progress b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.management-progress--sales b { width: 78%; background: linear-gradient(90deg, #bd547d, #e38aa7); }
+.management-progress--stock b { width: 92%; background: linear-gradient(90deg, #b78a42, #dbbd7e); }
+.management-progress--orders b { width: 64%; background: linear-gradient(90deg, #845d91, #b18ac1); }
+
+@media (max-width: 1180px) {
+  .dashboard-sidebar--management { width: 272px; }
+  .management-chart-card--revenue,
+  .management-chart-card--progress { grid-column: span 12; }
+  .management-chart-card--rate,
+  .management-chart-card--mix { grid-column: span 6; }
+}
+
+@media (max-width: 920px) {
+  .management-insights__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .management-chart-card--revenue,
+  .management-chart-card--rate,
+  .management-chart-card--mix,
+  .management-chart-card--progress { grid-column: span 1; }
+}
+
+@media (max-width: 720px) {
+  .management-hero { min-height: 0; padding: 26px 23px; }
+  .management-hero::after { right: -120px; bottom: -145px; }
+  .management-insights { padding: 16px; border-radius: 16px; }
+  .management-insights__heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .management-insights__grid { grid-template-columns: 1fr; }
+  .management-chart-card--revenue,
+  .management-chart-card--rate,
+  .management-chart-card--mix,
+  .management-chart-card--progress { grid-column: span 1; padding: 16px; }
+  .management-line-chart-wrap { height: 170px; }
+  .management-donut-layout { gap: 16px; min-height: 165px; }
+  .management-donut { width: 118px; height: 118px; flex-basis: 118px; }
+  .management-donut > div { width: 83px; height: 83px; }
+}
+
+@media (max-width: 390px) {
+  .management-donut-layout { align-items: flex-start; flex-direction: column; }
+  .management-donut-legend { width: 100%; }
+}

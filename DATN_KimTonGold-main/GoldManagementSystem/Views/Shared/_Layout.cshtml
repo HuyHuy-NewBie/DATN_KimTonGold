@@ -644,7 +644,7 @@
                                 @if (hasManagementAccess)
                                 {
                                     <span class="account-menu__divider" data-i18n data-i18n-vi="Khu vực quản trị" data-i18n-en="Admin area">Khu vực quản trị</span>
-                                    <a href="/Management" data-i18n data-i18n-vi="Quản lí" data-i18n-en="Management">Quản lí</a>
+                                    <a href="/Management?tab=overview" data-i18n data-i18n-vi="Quản lí" data-i18n-en="Management">Quản lí</a>
                                 }
                                 @if (isStaffArea && !isSystemAdmin)
                                 {
@@ -790,7 +790,23 @@
         @if (isDashboardPath && User.Identity?.IsAuthenticated == true)
         {
             <div class="dashboard-shell">
-                <aside class="dashboard-sidebar">
+                <aside class="dashboard-sidebar @(isManagementArea ? "dashboard-sidebar--management" : string.Empty)">
+                    @if (isManagementArea)
+                    {
+                        <a class="management-sidebar__brand" href="/" aria-label="Về giao diện bán hàng KimTon">
+                            <span class="management-sidebar__brand-mark" aria-hidden="true">
+                                <img src="~/images/logo/diamond-mark.png" alt="" asp-append-version="true" />
+                            </span>
+                            <span>
+                                <strong>KIMTON</strong>
+                                <small>TRUNG TÂM QUẢN LÍ</small>
+                            </span>
+                        </a>
+                        <div class="management-sidebar__context">
+                            <span>KHÔNG GIAN ĐIỀU HÀNH</span>
+                            <strong>@(selectedManagementBranch?.BranchName ?? "Hệ thống KimTon")</strong>
+                        </div>
+                    }
                     @if (!isManagementArea)
                     {
                         <div class="dashboard-sidebar__group">
@@ -808,7 +824,7 @@
                         <div class="dashboard-sidebar__group">
                             <span class="dashboard-sidebar__label">Khu vực quản lí</span>
                             <nav class="dashboard-sidebar__nav" data-management-tree>
-                                <a href="/Management?tab=overview&branchId=@selectedManagementBranch?.Id" class="dashboard-sidebar__link" data-dashboard-link>Tổng quan</a>
+                                <a href="/Management?tab=overview&branchId=@selectedManagementBranch?.Id" class="dashboard-sidebar__link @(requestManagementTab == "overview" ? "is-active" : string.Empty)" data-dashboard-link>Tổng quan</a>
                                 @foreach (var branch in managementBranches)
                                 {
                                     var branchGrants = managementGrants[branch.Id];

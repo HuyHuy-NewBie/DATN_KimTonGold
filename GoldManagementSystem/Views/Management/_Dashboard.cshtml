@@ -42,6 +42,134 @@
                 <article><span>Nhân sự hoạt động</span><strong>@Model.EmployeeCount</strong></article>
             }
         </div>
+
+        <section class="management-insights" aria-labelledby="managementInsightsHeading">
+            <div class="management-insights__heading">
+                <div>
+                    <p>BẢNG ĐIỀU KHIỂN</p>
+                    <h2 id="managementInsightsHeading">Toàn cảnh kinh doanh</h2>
+                </div>
+                <span class="management-demo-badge">Biểu đồ minh họa</span>
+            </div>
+
+            <div class="management-insights__grid">
+                <article class="management-chart-card management-chart-card--revenue">
+                    <header class="management-chart-card__header">
+                        <div>
+                            <span>DOANH THU</span>
+                            <h3>Xu hướng 6 tháng</h3>
+                        </div>
+                        <strong class="management-chart-card__trend">↗ 12,4%</strong>
+                    </header>
+                    <div class="management-line-chart-wrap">
+                        <svg class="management-line-chart" viewBox="0 0 640 240" role="img" aria-labelledby="revenueChartTitle revenueChartDesc" preserveAspectRatio="none">
+                            <title id="revenueChartTitle">Biểu đồ doanh thu minh họa theo sáu tháng</title>
+                            <desc id="revenueChartDesc">Đường biểu diễn xu hướng tăng dần trong sáu tháng gần nhất.</desc>
+                            <defs>
+                                <linearGradient id="managementRevenueFill" x1="0" x2="0" y1="0" y2="1">
+                                    <stop offset="0%" stop-color="#c64f7a" stop-opacity=".34" />
+                                    <stop offset="100%" stop-color="#c64f7a" stop-opacity="0" />
+                                </linearGradient>
+                            </defs>
+                            <g class="management-line-chart__grid">
+                                <line x1="0" y1="38" x2="640" y2="38" />
+                                <line x1="0" y1="102" x2="640" y2="102" />
+                                <line x1="0" y1="166" x2="640" y2="166" />
+                                <line x1="0" y1="230" x2="640" y2="230" />
+                            </g>
+                            <path class="management-line-chart__area" d="M0,181 C45,168 57,157 106,161 C149,164 170,131 214,137 C260,145 278,111 322,119 C366,126 389,80 430,91 C475,102 496,63 538,67 C579,73 599,40 640,32 L640,240 L0,240 Z" />
+                            <path class="management-line-chart__stroke" d="M0,181 C45,168 57,157 106,161 C149,164 170,131 214,137 C260,145 278,111 322,119 C366,126 389,80 430,91 C475,102 496,63 538,67 C579,73 599,40 640,32" />
+                            <g class="management-line-chart__points">
+                                <circle cx="0" cy="181" r="5" />
+                                <circle cx="106" cy="161" r="5" />
+                                <circle cx="214" cy="137" r="5" />
+                                <circle cx="322" cy="119" r="5" />
+                                <circle cx="430" cy="91" r="5" />
+                                <circle cx="538" cy="67" r="5" />
+                                <circle cx="640" cy="32" r="5" />
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="management-chart-card__axis" aria-hidden="true">
+                        <span>T1</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span>
+                    </div>
+                    <p class="management-chart-card__note">Dữ liệu mẫu · sẵn sàng thay thế bằng số liệu thực tế.</p>
+                </article>
+
+                <article class="management-chart-card management-chart-card--rate">
+                    <header class="management-chart-card__header">
+                        <div>
+                            <span>TỈ GIÁ THAM KHẢO</span>
+                            <h3>Vàng &amp; USD · 7 ngày</h3>
+                        </div>
+                        <strong class="management-chart-card__value">2.64%</strong>
+                    </header>
+                    <div class="management-rate-chart-wrap">
+                        <svg class="management-rate-chart" viewBox="0 0 340 160" role="img" aria-labelledby="rateChartTitle rateChartDesc" preserveAspectRatio="none">
+                            <title id="rateChartTitle">Biểu đồ tỉ giá vàng và USD minh họa</title>
+                            <desc id="rateChartDesc">Hai đường dao động nhẹ trong bảy ngày gần nhất.</desc>
+                            <g class="management-rate-chart__grid">
+                                <line x1="0" y1="24" x2="340" y2="24" />
+                                <line x1="0" y1="74" x2="340" y2="74" />
+                                <line x1="0" y1="124" x2="340" y2="124" />
+                            </g>
+                            <path class="management-rate-chart__gold" d="M0,112 C24,104 30,88 55,91 C78,95 89,67 112,72 C137,77 148,50 169,57 C197,67 204,46 226,43 C248,40 263,59 283,46 C302,34 321,32 340,17" />
+                            <path class="management-rate-chart__usd" d="M0,88 C26,76 33,89 55,81 C76,72 92,81 112,72 C139,60 150,70 169,66 C192,61 207,73 226,61 C245,49 264,59 283,54 C302,49 322,51 340,43" />
+                        </svg>
+                    </div>
+                    <div class="management-rate-chart__legend">
+                        <span><i class="is-gold"></i>Giá vàng</span>
+                        <span><i class="is-usd"></i>USD/VND</span>
+                    </div>
+                    <p class="management-chart-card__note">Dữ liệu mẫu · chỉ phục vụ bố cục dashboard.</p>
+                </article>
+
+                <article class="management-chart-card management-chart-card--mix">
+                    <header class="management-chart-card__header">
+                        <div>
+                            <span>CƠ CẤU DOANH THU</span>
+                            <h3>Theo nhóm sản phẩm</h3>
+                        </div>
+                    </header>
+                    <div class="management-donut-layout">
+                        <div class="management-donut" role="img" aria-label="Minh họa cơ cấu doanh thu: vàng 56 phần trăm, kim cương 29 phần trăm, bạc 15 phần trăm.">
+                            <div><strong>100%</strong><span>Doanh thu</span></div>
+                        </div>
+                        <ul class="management-donut-legend">
+                            <li><span class="is-gold"></span><b>Vàng</b><strong>56%</strong></li>
+                            <li><span class="is-diamond"></span><b>Kim cương</b><strong>29%</strong></li>
+                            <li><span class="is-silver"></span><b>Bạc</b><strong>15%</strong></li>
+                        </ul>
+                    </div>
+                </article>
+
+                <article class="management-chart-card management-chart-card--progress">
+                    <header class="management-chart-card__header">
+                        <div>
+                            <span>VẬN HÀNH HÔM NAY</span>
+                            <h3>Tiến độ chỉ tiêu</h3>
+                        </div>
+                        <span class="management-status-dot">Ổn định</span>
+                    </header>
+                    <div class="management-progress-list" aria-label="Các chỉ số tiến độ minh họa">
+                        <div>
+                            <header><span>KPI doanh số</span><strong>78%</strong></header>
+                            <i class="management-progress management-progress--sales"><b></b></i>
+                        </div>
+                        <div>
+                            <header><span>Mức sẵn sàng tồn kho</span><strong>92%</strong></header>
+                            <i class="management-progress management-progress--stock"><b></b></i>
+                        </div>
+                        <div>
+                            <header><span>Hoàn tất đơn trong ngày</span><strong>64%</strong></header>
+                            <i class="management-progress management-progress--orders"><b></b></i>
+                        </div>
+                    </div>
+                    <p class="management-chart-card__note">Dữ liệu mẫu · không liên kết nguồn dữ liệu.</p>
+                </article>
+            </div>
+        </section>
+
         <div class="management-grid">
             @if (Model.Can(
                 ManagementFeatureCatalog.WarehouseSuppliers))
