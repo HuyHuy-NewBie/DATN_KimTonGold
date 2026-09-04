@@ -111,8 +111,59 @@
 
         <div class="collection-toolbar__field">
             <label asp-for="GoldType"></label>
-            <select asp-for="GoldType" asp-items="ViewBag.ProductGoldTypes"></select>
+            <input asp-for="GoldType" readonly />
+            <small>Trường tương thích dữ liệu cũ; hệ thống lấy giá trị từ hàm lượng chuẩn.</small>
             <span asp-validation-for="GoldType" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="Material"></label>
+            <select asp-for="Material" asp-items="ViewBag.ProductMaterials"></select>
+            <span asp-validation-for="Material" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="ProductForm"></label>
+            <select asp-for="ProductForm" asp-items="ViewBag.ProductForms"></select>
+            <span asp-validation-for="ProductForm" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="ProductLegalClass"></label>
+            <select asp-for="ProductLegalClass" asp-items="ViewBag.ProductLegalClasses"></select>
+            <span asp-validation-for="ProductLegalClass" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="PurityDefinitionId"></label>
+            <select asp-for="PurityDefinitionId" asp-items="ViewBag.ProductPurities">
+                <option value="">-- Chọn hàm lượng --</option>
+            </select>
+            <span asp-validation-for="PurityDefinitionId" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="PurityRate"></label>
+            <input asp-for="PurityRate" type="number" min="0" max="1" step="0.0001" readonly />
+            <span asp-validation-for="PurityRate" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="UnitOfMeasure"></label>
+            <select asp-for="UnitOfMeasure" asp-items="ViewBag.ProductUnits"></select>
+            <span asp-validation-for="UnitOfMeasure" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field">
+            <label asp-for="SpecificationVersion"></label>
+            <input asp-for="SpecificationVersion" />
+            <span asp-validation-for="SpecificationVersion" class="admin-product-form__validation"></span>
+        </div>
+
+        <div class="collection-toolbar__field admin-product-form__field--wide">
+            <label asp-for="SpecificationChangeReason"></label>
+            <input asp-for="SpecificationChangeReason" />
+            <span asp-validation-for="SpecificationChangeReason" class="admin-product-form__validation"></span>
         </div>
 
         <div class="collection-toolbar__field">

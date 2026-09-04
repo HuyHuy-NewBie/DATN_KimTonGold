@@ -49,6 +49,38 @@ namespace GoldManagementSystem.Services
         {
             var path = rawPath.ToLowerInvariant();
             if (path.StartsWith("/management")) return null; // Controller kiểm tra theo dashboard cụ thể.
+            if (path.StartsWith("/production"))
+            {
+                if (path.Contains("activate")
+                    || path.Contains("release")
+                    || path.Contains("reviewloss")
+                    || path.Contains("updateworkshop")
+                    || path.Contains("setworkshopactive")
+                    || path.Contains("updatelosspolicy")
+                    || path.Contains("activatelosspolicy")
+                    || path.Contains("quality")
+                    || path.Contains("close"))
+                {
+                    return ManagementFeatureCatalog.ProductionApprove;
+                }
+
+                if (path.Contains("customerjob") || path.Contains("recordcustomermaterialissue"))
+                    return ManagementFeatureCatalog.ProductionCustomerJobs;
+
+                if (path is "/production" or "/production/index")
+                    return ManagementFeatureCatalog.ProductionView;
+
+                return ManagementFeatureCatalog.ProductionOperate;
+            }
+            if (path.StartsWith("/pricing"))
+                return path.Contains("/approve") || path.Contains("/expire")
+                    ? ManagementFeatureCatalog.PriceApprove
+                    : ManagementFeatureCatalog.PriceManage;
+            if (path.StartsWith("/goldbar")) return ManagementFeatureCatalog.GoldBarCompliance;
+            if (path.StartsWith("/aftersales"))
+                return path.Contains("approve") || path.Contains("pay") || path.Contains("processrefund")
+                    ? ManagementFeatureCatalog.AfterSalesApprove
+                    : ManagementFeatureCatalog.AfterSalesManage;
             if (path.Contains("/admin/usermanagement") || path.Contains("/admin/createuser") || path.Contains("/admin/updateuser") || path.Contains("/admin/deleteuser") || path.Contains("/admin/toggleuser")) return ManagementFeatureCatalog.SystemUsers;
             if (path.Contains("/admin/branchmanagement") || path.Contains("/admin/createbranch") || path.Contains("/admin/togglebranch")) return ManagementFeatureCatalog.SystemBranches;
             if (path.Contains("/admin/branchteam") || path.Contains("/admin/addexistingmember") || path.Contains("/admin/createbranchmember") || path.Contains("/admin/removebranchmember")) return ManagementFeatureCatalog.PeopleView;

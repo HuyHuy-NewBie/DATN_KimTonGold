@@ -252,6 +252,7 @@ namespace GoldManagementSystem.Controllers
             }
 
             ValidateProductForm(model, assignedLines);
+            await ValidateStandardProductFieldsAsync(model);
 
             if (!await BranchExistsAsync(model.BranchId))
             {
@@ -277,6 +278,7 @@ namespace GoldManagementSystem.Controllers
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
             await SyncCatalogEntriesAsync(product, assignedLines);
+            await AddSpecificationVersionAsync(model, product);
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Đã thêm sản phẩm {product.Name}.";
@@ -346,6 +348,7 @@ namespace GoldManagementSystem.Controllers
                 .Include(item => item.GoldSilverCatalogEntry)
                 .Include(item => item.GoldDiamondCatalogEntry)
                 .Include(item => item.SilverDiamondCatalogEntry)
+                .Include(item => item.SpecificationVersions)
                 .FirstOrDefaultAsync(item => item.Id == id);
 
             if (product == null)
@@ -377,6 +380,7 @@ namespace GoldManagementSystem.Controllers
             model.CatalogMode = ResolveCatalogMode(model.CatalogMode);
             var assignedLines = ResolveAssignedProductLines(model);
             ValidateProductForm(model, assignedLines);
+            await ValidateStandardProductFieldsAsync(model);
 
             var product = await _context.Products
                 .Include(item => item.GoldCatalogEntry)
@@ -409,6 +413,7 @@ namespace GoldManagementSystem.Controllers
 
             ApplyProductForm(model, assignedLines, product);
             await SyncCatalogEntriesAsync(product, assignedLines);
+            await AddSpecificationVersionAsync(model, product);
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Đã cập nhật sản phẩm {product.Name}.";
@@ -734,6 +739,10 @@ namespace GoldManagementSystem.Controllers
             var images = product.GalleryImages.Take(3).ToList();
             var assignedLines = ResolveAssignedProductLines(product);
             var primaryLine = ResolvePrimaryLine(product.ProductLine, assignedLines);
+            var latestSpecification = product.SpecificationVersions?
+                .OrderByDescending(version => version.EffectiveFrom)
+                .ThenByDescending(version => version.Id)
+                .FirstOrDefault();
 
             return new ProductFormViewModel
             {
@@ -744,6 +753,13 @@ namespace GoldManagementSystem.Controllers
                 Name = product.Name,
                 Category = product.Category,
                 GoldType = product.GoldType,
+                Material = latestSpecification?.Material ?? (string.IsNullOrWhiteSpace(product.Material) ? product.ProductLine : product.Material),
+                ProductForm = latestSpecification?.ProductForm ?? (string.IsNullOrWhiteSpace(product.ProductForm) ? ProductFormOptions.Jewelry : product.ProductForm),
+                ProductLegalClass = latestSpecification?.ProductLegalClass ?? (string.IsNullOrWhiteSpace(product.ProductLegalClass) ? ProductLegalClassOptions.GoldJewelry : product.ProductLegalClass),
+                PurityDefinitionId = latestSpecification?.PurityDefinitionId ?? product.PurityDefinitionId,
+                PurityRate = latestSpecification?.PurityRate ?? product.PurityRate,
+                UnitOfMeasure = latestSpecification?.UnitOfMeasure ?? (string.IsNullOrWhiteSpace(product.UnitOfMeasure) ? ProductUnitOfMeasureOptions.Piece : product.UnitOfMeasure),
+                SpecificationVersion = latestSpecification?.Version ?? "1.0",
                 Weight = product.Weight,
                 ProcessingFee = product.ProcessingFee,
                 SellPrice = product.SellPrice,
@@ -770,6 +786,12 @@ namespace GoldManagementSystem.Controllers
             product.Name = model.Name;
             product.Category = model.Category;
             product.GoldType = model.GoldType;
+            product.Material = model.Material;
+            product.ProductForm = model.ProductForm;
+            product.ProductLegalClass = model.ProductLegalClass;
+            product.PurityDefinitionId = model.PurityDefinitionId;
+            product.PurityRate = model.PurityRate;
+            product.UnitOfMeasure = model.UnitOfMeasure;
             product.Weight = model.Weight;
             product.ProcessingFee = model.ProcessingFee;
             product.SellPrice = model.SellPrice;
@@ -806,6 +828,12 @@ namespace GoldManagementSystem.Controllers
             model.Name = model.Name?.Trim() ?? string.Empty;
             model.Category = model.Category?.Trim() ?? string.Empty;
             model.GoldType = model.GoldType?.Trim() ?? string.Empty;
+            model.Material = model.Material?.Trim() ?? string.Empty;
+            model.ProductForm = model.ProductForm?.Trim() ?? string.Empty;
+            model.ProductLegalClass = model.ProductLegalClass?.Trim() ?? string.Empty;
+            model.UnitOfMeasure = model.UnitOfMeasure?.Trim() ?? string.Empty;
+            model.SpecificationVersion = model.SpecificationVersion?.Trim() ?? string.Empty;
+            model.SpecificationChangeReason = model.SpecificationChangeReason?.Trim() ?? string.Empty;
             model.Status = model.Status?.Trim() ?? "Còn hàng";
             model.Description = model.Description?.Trim() ?? string.Empty;
             model.DiamondShape = model.DiamondShape?.Trim() ?? string.Empty;
@@ -840,6 +868,11 @@ namespace GoldManagementSystem.Controllers
             {
                 ModelState.AddModelError(nameof(model.ProductLine), "Vui lòng chọn ít nhất một thể loại sản phẩm.");
             }
+
+            if (!new[] { ProductMaterialOptions.Gold, ProductMaterialOptions.Silver, ProductMaterialOptions.Diamond }.Contains(model.Material, StringComparer.OrdinalIgnoreCase)) ModelState.AddModelError(nameof(model.Material), "Vật liệu không hợp lệ.");
+            if (!new[] { ProductFormOptions.Bar, ProductFormOptions.Jewelry, ProductFormOptions.RawMaterial, ProductFormOptions.FinishedGood }.Contains(model.ProductForm, StringComparer.OrdinalIgnoreCase)) ModelState.AddModelError(nameof(model.ProductForm), "Dạng hàng không hợp lệ.");
+            if (!new[] { ProductUnitOfMeasureOptions.Piece, ProductUnitOfMeasureOptions.Gram, ProductUnitOfMeasureOptions.Tael }.Contains(model.UnitOfMeasure, StringComparer.OrdinalIgnoreCase)) ModelState.AddModelError(nameof(model.UnitOfMeasure), "Đơn vị tính không hợp lệ.");
+            if (string.IsNullOrWhiteSpace(model.SpecificationVersion)) ModelState.AddModelError(nameof(model.SpecificationVersion), "Phiên bản thông số là bắt buộc.");
 
             if (assignedLines.Contains(ProductLineOptions.Diamond))
             {
@@ -916,6 +949,11 @@ namespace GoldManagementSystem.Controllers
                 .ToList();
             ViewBag.ProductCategories = new SelectList(GetCategoriesForLine(primaryLine), model.Category);
             ViewBag.ProductGoldTypes = new SelectList(GetMaterialsForLine(primaryLine), model.GoldType);
+            ViewBag.ProductMaterials = new SelectList(new[] { new SelectListItem("Vàng", ProductMaterialOptions.Gold), new SelectListItem("Bạc", ProductMaterialOptions.Silver), new SelectListItem("Kim cương (ngoài phạm vi vàng bạc)", ProductMaterialOptions.Diamond) }, nameof(SelectListItem.Value), nameof(SelectListItem.Text), model.Material);
+            ViewBag.ProductForms = new SelectList(new[] { new SelectListItem("Miếng", ProductFormOptions.Bar), new SelectListItem("Trang sức", ProductFormOptions.Jewelry), new SelectListItem("Nguyên liệu", ProductFormOptions.RawMaterial), new SelectListItem("Thành phẩm", ProductFormOptions.FinishedGood) }, nameof(SelectListItem.Value), nameof(SelectListItem.Text), model.ProductForm);
+            ViewBag.ProductLegalClasses = new SelectList(new[] { ProductLegalClassOptions.GoldBarRegulated, ProductLegalClassOptions.GoldJewelry, ProductLegalClassOptions.GoldRawMaterial, ProductLegalClassOptions.SilverCommodity, ProductLegalClassOptions.SilverJewelry, ProductLegalClassOptions.SilverRawMaterial, ProductLegalClassOptions.DiamondExcluded }, model.ProductLegalClass);
+            ViewBag.ProductUnits = new SelectList(new[] { new SelectListItem("Món", ProductUnitOfMeasureOptions.Piece), new SelectListItem("Gram", ProductUnitOfMeasureOptions.Gram), new SelectListItem("Chỉ/lượng", ProductUnitOfMeasureOptions.Tael) }, nameof(SelectListItem.Value), nameof(SelectListItem.Text), model.UnitOfMeasure);
+            ViewBag.ProductPurities = new SelectList(await _context.PurityDefinitions.Where(item => item.IsActive && (item.Material == model.Material || item.Material == ProductMaterialOptions.Diamond)).OrderBy(item => item.Rate).ToListAsync(), nameof(PurityDefinition.Id), nameof(PurityDefinition.DisplayName), model.PurityDefinitionId);
             ViewBag.ProductStatuses = new SelectList(ProductStatuses, model.Status);
             ViewBag.ProductDiamondShapes = new SelectList(DiamondShapeList, model.DiamondShape);
             ViewBag.ProductDiamondCuts = new SelectList(DiamondCutList, model.DiamondCut);
@@ -1113,6 +1151,9 @@ namespace GoldManagementSystem.Controllers
 
             if (primaryLine == ProductLineOptions.Diamond)
             {
+                model.Material = ProductMaterialOptions.Diamond;
+                model.ProductLegalClass = ProductLegalClassOptions.DiamondExcluded;
+                model.PurityDefinitionId = 6;
                 model.Category = DiamondCategoriesList.First();
                 model.GoldType = DiamondMaterialList.First();
                 model.DiamondShape = DiamondShapeList.First();
@@ -1125,6 +1166,35 @@ namespace GoldManagementSystem.Controllers
 
             model.Category = primaryLine == ProductLineOptions.Silver ? SilverCategoriesList.First() : GoldCategoriesList.First();
             model.GoldType = primaryLine == ProductLineOptions.Silver ? SilverMaterialsList.First() : GoldMaterialsList[1];
+            model.Material = primaryLine == ProductLineOptions.Silver ? ProductMaterialOptions.Silver : ProductMaterialOptions.Gold;
+            model.ProductLegalClass = primaryLine == ProductLineOptions.Silver ? ProductLegalClassOptions.SilverJewelry : ProductLegalClassOptions.GoldJewelry;
+            model.PurityDefinitionId = model.Material == ProductMaterialOptions.Silver ? 5 : 1;
+        }
+
+        private async Task ValidateStandardProductFieldsAsync(ProductFormViewModel model)
+        {
+            var legalClasses = new[] { ProductLegalClassOptions.GoldBarRegulated, ProductLegalClassOptions.GoldJewelry, ProductLegalClassOptions.GoldRawMaterial, ProductLegalClassOptions.SilverCommodity, ProductLegalClassOptions.SilverJewelry, ProductLegalClassOptions.SilverRawMaterial, ProductLegalClassOptions.DiamondExcluded };
+            if (!legalClasses.Contains(model.ProductLegalClass, StringComparer.OrdinalIgnoreCase)) ModelState.AddModelError(nameof(model.ProductLegalClass), "Nhóm pháp lý không hợp lệ.");
+            if (model.PurityDefinitionId is not int purityId) { ModelState.AddModelError(nameof(model.PurityDefinitionId), "Phải chọn hàm lượng chuẩn."); return; }
+            var purity = await _context.PurityDefinitions.FirstOrDefaultAsync(item => item.Id == purityId && item.IsActive);
+            if (purity == null) { ModelState.AddModelError(nameof(model.PurityDefinitionId), "Hàm lượng chuẩn không tồn tại hoặc đã ngừng dùng."); return; }
+            if (!string.Equals(purity.Material, model.Material, StringComparison.OrdinalIgnoreCase)) ModelState.AddModelError(nameof(model.PurityDefinitionId), "Hàm lượng không thuộc vật liệu đã chọn.");
+            model.PurityRate = purity.Rate;
+            model.GoldType = purity.DisplayName;
+            var validLegalClass = model.Material switch
+            {
+                ProductMaterialOptions.Gold => new[] { ProductLegalClassOptions.GoldBarRegulated, ProductLegalClassOptions.GoldJewelry, ProductLegalClassOptions.GoldRawMaterial },
+                ProductMaterialOptions.Silver => new[] { ProductLegalClassOptions.SilverCommodity, ProductLegalClassOptions.SilverJewelry, ProductLegalClassOptions.SilverRawMaterial },
+                _ => new[] { ProductLegalClassOptions.DiamondExcluded }
+            };
+            if (!validLegalClass.Contains(model.ProductLegalClass, StringComparer.OrdinalIgnoreCase)) ModelState.AddModelError(nameof(model.ProductLegalClass), "Nhóm pháp lý không khớp vật liệu.");
+        }
+
+        private async Task AddSpecificationVersionAsync(ProductFormViewModel model, Product product)
+        {
+            var version = model.SpecificationVersion;
+            if (await _context.ProductSpecVersions.AnyAsync(item => item.ProductId == product.Id && item.Version == version)) version = $"{version}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            _context.ProductSpecVersions.Add(new ProductSpecVersion { ProductId = product.Id, Version = version, Material = product.Material, ProductForm = product.ProductForm, ProductLegalClass = product.ProductLegalClass, PurityDefinitionId = product.PurityDefinitionId, PurityRate = product.PurityRate, UnitOfMeasure = product.UnitOfMeasure, GrossWeight = product.Weight, FineWeight = product.Weight * product.PurityRate, CreatedByUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty, EffectiveFrom = DateTime.UtcNow, ChangeReason = string.IsNullOrWhiteSpace(model.SpecificationChangeReason) ? "Khởi tạo/cập nhật thông số sản phẩm" : model.SpecificationChangeReason });
         }
 
         private static string ComposeImagesUrl(ProductFormViewModel model)

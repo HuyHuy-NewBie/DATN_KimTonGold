@@ -39,19 +39,22 @@ namespace GoldManagementSystem.Controllers
         private readonly SignInManager<AppUser> _signInManager;
         private readonly AuthNotificationService _notificationService;
         private readonly AuthVerificationOptions _authVerificationOptions;
+        private readonly IPricingService _pricingService;
 
         public UserController(
             ApplicationDbContext context,
             UserManager<AppUser> userManager,
             SignInManager<AppUser> signInManager,
             AuthNotificationService notificationService,
-            IOptions<AuthVerificationOptions> authVerificationOptions)
+            IOptions<AuthVerificationOptions> authVerificationOptions,
+            IPricingService pricingService)
         {
             _context = context;
             _userManager = userManager;
             _signInManager = signInManager;
             _notificationService = notificationService;
             _authVerificationOptions = authVerificationOptions.Value ?? new AuthVerificationOptions();
+            _pricingService = pricingService;
         }
 
         // 1. Thông tin tài khoản
@@ -703,6 +706,23 @@ namespace GoldManagementSystem.Controllers
                 ModelState.AddModelError(nameof(branchId), "Vui lòng chọn chi nhánh đang hoạt động.");
             }
 
+            var orderProducts = new List<(Product Product, int Quantity, PublishedPrice Price)>();
+            if (ModelState.IsValid)
+            {
+                foreach (var orderProduct in new[] { (Product: product, Quantity: mainQuantity) }.Concat(extraProducts.Select(item => (Product: item, Quantity: 1))))
+                {
+                    var publishedPrice = await _pricingService.GetPublishedPriceAsync(orderProduct.Product.Id, branchId);
+                    if (publishedPrice == null)
+                    {
+                        ModelState.AddModelError(nameof(productId), $"Sản phẩm {orderProduct.Product.Name} chưa có giá công bố tại chi nhánh đã chọn.");
+                    }
+                    else
+                    {
+                        orderProducts.Add((orderProduct.Product, orderProduct.Quantity, publishedPrice));
+                    }
+                }
+            }
+
             if (!ModelState.IsValid)
             {
                 await PopulateCheckoutLookupsAsync(product, user, selectedExtraProductIds);
@@ -714,12 +734,7 @@ namespace GoldManagementSystem.Controllers
             }
 
             var depositRate = string.Equals(paymentMethod, Order.PaymentMethodOnlineFull, StringComparison.Ordinal) ? 100m : 10m;
-            var orderProducts = new List<(Product Product, int Quantity)>
-            {
-                (product, mainQuantity)
-            };
-            orderProducts.AddRange(extraProducts.Select(item => (item, 1)));
-            var totalAmount = orderProducts.Sum(item => item.Product.SellPrice * item.Quantity);
+            var totalAmount = orderProducts.Sum(item => item.Price.Line.SellUnitPrice * item.Quantity);
             var depositAmount = Math.Round(totalAmount * depositRate / 100m, 0);
             var now = DateTime.UtcNow;
 
@@ -746,12 +761,26 @@ namespace GoldManagementSystem.Controllers
 
             foreach (var item in orderProducts)
             {
+                var snapshot = new PriceSnapshot
+                {
+                    OrderId = order.Id,
+                    ProductId = item.Product.Id,
+                    PriceBookId = item.Price.Book.Id,
+                    PriceVersionId = item.Price.Version.Id,
+                    SellUnitPrice = item.Price.Line.SellUnitPrice,
+                    BuyUnitPrice = item.Price.Line.BuyUnitPrice,
+                    ProcessingFee = item.Price.Line.ProcessingFee,
+                    MaxDiscountRate = item.Price.Line.MaxDiscountRate,
+                    CapturedByUserId = user.Id,
+                    CapturedAt = now
+                };
                 _context.OrderDetails.Add(new OrderDetail
                 {
                     OrderId = order.Id,
                     ProductId = item.Product.Id,
-                    UnitPrice = item.Product.SellPrice,
-                    Quantity = item.Quantity
+                    UnitPrice = item.Price.Line.SellUnitPrice,
+                    Quantity = item.Quantity,
+                    PriceSnapshot = snapshot
                 });
                 item.Product.Status = "Đã bán";
                 _context.Products.Update(item.Product);
@@ -796,45 +825,6 @@ namespace GoldManagementSystem.Controllers
             }
 
             return View(order);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ConfirmDepositPayment(int orderId)
-        {
-            await CancelExpiredDepositOrdersAsync();
-
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return NotFound();
-
-            var order = await _context.Orders.FirstOrDefaultAsync(item => item.Id == orderId && item.UserId == user.Id);
-            if (order == null)
-            {
-                return NotFound();
-            }
-
-            if (order.Status != Order.StatusAwaitingDepositPayment)
-            {
-                TempData["ErrorMessage"] = "Đơn hàng này không còn ở trạng thái chờ thanh toán cọc online.";
-                return RedirectToAction(nameof(Orders));
-            }
-
-            order.Status = Order.StatusPendingConfirmation;
-            order.DepositPaidAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            // Notify authorized roles
-            await NotifyAuthorizedStaffForPendingOrderAsync(order);
-
-            if (order.DepositRate == 100m)
-            {
-                TempData["SuccessMessage"] = $"Đã ghi nhận thanh toán toàn bộ cho đơn #{order.OrderNumber}. Đơn hàng đang chờ nhân sự có thẩm quyền xác nhận.";
-            }
-            else
-            {
-                TempData["SuccessMessage"] = $"Đã ghi nhận thanh toán cọc cho đơn #{order.OrderNumber}. Đơn hàng đang chờ nhân sự có thẩm quyền xác nhận.";
-            }
-            return RedirectToAction(nameof(Orders));
         }
 
         [HttpPost]

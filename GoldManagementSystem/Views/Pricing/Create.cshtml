@@ -1,0 +1,30 @@
+@model GoldManagementSystem.Models.ViewModels.PriceBookFormViewModel
+@{
+    ViewData["Title"] = "Tạo bảng giá";
+}
+<div class="dashboard-card admin-panel">
+    <section class="admin-hero"><p class="admin-hero__eyebrow">Giá giao dịch</p><h1>Tạo bảng giá nháp</h1></section>
+    <div class="admin-panel__body">
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="admin-product-form__alert"></div>
+            <div class="admin-filter-grid">
+                <label class="admin-field"><span>Mã bảng giá</span><input asp-for="Code" /></label>
+                <label class="admin-field"><span>Tên bảng giá</span><input asp-for="Name" /></label>
+                <label class="admin-field"><span>Phạm vi giá</span><select asp-for="Scope"><option value="General">Thông thường</option><option value="GoldBar">Vàng miếng</option></select></label>
+                <label class="admin-field"><span>Chi nhánh</span><select asp-for="BranchId" asp-items="ViewBag.Branches"><option value="">Toàn hệ thống</option></select></label>
+                <label class="admin-field"><span>Hiệu lực từ</span><input asp-for="EffectiveFrom" type="datetime-local" /></label>
+                <label class="admin-field"><span>Hiệu lực đến</span><input asp-for="EffectiveTo" type="datetime-local" /></label>
+                <label class="admin-field"><span>Phiên bản</span><input asp-for="Version" /></label>
+            </div>
+            <label class="admin-field"><span>Ghi chú</span><textarea asp-for="Notes"></textarea></label>
+            <label class="admin-field"><span>Lý do thay đổi</span><textarea asp-for="ChangeReason"></textarea></label>
+            <div class="data-table-wrapper"><table class="data-table"><thead><tr><th>Sản phẩm</th><th>Giá bán</th><th>Giá mua</th><th>Tiền công</th><th>Giảm tối đa (%)</th></tr></thead><tbody>
+            @for (var index = 0; index < Model.Lines.Count; index++)
+            {
+                <tr><td>@Model.Lines[index].ProductName<input asp-for="Lines[index].ProductId" type="hidden" /></td><td><input asp-for="Lines[index].SellUnitPrice" type="number" min="0" step="1000" /></td><td><input asp-for="Lines[index].BuyUnitPrice" type="number" min="0" step="1000" /></td><td><input asp-for="Lines[index].ProcessingFee" type="number" min="0" step="1000" /></td><td><input asp-for="Lines[index].MaxDiscountRate" type="number" min="0" max="100" step="0.01" /></td></tr>
+            }
+            </tbody></table></div>
+            <div class="admin-action-group"><button class="admin-button admin-button--primary" type="submit">Lưu bản nháp</button><a class="admin-button admin-button--secondary" asp-action="Index">Hủy</a></div>
+        </form>
+    </div>
+</div>

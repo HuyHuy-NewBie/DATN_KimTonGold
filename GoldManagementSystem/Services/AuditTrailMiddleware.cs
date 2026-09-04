@@ -1,6 +1,7 @@
 using GoldManagementSystem.Data;
 using GoldManagementSystem.Models;
 using Microsoft.AspNetCore.Identity;
+using System.Text.Json;
 
 namespace GoldManagementSystem.Services
 {
@@ -15,6 +16,7 @@ namespace GoldManagementSystem.Services
             var path = context.Request.Path.Value ?? string.Empty;
             var isManagement = path.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("/Management", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("/Production", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("/Products/Admin", StringComparison.OrdinalIgnoreCase);
             var isAjax = string.Equals(context.Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
             var isInteractiveSalesPage = HttpMethods.IsGet(context.Request.Method)
@@ -53,6 +55,24 @@ namespace GoldManagementSystem.Services
                     IpAddress = context.Connection.RemoteIpAddress?.ToString(),
                     Succeeded = context.Response.StatusCode < 400
                 });
+                if (path.StartsWith("/production", StringComparison.OrdinalIgnoreCase) && !HttpMethods.IsGet(context.Request.Method) && !string.IsNullOrWhiteSpace(userId))
+                {
+                    var form = context.Request.HasFormContentType ? await context.Request.ReadFormAsync() : null;
+                    if (!branchId.HasValue && form != null && int.TryParse(form["BranchId"].ToString(), out var formBranchId)) branchId = formBranchId;
+                    var snapshot = form == null
+                        ? context.Request.QueryString.Value ?? string.Empty
+                        : JsonSerializer.Serialize(form.Keys.Where(key => !key.Equals("__RequestVerificationToken", StringComparison.OrdinalIgnoreCase)).ToDictionary(key => key, key => form[key].ToString()));
+                    db.ProductionAuditLogs.Add(new ProductionAuditLog
+                    {
+                        Action = path,
+                        EntityType = context.Request.RouteValues["action"]?.ToString() ?? "Production",
+                        EntityId = int.TryParse(context.Request.RouteValues["id"]?.ToString(), out var entityId) ? entityId : null,
+                        BranchId = branchId,
+                        ActorUserId = userId,
+                        Snapshot = snapshot.Length > 2000 ? snapshot[..2000] : snapshot,
+                        Succeeded = context.Response.StatusCode < 400
+                    });
+                }
                 await db.SaveChangesAsync();
             }
             catch

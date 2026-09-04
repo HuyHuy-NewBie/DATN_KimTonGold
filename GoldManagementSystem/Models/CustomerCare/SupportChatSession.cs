@@ -30,6 +30,22 @@ namespace GoldManagementSystem.Models
         [StringLength(256)]
         public string CustomerEmail { get; set; }
 
+        // Every newly created support session is owned by a branch.  Keeping the
+        // value nullable lets the system retain legacy records while ensuring a
+        // branch staff member can never be granted access to an unscoped record.
+        public int? BranchId { get; set; }
+
+        [ForeignKey(nameof(BranchId))]
+        public virtual Branch Branch { get; set; }
+
+        // Anonymous visitors authenticate to a chat session with an opaque
+        // capability kept in an HttpOnly cookie.  Only its SHA-256 hash is
+        // persisted, so a database disclosure does not disclose the capability.
+        [StringLength(64)]
+        public string GuestAccessTokenHash { get; set; }
+
+        public DateTime? GuestAccessTokenExpiresAt { get; set; }
+
         [StringLength(450)]
         public string AssignedStaffId { get; set; }
 

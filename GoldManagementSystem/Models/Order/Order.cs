@@ -32,6 +32,11 @@ namespace GoldManagementSystem.Models
         public int BranchId { get; set; }
         public virtual Branch Branch { get; set; }
 
+        public int? PosQuoteId { get; set; }
+        public virtual PosQuote PosQuote { get; set; }
+        public virtual OrderDelivery OrderDelivery { get; set; }
+        public virtual ICollection<PosInventoryReservation> PosInventoryReservations { get; set; } = new List<PosInventoryReservation>();
+
         [StringLength(100)]
         public string CustomerName { get; set; }
 
@@ -40,6 +45,12 @@ namespace GoldManagementSystem.Models
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DiscountAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal NetAmount { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal DepositAmount { get; set; }
@@ -61,6 +72,9 @@ namespace GoldManagementSystem.Models
 
         public DateTime? ConfirmedAt { get; set; }
 
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
         [StringLength(500)]
         public string CancelReason { get; set; }
 
@@ -78,8 +92,17 @@ namespace GoldManagementSystem.Models
         public int ProductId { get; set; }
         public virtual Product Product { get; set; }
 
+        public int? PriceSnapshotId { get; set; }
+        public virtual PriceSnapshot PriceSnapshot { get; set; }
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal UnitPrice { get; set; } // Giá thực tế lúc bán
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal ProcessingFee { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DiscountAmount { get; set; }
 
         public int Quantity { get; set; }
     }

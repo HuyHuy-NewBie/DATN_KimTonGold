@@ -23,6 +23,38 @@ namespace GoldManagementSystem.Models.ViewModels
         [Display(Name = "Dòng sản phẩm")]
         public string ProductLine { get; set; } = GoldManagementSystem.Models.ProductLineOptions.Gold;
 
+        [Required, StringLength(20)]
+        [Display(Name = "Vật liệu chuẩn")]
+        public string Material { get; set; } = GoldManagementSystem.Models.ProductMaterialOptions.Gold;
+
+        [Required, StringLength(30)]
+        [Display(Name = "Dạng hàng")]
+        public string ProductForm { get; set; } = GoldManagementSystem.Models.ProductFormOptions.Jewelry;
+
+        [Required, StringLength(50)]
+        [Display(Name = "Nhóm pháp lý")]
+        public string ProductLegalClass { get; set; } = GoldManagementSystem.Models.ProductLegalClassOptions.GoldJewelry;
+
+        [Display(Name = "Hàm lượng chuẩn")]
+        [Range(1, int.MaxValue)]
+        public int? PurityDefinitionId { get; set; }
+
+        [Range(typeof(decimal), "0", "1")]
+        [Display(Name = "Tỷ lệ tinh")]
+        public decimal PurityRate { get; set; }
+
+        [Required, StringLength(20)]
+        [Display(Name = "Đơn vị tính")]
+        public string UnitOfMeasure { get; set; } = GoldManagementSystem.Models.ProductUnitOfMeasureOptions.Piece;
+
+        [Required, StringLength(30)]
+        [Display(Name = "Phiên bản thông số")]
+        public string SpecificationVersion { get; set; } = "1.0";
+
+        [StringLength(1000)]
+        [Display(Name = "Lý do thay đổi")]
+        public string SpecificationChangeReason { get; set; } = string.Empty;
+
         [Required]
         [StringLength(20)]
         [Display(Name = "Chế độ phân loại")]

@@ -1,0 +1,598 @@
+@model GoldManagementSystem.Models.ViewModels.ProductionManagementViewModel
+@using GoldManagementSystem.Models
+@using System
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Điều hành chế tác - gia công";
+
+    var allowedTabs = new[] { "work-orders", "boms", "governance", "materials", "customer-jobs", "customer-issue", "customer-custody", "reservation-release", "trace" };
+    var activeTab = allowedTabs.Contains(Model.ActiveTab ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+        ? Model.ActiveTab.ToLowerInvariant()
+        : "work-orders";
+    var selectedBranch = Model.BranchOptions.FirstOrDefault(item => item.Selected)?.Text ?? "Toàn chuỗi";
+
+    string StatusText(string status)
+    {
+        return status switch
+        {
+            "Draft" => "Nháp",
+            "Active" => "Đang hiệu lực",
+            "Inactive" => "Ngừng hoạt động",
+            "Retired" => "Ngừng áp dụng",
+            "Superseded" => "Đã thay thế",
+            "Receiving" => "Đang tiếp nhận",
+            "Quarantined" => "Đang cách ly",
+            "Released" => "Đã duyệt / nhập kho",
+            "Reserved" => "Đã giữ nguyên liệu",
+            "PartiallyIssued" => "Đã xuất một phần",
+            "Exhausted" => "Đã dùng hết",
+            "Planned" => "Đã lập lệnh",
+            "MaterialReserved" => "Đã giữ vật tư",
+            "Issued" => "Đã xuất vật tư",
+            "InProgress" => "Đang chế tác",
+            "OnHold" => "Tạm dừng",
+            "Hold" => "Tạm dừng",
+            "Completed" => "Hoàn tất công đoạn",
+            "QualityChecked" => "Đã kiểm phẩm",
+            "Rework" => "Cần làm lại",
+            "Closed" => "Đã đóng",
+            "Cancelled" => "Đã hủy",
+            "Pending" => "Chờ xử lý",
+            "PendingApproval" => "Chờ phê duyệt",
+            "Approved" => "Đã duyệt",
+            "Rejected" => "Từ chối",
+            "Investigation" => "Đang xác minh",
+            "Pass" => "Đạt",
+            "Fail" => "Không đạt",
+            "Reject" => "Loại",
+            "Received" => "Đã tiếp nhận",
+            "Held" => "Đang giữ tài sản khách",
+            "Assessed" => "Đã thẩm định",
+            "AwaitingApproval" => "Chờ khách duyệt",
+            "InProduction" => "Đang gia công",
+            "ReadyForHandover" => "Chờ bàn giao",
+            "ReadyForReturn" => "Chờ trả khách",
+            "HandedOver" => "Đã bàn giao",
+            "Collected" => "Đã tập kết",
+            "InRefining" => "Đang tinh luyện",
+            "Posted" => "Đã ghi sổ",
+            _ => string.IsNullOrWhiteSpace(status) ? "Chưa xác định" : status
+        };
+    }
+
+    string StatusClass(string status)
+    {
+        return status switch
+        {
+            "Draft" or "Planned" or "Receiving" or "Pending" => "draft",
+            "Reserved" or "MaterialReserved" => "reserved",
+            "Issued" or "PartiallyIssued" => "issued",
+            "InProgress" or "InProduction" or "InRefining" or "Started" or "Collected" => "progress",
+            "QualityChecked" or "PendingApproval" or "AwaitingApproval" or "Investigation" => "quality",
+            "Released" or "Pass" or "Active" or "Approved" or "Completed" or "Closed" or "Posted" or "HandedOver" or "ReadyForHandover" => "complete",
+            "OnHold" or "Hold" or "Rejected" or "Reject" or "Fail" or "Cancelled" or "Rework" => "exception",
+            "Received" or "Assessed" => "customer",
+            _ => "draft"
+        };
+    }
+
+    string JobTypeText(string jobType)
+    {
+        return jobType switch
+        {
+            CustomerJobOrder.JobTypeNewCraft => "Chế tác mới",
+            CustomerJobOrder.JobTypeRemodel => "Chế tác lại",
+            CustomerJobOrder.JobTypeRepair => "Sửa chữa",
+            _ => jobType
+        };
+    }
+
+}
+
+<div class="production-page" id="productionWorkspace" data-active-tab="@activeTab">
+    <header class="production-hero">
+        <div>
+            <p class="production-hero__eyebrow">Điều hành sản xuất trang sức</p>
+            <h1>Chế tác minh bạch từ gram nguyên liệu đến thành phẩm</h1>
+            <p class="production-hero__copy">
+                Quản lý định mức, xuất vật tư, từng công đoạn thợ, kiểm phẩm, hao hụt,
+                gia công tài sản khách và thu hồi tái chế trên cùng một dấu vết nghiệp vụ.
+            </p>
+        </div>
+        <div class="production-hero__context" aria-label="Phạm vi dữ liệu hiện tại">
+            <span>Phạm vi đang xem</span>
+            <strong>@selectedBranch</strong>
+            <small>Cập nhật theo quyền chi nhánh của tài khoản</small>
+        </div>
+    </header>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="production-alert production-alert--success" role="status">
+            <div><strong>Đã hoàn tất nghiệp vụ</strong>@successMessage</div>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="production-alert production-alert--danger" role="alert">
+            <div><strong>Chưa thể thực hiện</strong>@errorMessage</div>
+        </div>
+    }
+    @if (!Model.CanOperate && !Model.CanApprove && !Model.CanManageCustomerJobs)
+    {
+        <div class="production-alert production-alert--customer">
+            <div>
+                <strong>Chế độ theo dõi</strong>
+                Bạn có thể xem hồ sơ và truy vết, nhưng chưa được phân quyền ghi nhận hoặc phê duyệt nghiệp vụ.
+            </div>
+        </div>
+    }
+
+    <section class="production-kpis" aria-label="Chỉ số vận hành sản xuất">
+        <article class="production-kpi">
+            <span>Lệnh đang chạy</span>
+            <strong>@Model.ActiveWorkOrders.ToString("N0")</strong>
+            <small>@Model.OnHoldWorkOrders.ToString("N0") lệnh đang tạm dừng</small>
+        </article>
+        <article class="production-kpi">
+            <span>Nguyên liệu khả dụng</span>
+            <strong>@Model.AvailableRawMaterialWeight.ToString("N4") g</strong>
+            <small>@Model.ReleasedRawMaterialLots.ToString("N0") / @Model.TotalRawMaterialLots.ToString("N0") lô đã duyệt</small>
+        </article>
+        <article class="production-kpi">
+            <span>Chờ phê duyệt hao hụt</span>
+            <strong>@Model.PendingLossApprovals.ToString("N0")</strong>
+            <small>Ưu tiên hồ sơ vượt định mức</small>
+        </article>
+        <article class="production-kpi">
+            <span>Chờ kiểm phẩm</span>
+            <strong>@Model.PendingQualityInspections.ToString("N0")</strong>
+            <small>Chỉ nhập kho khi kết quả đạt</small>
+        </article>
+        <article class="production-kpi">
+            <span>Gia công &amp; tái chế</span>
+            <strong>@Model.OpenCustomerJobs.ToString("N0") đơn</strong>
+            <small>@Model.RecycleWeight.ToString("N4") g đang thu hồi</small>
+        </article>
+    </section>
+    <section class="production-split production-dashboard-alerts" aria-label="Cảnh báo sản xuất">
+        <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Dashboard cảnh báo</p><h2>Lệnh trễ hạn <b>@Model.LateWorkOrders.Count</b></h2></div></div><div class="production-table-wrap"><table class="production-table"><thead><tr><th>Lệnh</th><th>Hạn</th><th>Trạng thái</th></tr></thead><tbody>@foreach (var order in Model.LateWorkOrders.Take(10)) { <tr><td><a asp-action="Trace" asp-route-id="@order.Id">@order.WorkOrderCode</a></td><td>@order.PlannedEndAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@StatusText(order.Status)</td></tr> }</tbody></table></div></article>
+        <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Kiểm soát định mức</p><h2>Hao hụt vượt ngưỡng <b>@Model.OverToleranceLosses.Count</b></h2></div></div><div class="production-table-wrap"><table class="production-table"><thead><tr><th>Lệnh</th><th>Hao hụt</th><th>Ngưỡng</th><th>Trạng thái</th></tr></thead><tbody>@foreach (var loss in Model.OverToleranceLosses.Take(10)) { <tr><td>@loss.ProductionWorkOrder?.WorkOrderCode</td><td>@loss.LossWeight.ToString("N4") g</td><td>@loss.AllowedLossRateSnapshot.ToString("N4")%</td><td>@StatusText(loss.Status)</td></tr> }</tbody></table></div></article>
+    </section>
+
+    <form asp-controller="Production" asp-action="Index" method="get" class="production-filter">
+        <input type="hidden" name="activeTab" value="@activeTab" data-active-tab-input />
+        <label class="production-field">
+            <span>Tìm hồ sơ</span>
+            <input name="searchTerm" value="@Model.SearchTerm" placeholder="Mã lệnh, lô, sản phẩm, khách hàng..." />
+        </label>
+        <label class="production-field">
+            <span>Chi nhánh</span>
+            <select name="branchId" asp-items="Model.BranchOptions">
+                <option value="">Toàn bộ chi nhánh</option>
+            </select>
+        </label>
+        <label class="production-field">
+            <span>Xưởng chế tác</span>
+            <select name="workshopId" asp-items="Model.WorkshopOptions">
+                <option value="">Tất cả xưởng</option>
+            </select>
+        </label>
+        <label class="production-field">
+            <span>Trạng thái lệnh</span>
+            <select name="statusFilter" asp-items="Model.WorkOrderStatusOptions">
+                <option value="">Mọi trạng thái</option>
+            </select>
+        </label>
+        <div class="production-filter__actions">
+            <button type="submit" class="production-button production-button--primary">Áp dụng</button>
+            <a asp-controller="Production" asp-action="Index" class="production-button">Đặt lại</a>
+        </div>
+    </form>
+    <div class="production-form-actions"><a class="production-button production-button--primary" asp-controller="Production" asp-action="Reports" asp-route-branchId="@Model.BranchId">Mở báo cáo P2</a></div>
+
+    <nav class="production-tabs" aria-label="Phân hệ chế tác" role="tablist">
+        <button type="button" class="production-tab-button" data-production-tab="work-orders" role="tab">
+            Lệnh chế tác <b>@Model.WorkOrders.Count</b>
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="boms" role="tab">
+            Định mức BOM <b>@Model.Boms.Count</b>
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="governance" role="tab">
+            Xưởng &amp; chính sách <b>@(Model.Workshops.Count + Model.LossPolicies.Count)</b>
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="materials" role="tab">
+            Lô nguyên liệu <b>@Model.RawMaterialLots.Count</b>
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="customer-jobs" role="tab">
+            Gia công khách <b>@Model.CustomerJobOrders.Count</b>
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="customer-issue" role="tab">
+            Giao nhận khách
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="customer-custody" role="tab">
+            Sổ tài sản khách <b>@Model.CustomerMaterialCustodyRecords.Count</b>
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="reservation-release" role="tab">
+            Giải phóng vật tư
+        </button>
+        <button type="button" class="production-tab-button" data-production-tab="trace" role="tab">
+            Tái chế &amp; truy vết <b>@(Model.RecycleBatches.Count + Model.RecentStatusHistories.Count)</b>
+        </button>
+    </nav>
+
+    <section class="production-panel" data-production-panel="work-orders" role="tabpanel">
+        <article class="production-section production-section--tinted">
+            <div class="production-section__header">
+                <div>
+                    <p class="production-section__eyebrow">Luồng kiểm soát khép kín</p>
+                    <h2>Lệnh chế tác &amp; vòng đời sản xuất</h2>
+                    <p>Mọi thay đổi trọng lượng và trạng thái đều gắn người thao tác, thời điểm và chứng từ nguồn.</p>
+                </div>
+        @if (Model.CanApprove)
+        {
+                    <div class="production-section__actions">
+                        <details class="production-command production-command--primary">
+                            <summary>+ Lập lệnh chế tác</summary>
+                            <div class="production-command__body">
+                                <div class="production-command__heading">
+                                    <div><h3>Lập lệnh chế tác</h3><p>Chỉ chọn BOM đang hiệu lực và xưởng đã được xác minh.</p></div>
+                                    <button type="button" class="production-button" data-close-command>Đóng</button>
+                                </div>
+                                <form asp-controller="Production" asp-action="CreateWorkOrder" method="post" class="production-form-grid">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="activeTab" value="work-orders" />
+                                    <label class="production-field"><span>Mã lệnh *</span><input name="WorkOrderCode" maxlength="40" required placeholder="LSX-2026-0001" /></label>
+                                    <label class="production-field"><span>Chi nhánh *</span><select name="BranchId" asp-items="Model.BranchOptions" required><option value="">Chọn chi nhánh</option></select></label>
+                                    <label class="production-field"><span>Xưởng thực hiện *</span><select name="WorkshopId" asp-items="Model.WorkshopOptions" required><option value="">Chọn xưởng</option></select></label>
+                                    <label class="production-field"><span>BOM đã duyệt *</span><select name="ProductionBomId" asp-items="Model.BomOptions" required><option value="">Chọn định mức</option></select></label>
+                                    <label class="production-field"><span>Sản phẩm *</span><select name="ProductId" asp-items="Model.ProductOptions" required><option value="">Chọn sản phẩm</option></select></label>
+                                    <label class="production-field"><span>Mã đơn gia công khách</span><input name="CustomerJobOrderId" type="number" min="1" placeholder="Để trống nếu sản xuất nội bộ" /></label>
+                                    <label class="production-field"><span>Kho xuất nguyên liệu *</span><select name="MaterialWarehouseId" asp-items="Model.WarehouseOptions" required><option value="">Chọn kho</option></select></label>
+                                    <label class="production-field"><span>Kho nhận thành phẩm *</span><select name="FinishedGoodsWarehouseId" asp-items="Model.WarehouseOptions" required><option value="">Chọn kho</option></select></label>
+                                    <label class="production-field"><span>Số lượng kế hoạch *</span><input name="PlannedQuantity" type="number" min="1" value="1" required /></label>
+                                    <label class="production-field"><span>Khối lượng đầu ra dự kiến (g) *</span><input name="PlannedOutputWeight" type="number" min="0.0001" step="0.0001" required /></label>
+                                    <label class="production-field"><span>Bắt đầu dự kiến *</span><input name="PlannedStartAt" type="datetime-local" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" required /></label>
+                                    <label class="production-field"><span>Kết thúc dự kiến</span><input name="PlannedEndAt" type="datetime-local" /></label>
+                                    <label class="production-field production-field--span-2"><span>Người phụ trách *</span><select name="ResponsibleUserId" asp-items="Model.ResponsibleUserOptions" required><option value="">Chọn nhân sự</option></select></label>
+                                    <label class="production-field production-field--span-all"><span>Ghi chú</span><textarea name="Note" maxlength="2000" placeholder="Yêu cầu kỹ thuật, mức ưu tiên, lưu ý bàn giao..."></textarea></label>
+                                    <div class="production-form-actions"><button type="submit" class="production-button production-button--primary">Tạo lệnh</button></div>
+                                </form>
+                            </div>
+                        </details>
+                    </div>
+                }
+            </div>
+
+            <div class="production-flow" aria-label="Các bước của lệnh sản xuất">
+                <div class="production-flow__step"><b>01 · Kế hoạch</b><span>BOM, xưởng, lịch và người chịu trách nhiệm</span></div>
+                <div class="production-flow__step"><b>02 · Giữ vật tư</b><span>Khóa khối lượng theo lô và hàm lượng</span></div>
+                <div class="production-flow__step"><b>03 · Xuất xưởng</b><span>Chứng từ kho và người nhận rõ ràng</span></div>
+                <div class="production-flow__step"><b>04 · Công đoạn</b><span>Cân đầu vào, đầu ra và phế thu hồi</span></div>
+                <div class="production-flow__step"><b>05 · Kiểm phẩm</b><span>Khối lượng, tuổi vàng, ngoại quan, tem nhãn</span></div>
+                <div class="production-flow__step"><b>06 · Nhập thành phẩm</b><span>Giá vốn thực tế và đóng lệnh</span></div>
+            </div>
+
+            @if (Model.WorkOrders.Count == 0)
+            {
+                <div class="production-empty">Chưa có lệnh chế tác phù hợp bộ lọc hiện tại.</div>
+            }
+            else
+            {
+                <div class="production-table-wrap">
+                    <table class="production-table production-table--wide">
+                        <thead><tr><th>Lệnh / sản phẩm</th><th>Xưởng &amp; phụ trách</th><th>Kế hoạch</th><th>Vật tư</th><th>Kết quả</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                        <tbody>
+                        @foreach (var order in Model.WorkOrders)
+                        {
+                            var rowVersion = Convert.ToBase64String(order.RowVersion ?? Array.Empty<byte>());
+                            var pendingReservation = order.MaterialReservations?.FirstOrDefault(item => item.Status == ProductionMaterialReservation.StatusReserved || item.Status == ProductionMaterialReservation.StatusPartiallyIssued);
+                            <tr>
+                                <td><strong><a asp-controller="Production" asp-action="Trace" asp-route-id="@order.Id">@order.WorkOrderCode</a></strong><small>@(order.Product?.Name ?? $"Sản phẩm #{order.ProductId}") · BOM @(order.ProductionBom?.BomCode ?? $"#{order.ProductionBomId}")</small></td>
+                                <td><strong>@(order.Workshop?.Name ?? $"Xưởng #{order.WorkshopId}")</strong><small>@(order.ResponsibleUser?.FullName ?? "Chưa rõ")</small></td>
+                                <td><strong>@order.PlannedQuantity.ToString("N0") sản phẩm · @order.PlannedOutputWeight.ToString("N4") g</strong><small>@order.PlannedStartAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm") → @(order.PlannedEndAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "chưa chốt")</small></td>
+                                <td class="production-table__number"><strong>@order.IssuedMaterialWeight.ToString("N4") / @order.ReservedMaterialWeight.ToString("N4") g</strong><small>đã xuất / đã giữ</small></td>
+                                <td class="production-table__number"><strong>@order.CompletedQuantity.ToString("N0") đạt · @order.RejectedQuantity.ToString("N0") loại</strong><small>@order.ActualOutputWeight.ToString("N4") g · hao hụt @order.ActualLossWeight.ToString("N4") g</small></td>
+                                <td><span class="production-status production-status--@StatusClass(order.Status)">@StatusText(order.Status)</span><small>@(string.IsNullOrWhiteSpace(order.CurrentOperationCode) ? "Chưa có công đoạn hiện hành" : $"Công đoạn: {order.CurrentOperationCode}")</small></td>
+                                <td>
+                                    <div class="production-table__actions">
+                                        @if (Model.CanOperate)
+                                        {
+                                            <details class="production-command">
+                                                <summary>Vật tư</summary>
+                                                <div class="production-command__body">
+                                                    <div class="production-command__heading"><div><h3>Giữ / xuất nguyên liệu</h3><p>@order.WorkOrderCode · phiên bản dữ liệu hiện tại</p></div><button type="button" class="production-button" data-close-command>Đóng</button></div>
+                                                    <div class="production-split">
+                                                        <form asp-controller="Production" asp-action="ReserveMaterial" method="post" class="production-form-grid">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="ProductionWorkOrderId" value="@order.Id" />
+                                                            <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                            <input type="hidden" name="activeTab" value="work-orders" />
+                                                            <label class="production-field production-field--span-2"><span>Lô nguyên liệu *</span><select name="RawMaterialLotId" asp-items="Model.RawMaterialLotOptions" required><option value="">Chọn lô đã duyệt</option></select></label>
+                                                            <label class="production-field production-field--span-2"><span>Khối lượng giữ (g) *</span><input name="ReservedWeight" type="number" min="0.0001" step="0.0001" required /></label>
+                                                            <label class="production-field production-field--span-all"><span>Ghi chú giữ lô</span><textarea name="Note" maxlength="500"></textarea></label>
+                                                            <div class="production-form-actions"><button type="submit" class="production-button production-button--primary">Giữ nguyên liệu</button></div>
+                                                        </form>
+                                                        <form asp-controller="Production" asp-action="IssueMaterial" method="post" class="production-form-grid">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                            <input type="hidden" name="activeTab" value="work-orders" />
+                                                            <label class="production-field production-field--span-2"><span>Phiếu giữ vật tư *</span>
+                                                                <select name="ProductionMaterialReservationId" required>
+                                                                    <option value="">Chọn phiếu giữ</option>
+                                                                    @foreach (var reservation in order.MaterialReservations ?? Enumerable.Empty<ProductionMaterialReservation>())
+                                                                    {
+                                                                        <option value="@reservation.Id">#@reservation.Id · lô @(reservation.RawMaterialLot?.LotCode ?? reservation.RawMaterialLotId.ToString()) · còn @((reservation.ReservedWeight - reservation.IssuedWeight).ToString("N4")) g</option>
+                                                                    }
+                                                                </select>
+                                                            </label>
+                                                            <label class="production-field"><span>Khối lượng xuất (g) *</span><input name="IssuedWeight" type="number" min="0.0001" step="0.0001" required /></label>
+                                                            <label class="production-field"><span>Người nhận *</span><select name="ReceiverUserId" asp-items="Model.ResponsibleUserOptions" required><option value="">Chọn người nhận</option></select></label>
+                                                            <label class="production-field production-field--span-all"><span>Ghi chú xuất kho</span><textarea name="Note" maxlength="500"></textarea></label>
+                                                            <div class="production-form-actions"><button type="submit" class="production-button production-button--primary" disabled="@(pendingReservation == null)">Xác nhận xuất vật tư</button></div>
+                                                        </form>
+                                                        <form asp-controller="Production" asp-action="ReturnMaterial" method="post" class="production-form-grid">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                            <input type="hidden" name="activeTab" value="work-orders" />
+                                                            <label class="production-field production-field--span-2"><span>Phiếu đã xuất *</span>
+                                                                <select name="ProductionMaterialReservationId" required>
+                                                                    <option value="">Chọn phiếu đã xuất</option>
+                                                                    @foreach (var reservation in order.MaterialReservations?.Where(item => item.IssuedWeight > item.ReturnedWeight) ?? Enumerable.Empty<ProductionMaterialReservation>())
+                                                                    {
+                                                                        <option value="@reservation.Id">#@reservation.Id · đã xuất @reservation.IssuedWeight.ToString("N4") g · còn @((reservation.IssuedWeight - reservation.ReturnedWeight).ToString("N4")) g</option>
+                                                                    }
+                                                                </select>
+                                                            </label>
+                                                            <label class="production-field"><span>Khối lượng hoàn (g) *</span><input name="ReturnedWeight" type="number" min="0.0001" step="0.0001" required /></label>
+                                                            <label class="production-field production-field--span-all"><span>Lý do hoàn trả *</span><textarea name="Reason" maxlength="1000" required></textarea></label>
+                                                            <label class="production-field production-field--span-all"><span>Bằng chứng</span><input name="EvidenceUrl" type="url" maxlength="500" placeholder="https://..." /></label>
+                                                            <div class="production-form-actions"><button type="submit" class="production-button production-button--primary">Hoàn nguyên về kho</button></div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </details>
+                                            <details class="production-command">
+                                                <summary>Công đoạn</summary>
+                                                <div class="production-command__body">
+                                                    <div class="production-command__heading"><div><h3>Ghi nhận công đoạn</h3><p>Cân và lưu bằng chứng ngay tại điểm giao nhận giữa hai công đoạn.</p></div><button type="button" class="production-button" data-close-command>Đóng</button></div>
+                                                    <form asp-controller="Production" asp-action="RecordOperation" method="post" class="production-form-grid">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductionWorkOrderId" value="@order.Id" />
+                                                        <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                        <input type="hidden" name="activeTab" value="work-orders" />
+                                                        <label class="production-field production-field--span-2"><span>Công đoạn trong BOM</span>
+                                                            <select name="ProductionBomOperationId" data-bom-operation-select>
+                                                                <option value="">Ghi công đoạn ngoài BOM</option>
+                                                                @foreach (var operation in order.ProductionBom?.Operations?.OrderBy(item => item.SequenceNumber) ?? Enumerable.Empty<ProductionBomOperation>())
+                                                                {
+                                                                    <option value="@operation.Id" data-sequence="@operation.SequenceNumber" data-code="@operation.OperationCode" data-name="@operation.OperationName">@operation.SequenceNumber · @operation.OperationCode · @operation.OperationName</option>
+                                                                }
+                                                            </select>
+                                                        </label>
+                                                        <label class="production-field"><span>Thứ tự *</span><input name="SequenceNumber" type="number" min="1" value="1" required data-operation-sequence /></label>
+                                                        <label class="production-field"><span>Trạng thái *</span><select name="Status" required><option value="Started">Bắt đầu</option><option value="Paused">Tạm dừng</option><option value="Completed">Hoàn tất</option><option value="Rework">Làm lại</option></select></label>
+                                                        <label class="production-field"><span>Mã công đoạn *</span><input name="OperationCode" maxlength="50" required data-operation-code /></label>
+                                                        <label class="production-field"><span>Tên công đoạn *</span><input name="OperationName" maxlength="150" required data-operation-name /></label>
+                                                        <label class="production-field"><span>Khối lượng vào (g)</span><input name="InputWeight" type="number" min="0" step="0.0001" value="0" /></label>
+                                                        <label class="production-field"><span>Khối lượng ra (g)</span><input name="OutputWeight" type="number" min="0" step="0.0001" value="0" /></label>
+                                                        <label class="production-field"><span>Phế thu hồi (g)</span><input name="ScrapWeight" type="number" min="0" step="0.0001" value="0" /></label>
+                                                        <label class="production-field"><span>Thợ thực hiện *</span><select name="WorkerUserId" asp-items="Model.ResponsibleUserOptions" required><option value="">Chọn nhân sự</option></select></label>
+                                                        <label class="production-field"><span>Bắt đầu *</span><input name="StartedAt" type="datetime-local" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" required /></label>
+                                                        <label class="production-field"><span>Hoàn tất</span><input name="CompletedAt" type="datetime-local" /></label>
+                                                        <label class="production-field production-field--span-2"><span>Liên kết bằng chứng</span><input name="EvidenceUrl" type="url" maxlength="500" placeholder="https://..." /></label>
+                                                        <label class="production-field production-field--span-all"><span>Ghi chú</span><textarea name="Note" maxlength="1000"></textarea></label>
+                                                        <div class="production-form-actions"><button type="submit" class="production-button production-button--primary">Lưu công đoạn</button></div>
+                                                    </form>
+                                                </div>
+                                            </details>
+                                            <details class="production-command">
+                                                <summary>Hao hụt</summary>
+                                                <div class="production-command__body">
+                                                    <div class="production-command__heading"><div><h3>Báo cáo hao hụt</h3><p>Hệ thống tự đối chiếu chính sách theo vật liệu và công đoạn.</p></div><button type="button" class="production-button" data-close-command>Đóng</button></div>
+                                                    <form asp-controller="Production" asp-action="RecordLoss" method="post" class="production-form-grid">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductionWorkOrderId" value="@order.Id" />
+                                                        <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                        <input type="hidden" name="activeTab" value="work-orders" />
+                                                        <label class="production-field"><span>Công đoạn liên quan</span><select name="ProductionOperationLogId"><option value="">Toàn lệnh sản xuất</option>@foreach (var operationLog in order.OperationLogs?.OrderByDescending(item => item.CreatedAt) ?? Enumerable.Empty<ProductionOperationLog>()) { <option value="@operationLog.Id">@operationLog.OperationCode · @operationLog.OperationName</option> }</select></label>
+                                                        <label class="production-field"><span>Loại hao hụt *</span><select name="LossType" asp-items="Model.LossTypeOptions" required><option value="">Chọn nguyên nhân</option></select></label>
+                                                        <label class="production-field"><span>Khối lượng hao hụt (g) *</span><input name="LossWeight" type="number" min="0.0001" step="0.0001" required /></label>
+                                                        <label class="production-field"><span>Liên kết bằng chứng</span><input name="EvidenceUrl" type="url" maxlength="500" /></label>
+                                                        <label class="production-field production-field--span-all"><span>Giải trình *</span><textarea name="Reason" maxlength="1000" required></textarea></label>
+                                                        <label class="production-check production-field--span-all"><input name="RequestRecycle" type="checkbox" value="true" /><span>Đưa phần phế liệu có thể thu hồi vào danh sách chờ tái chế.</span></label>
+                                                        <div class="production-form-actions"><button type="submit" class="production-button production-button--primary">Gửi báo cáo hao hụt</button></div>
+                                                    </form>
+                                                </div>
+                                            </details>
+                                            <details class="production-command">
+                                                <summary>Kiểm phẩm</summary>
+                                                <div class="production-command__body">
+                                                    <div class="production-command__heading"><div><h3>Biên bản kiểm phẩm</h3><p>Kết quả đạt là điều kiện bắt buộc để nhập kho thành phẩm.</p></div><button type="button" class="production-button" data-close-command>Đóng</button></div>
+                                                    <form asp-controller="Production" asp-action="RecordQualityInspection" method="post" class="production-form-grid">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductionWorkOrderId" value="@order.Id" />
+                                                        <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                        <input type="hidden" name="activeTab" value="work-orders" />
+                                                        <label class="production-field"><span>Mã kiểm phẩm *</span><input name="InspectionCode" maxlength="40" required placeholder="KCS-2026-0001" /></label>
+                                                        <label class="production-field"><span>Loại kiểm tra *</span><select name="InspectionType" required><option value="Final">Thành phẩm cuối</option><option value="InProcess">Trong công đoạn</option></select></label>
+                                                        <label class="production-field production-field--span-2"><span>Công đoạn liên quan</span><select name="ProductionOperationLogId"><option value="">Kiểm tra toàn lệnh</option>@foreach (var operationLog in order.OperationLogs?.OrderByDescending(item => item.CreatedAt) ?? Enumerable.Empty<ProductionOperationLog>()) { <option value="@operationLog.Id">@operationLog.OperationCode · @operationLog.OperationName</option> }</select></label>
+                                                        <label class="production-field"><span>Khối lượng tổng (g)</span><input name="MeasuredGrossWeight" type="number" min="0" step="0.0001" value="0" /></label>
+                                                        <label class="production-field"><span>Khối lượng tinh (g)</span><input name="MeasuredFineWeight" type="number" min="0" step="0.0001" value="0" /></label>
+                                                        <label class="production-field"><span>Hàm lượng (0–1) *</span><input name="MeasuredPurityRate" type="number" min="0.000001" max="1" step="0.000001" required /></label>
+                                                        <label class="production-field"><span>Ngoại quan *</span><select name="AppearanceResult" asp-items="Model.InspectionResultOptions" required></select></label>
+                                                        <label class="production-field"><span>Kết quả *</span><select name="Result" asp-items="Model.InspectionResultOptions" required></select></label>
+                                                        <label class="production-field"><span>Mã tem / nhãn</span><input name="LabelCode" maxlength="100" /></label>
+                                                        <label class="production-field"><span>Công đoạn làm lại</span><input name="ReworkOperationCode" maxlength="50" /></label>
+                                                        <label class="production-field"><span>Liên kết bằng chứng</span><input name="EvidenceUrl" type="url" maxlength="500" /></label>
+                                                        <label class="production-field production-field--span-all"><span>Ghi chú</span><textarea name="Note" maxlength="1000"></textarea></label>
+                                                        <div class="production-form-actions"><button type="submit" class="production-button production-button--primary">Ghi nhận kiểm phẩm</button></div>
+                                                    </form>
+                                                </div>
+                                            </details>
+                                            @if (Model.CanApprove && (order.LossRecords?.Any(item => item.Status == ProductionLossRecord.StatusPendingApproval) ?? false))
+                                            {
+                                                <details class="production-command">
+                                                    <summary>Duyệt hao hụt vượt ngưỡng</summary>
+                                                    <div class="production-command__body">
+                                                        @foreach (var loss in order.LossRecords.Where(item => item.Status == ProductionLossRecord.StatusPendingApproval))
+                                                        {
+                                                            <form asp-controller="Production" asp-action="ReviewLoss" method="post" class="production-form-grid">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="id" value="@loss.Id" />
+                                                                <input type="hidden" name="ProductionLossRecordId" value="@loss.Id" />
+                                                                <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                                <label class="production-field"><span>Hao hụt (g)</span><input value="@loss.LossWeight.ToString("N4")" readonly /></label>
+                                                                <label class="production-field"><span>Tỷ lệ / ngưỡng</span><input value="@loss.LossRate.ToString("N4")% / @loss.AllowedLossRateSnapshot.ToString("N4")%" readonly /></label>
+                                                                <label class="production-field"><span>Quyết định *</span><select name="Decision" required><option value="Approved">Duyệt</option><option value="Rejected">Từ chối</option></select></label>
+                                                                <label class="production-field production-field--span-all"><span>Ý kiến duyệt *</span><textarea name="ReviewNote" maxlength="1000" required></textarea></label>
+                                                                <button type="submit" class="production-button production-button--approve">Lưu quyết định</button>
+                                                            </form>
+                                                        }
+                                                    </div>
+                                                </details>
+                                            }
+                                        }
+                                        @if (Model.CanApprove)
+                                        {
+                                            <details class="production-command">
+                                                <summary>Nhập kho</summary>
+                                                <div class="production-command__body">
+                                                    <div class="production-command__heading"><div><h3>Nhập kho thành phẩm</h3><p>Chỉ thực hiện sau biên bản kiểm phẩm đạt.</p></div><button type="button" class="production-button" data-close-command>Đóng</button></div>
+                                                    <form asp-controller="Production" asp-action="ReleaseWorkOrder" method="post" class="production-form-grid">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductionWorkOrderId" value="@order.Id" />
+                                                        <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                        <input type="hidden" name="activeTab" value="work-orders" />
+                                                        <label class="production-field"><span>Mã phiếu nhập *</span><input name="ReceiptCode" maxlength="40" required /></label>
+                                                        <label class="production-field"><span>Kho thành phẩm *</span><select name="WarehouseId" asp-items="Model.WarehouseOptions" required><option value="">Chọn kho</option></select></label>
+                                                        <label class="production-field"><span>Số lượng đạt *</span><input name="Quantity" type="number" min="1" value="@(order.CompletedQuantity > 0 ? order.CompletedQuantity : order.PlannedQuantity)" required /></label>
+                                                        <label class="production-field"><span>Khối lượng tổng (g) *</span><input name="GrossWeight" type="number" min="0.0001" step="0.0001" value="@(order.ActualOutputWeight > 0 ? order.ActualOutputWeight : order.PlannedOutputWeight)" required /></label>
+                                                        <label class="production-field"><span>Khối lượng tinh (g) *</span><input name="FineWeight" type="number" min="0.0001" step="0.0001" required /></label>
+                                                        <label class="production-field"><span>Giá vốn đơn vị (₫) *</span><input name="UnitCost" type="number" min="0" step="1" value="@(order.CompletedQuantity > 0 ? order.TotalCost / order.CompletedQuantity : order.TotalCost)" required /></label>
+                                                        <label class="production-field production-field--span-all"><span>Ghi chú</span><textarea name="Note" maxlength="1000"></textarea></label>
+                                                        <div class="production-form-actions"><button type="submit" class="production-button production-button--approve">Duyệt nhập thành phẩm</button></div>
+                                                    </form>
+                                                </div>
+                                            </details>
+                                        }
+                                        @if (Model.CanOperate || Model.CanApprove)
+                                        {
+                                            <details class="production-command">
+                                                <summary>Trạng thái</summary>
+                                                <div class="production-command__body">
+                                                    <div class="production-command__heading"><div><h3>Chuyển trạng thái lệnh</h3><p>Không thể bỏ qua điều kiện vật tư, KCS hoặc dấu vết bắt buộc.</p></div><button type="button" class="production-button" data-close-command>Đóng</button></div>
+                                                    <form asp-controller="Production" asp-action="ChangeWorkOrderStatus" method="post" class="production-form-grid" data-confirm-form="Xác nhận chuyển trạng thái lệnh @order.WorkOrderCode?">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductionWorkOrderId" value="@order.Id" />
+                                                        <input type="hidden" name="RowVersion" value="@rowVersion" />
+                                                        <input type="hidden" name="activeTab" value="work-orders" />
+                                                        <label class="production-field production-field--span-2"><span>Trạng thái đích *</span><select name="TargetStatus" asp-items="Model.WorkOrderStatusOptions" required><option value="">Chọn trạng thái</option></select></label>
+                                                        <label class="production-field production-field--span-all"><span>Lý do / căn cứ *</span><textarea name="Reason" maxlength="1000" required></textarea></label>
+                                                        <div class="production-form-actions"><button type="submit" class="production-button production-button--danger">Xác nhận chuyển trạng thái</button></div>
+                                                    </form>
+                                                </div>
+                                            </details>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </article>
+    </section>
+
+    <section class="production-panel" data-production-panel="boms" role="tabpanel" hidden>
+        <article class="production-section">
+            <div class="production-section__header"><div><p class="production-section__eyebrow">Định mức vật tư</p><h2>BOM và tuyến công đoạn</h2><p>Chỉ BOM đang hiệu lực mới được chọn để lập lệnh.</p></div></div>
+            @if (Model.CanOperate)
+            {
+                <details class="production-command" open><summary class="production-button production-button--primary">Tạo BOM</summary><div class="production-command__body">
+                    <form asp-controller="Production" asp-action="CreateBom" method="post" class="production-form-grid">
+                        <input type="hidden" name="BranchId" value="@Model.BranchId" />
+                        <label class="production-field"><span>Mã BOM *</span><input name="BomCode" maxlength="40" required /></label><label class="production-field"><span>Phiên bản *</span><input name="Version" value="1.0" maxlength="30" required /></label>
+                        <label class="production-field production-field--span-2"><span>Sản phẩm *</span><select name="ProductId" asp-items="Model.ProductOptions" required><option value="">Chọn sản phẩm</option></select></label>
+                        <label class="production-field"><span>Số lượng chuẩn *</span><input name="StandardOutputQuantity" type="number" min="1" value="1" required /></label><label class="production-field"><span>Khối lượng chuẩn (g) *</span><input name="StandardOutputWeight" type="number" min="0.0001" step="0.0001" required /></label>
+                        <label class="production-field"><span>Hao hụt dự kiến (%)</span><input name="ExpectedLossRate" type="number" min="0" step="0.0001" value="0" /></label><label class="production-field"><span>Chi phí vật tư</span><input name="EstimatedMaterialCost" type="number" min="0" step="1" value="0" /></label>
+                        <fieldset class="production-fieldset production-field--span-all"><legend>Vật tư</legend><div id="bomItems"><div class="bom-item-row production-form-grid"><input type="hidden" name="Items[0].SequenceNumber" value="1" /><label class="production-field"><span>Loại vật liệu *</span><select name="Items[0].MaterialType" asp-items="Model.MaterialOptions" required><option value="">Chọn vật liệu</option></select></label><label class="production-field"><span>Hàm lượng *</span><input name="Items[0].RequiredPurityRate" type="number" min="0.000001" max="1" step="0.000001" required /></label><label class="production-field"><span>Khối lượng (g) *</span><input name="Items[0].RequiredWeight" type="number" min="0.0001" step="0.0001" required /></label><label class="production-field"><span>Hao hụt cho phép (%)</span><input name="Items[0].WasteAllowanceRate" type="number" min="0" max="100" step="0.0001" value="0" /></label><label class="production-field"><span>Giá vốn đơn vị</span><input name="Items[0].EstimatedUnitCost" type="number" min="0" step="1" value="0" /></label><label class="production-field"><span><input name="Items[0].IsRecoverable" type="checkbox" value="true" checked /> Có thể thu hồi</span></label><button type="button" class="production-button" data-remove-bom-row>Xóa dòng</button></div></div><button type="button" class="production-button" data-add-bom-item>+ Thêm vật tư</button></fieldset>
+                        <fieldset class="production-fieldset production-field--span-all"><legend>Công đoạn</legend><div id="bomOperations"><div class="bom-operation-row production-form-grid"><input type="hidden" name="Operations[0].SequenceNumber" value="1" /><label class="production-field"><span>Mã công đoạn *</span><input name="Operations[0].OperationCode" value="FORM" maxlength="50" required /></label><label class="production-field production-field--span-2"><span>Tên công đoạn *</span><input name="Operations[0].OperationName" maxlength="150" required /></label><label class="production-field"><span>Trung tâm làm việc</span><input name="Operations[0].WorkCenter" maxlength="150" /></label><label class="production-field"><span>Thời gian chuẩn (phút)</span><input name="Operations[0].StandardMinutes" type="number" min="1" value="1" required /></label><label class="production-field"><span>Hao hụt dự kiến (%)</span><input name="Operations[0].ExpectedLossRate" type="number" min="0" max="100" step="0.0001" value="0" /></label><label class="production-field"><span>Chi phí nhân công</span><input name="Operations[0].EstimatedLaborCost" type="number" min="0" step="1" value="0" /></label><label class="production-field"><span><input name="Operations[0].RequiresQualityCheck" type="checkbox" value="true" checked /> Bắt buộc QC</span></label><button type="button" class="production-button" data-remove-bom-row>Xóa dòng</button></div></div><button type="button" class="production-button" data-add-bom-operation>+ Thêm công đoạn</button></fieldset>
+                        <button type="submit" class="production-button production-button--primary">Lưu BOM nháp</button>
+                    </form>
+                </div></details>
+            }
+            <div class="production-table-wrap"><table class="production-table"><thead><tr><th>BOM</th><th>Sản phẩm</th><th>Phiên bản</th><th>Trạng thái</th><th>Vật tư/công đoạn</th><th>Thao tác</th></tr></thead><tbody>@foreach (var bom in Model.Boms) { <tr><td><strong>@bom.BomCode</strong></td><td>@bom.Product?.Name</td><td>@bom.Version</td><td><span class="production-status production-status--@StatusClass(bom.Status)">@StatusText(bom.Status)</span></td><td>@bom.Items.Count / @bom.Operations.Count</td><td>@if (Model.CanApprove && bom.Status == "Draft") { <form asp-controller="Production" asp-action="ActivateBom" method="post" class="production-inline-form"><input type="hidden" name="id" value="@bom.Id" /><input type="hidden" name="ProductionBomId" value="@bom.Id" /><input type="hidden" name="EffectiveFrom" value="@DateTime.Today.ToString("yyyy-MM-dd")" /><input name="ApprovalNote" placeholder="Căn cứ duyệt" required /><button class="production-button production-button--approve" type="submit">Duyệt</button></form> }</td></tr> }</tbody></table></div>
+        </article>
+    </section>
+
+    <section class="production-panel" data-production-panel="governance" role="tabpanel" hidden>
+        <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Quản trị xưởng</p><h2>Xưởng và chính sách hao hụt</h2></div></div>@if (Model.CanApprove) { <details class="production-command" open><summary class="production-button production-button--primary">Khai báo xưởng / chính sách</summary><div class="production-command__body"><div class="production-split"><form asp-controller="Production" asp-action="CreateWorkshop" method="post" class="production-form-grid"><input type="hidden" name="BranchId" value="@Model.BranchId" /><label class="production-field"><span>Mã xưởng *</span><input name="Code" maxlength="30" required /></label><label class="production-field"><span>Tên xưởng *</span><input name="Name" maxlength="150" required /></label><label class="production-field"><span>Số giấy phép</span><input name="LicenseNumber" maxlength="100" /></label><label class="production-field"><span>Địa chỉ</span><input name="Address" maxlength="300" /></label><label class="production-field"><span><input name="IsProductionAuthorized" type="checkbox" value="true" /> Đã xác minh được phép sản xuất</span></label><button type="submit" class="production-button production-button--primary">Lưu xưởng</button></form><form asp-controller="Production" asp-action="CreateLossPolicy" method="post" class="production-form-grid"><input type="hidden" name="BranchId" value="@Model.BranchId" /><label class="production-field"><span>Mã chính sách *</span><input name="PolicyCode" maxlength="40" required /></label><label class="production-field"><span>Vật liệu *</span><select name="MaterialType" asp-items="Model.MaterialOptions" required><option value="">Chọn vật liệu</option></select></label><label class="production-field"><span>Ngưỡng hao hụt (%) *</span><input name="MaximumLossRate" type="number" min="0" max="100" step="0.0001" required /></label><label class="production-field"><span>Hàm lượng tối thiểu</span><input name="MinimumPurityRate" type="number" min="0.000001" max="1" step="0.000001" value="0.000001" required /></label><label class="production-field"><span>Hàm lượng tối đa</span><input name="MaximumPurityRate" type="number" min="0.000001" max="1" step="0.000001" value="1" required /></label><label class="production-field"><span>Mã công đoạn</span><input name="OperationCode" maxlength="50" /></label><label class="production-field"><span>Phiên bản *</span><input name="Version" value="1.0" maxlength="30" required /></label><button type="submit" class="production-button production-button--primary">Lưu chính sách</button></form></div></div></details> }<div class="production-split"><div><h3>Xưởng chế tác</h3><div class="production-table-wrap"><table class="production-table"><thead><tr><th>Mã</th><th>Tên</th><th>Giấy phép</th><th>Trạng thái / thao tác</th></tr></thead><tbody>@foreach (var workshop in Model.Workshops) { <tr><td>@workshop.Code</td><td>@workshop.Name</td><td>@(workshop.IsProductionAuthorized ? workshop.LicenseNumber : "Chưa xác minh")</td><td>@StatusText(workshop.IsActive ? "Active" : "Inactive") @if (Model.CanApprove) { <details><summary>Chỉnh sửa</summary><form asp-controller="Production" asp-action="UpdateWorkshop" method="post" class="production-inline-form"><input type="hidden" name="id" value="@workshop.Id" /><input type="hidden" name="BranchId" value="@workshop.BranchId" /><input name="Code" value="@workshop.Code" maxlength="30" required /><input name="Name" value="@workshop.Name" maxlength="150" required /><input name="Address" value="@workshop.Address" maxlength="300" placeholder="Địa chỉ" /><input name="LicenseNumber" value="@workshop.LicenseNumber" maxlength="100" placeholder="Số giấy phép" /><input name="IsProductionAuthorized" type="checkbox" value="true" @(workshop.IsProductionAuthorized ? "checked" : "") /> Được phép SX <button class="production-button" type="submit">Lưu</button></form><form asp-controller="Production" asp-action="SetWorkshopActive" method="post" class="production-inline-form"><input type="hidden" name="id" value="@workshop.Id" /><input type="hidden" name="isActive" value="@(workshop.IsActive ? "false" : "true")" /><button class="production-button production-button--@(workshop.IsActive ? "danger" : "approve")" type="submit">@(workshop.IsActive ? "Ngừng hoạt động" : "Kích hoạt")</button></form></details> }</td></tr> }</tbody></table></div></div><div><h3>Chính sách hao hụt</h3><div class="production-table-wrap"><table class="production-table"><thead><tr><th>Mã/phiên bản</th><th>Vật liệu</th><th>Ngưỡng (%)</th><th>Trạng thái / thao tác</th></tr></thead><tbody>@foreach (var policy in Model.LossPolicies) { <tr><td>@policy.PolicyCode / @policy.Version</td><td>@policy.MaterialType</td><td>@policy.MaximumLossRate.ToString("N4")</td><td>@StatusText(policy.Status) @if (Model.CanApprove && policy.Status != ProductionLossPolicy.StatusActive) { <details><summary>Chỉnh sửa / kích hoạt</summary><form asp-controller="Production" asp-action="UpdateLossPolicy" method="post" class="production-inline-form"><input type="hidden" name="id" value="@policy.Id" /><input type="hidden" name="BranchId" value="@policy.BranchId" /><input name="PolicyCode" value="@policy.PolicyCode" maxlength="40" required /><input name="MaterialType" value="@policy.MaterialType" maxlength="50" required /><input name="MinimumPurityRate" value="@policy.MinimumPurityRate" type="number" min="0.000001" max="1" step="0.000001" required /><input name="MaximumPurityRate" value="@policy.MaximumPurityRate" type="number" min="0.000001" max="1" step="0.000001" required /><input name="OperationCode" value="@policy.OperationCode" maxlength="50" /><input name="MaximumLossRate" value="@policy.MaximumLossRate" type="number" min="0" max="100" step="0.0001" required /><input name="ApprovalWeightLimit" value="@policy.ApprovalWeightLimit" type="number" min="0" step="0.0001" required /><input name="ApprovalAmountLimit" value="@policy.ApprovalAmountLimit" type="number" min="0" step="1" required /><input name="Version" value="@policy.Version" maxlength="30" required /><input name="EffectiveFrom" value="@policy.EffectiveFrom.ToString("yyyy-MM-dd")" type="date" required /><button class="production-button" type="submit">Lưu phiên bản</button></form><form asp-controller="Production" asp-action="ActivateLossPolicy" method="post" class="production-inline-form"><input type="hidden" name="id" value="@policy.Id" /><button class="production-button production-button--approve" type="submit">Kích hoạt</button></form></details> }</td></tr> }</tbody></table></div></div></div></article>
+    </section>
+
+    <section class="production-panel" data-production-panel="materials" role="tabpanel" hidden>
+        <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Truy xuất nguyên liệu</p><h2>Lô nguyên liệu và kiểm định</h2></div></div>@if (Model.CanOperate) { <details class="production-command" open><summary class="production-button production-button--primary">Khai báo lô nguyên liệu</summary><div class="production-command__body"><form asp-controller="Production" asp-action="CreateRawMaterialLot" method="post" class="production-form-grid"><input type="hidden" name="BranchId" value="@Model.BranchId" /><label class="production-field"><span>Mã lô *</span><input name="LotCode" maxlength="40" required /></label><label class="production-field"><span>Kho *</span><select name="WarehouseId" asp-items="Model.WarehouseOptions" required><option value="">Chọn kho</option></select></label><label class="production-field"><span>Mã tồn kho *</span><select name="InventoryItemId" asp-items="Model.InventoryItemOptions" required><option value="">Chọn tồn</option></select></label><label class="production-field"><span>Vật liệu *</span><select name="MaterialType" asp-items="Model.MaterialOptions" required><option value="">Chọn vật liệu</option></select></label><label class="production-field"><span>Hàm lượng *</span><input name="PurityRate" type="number" min="0.000001" max="1" step="0.000001" required /></label><label class="production-field"><span>Khối lượng tổng (g) *</span><input name="GrossWeight" type="number" min="0.0001" step="0.0001" required /></label><label class="production-field"><span>Giá vốn đơn vị</span><input name="UnitCost" type="number" min="0" step="1" value="0" /></label><button type="submit" class="production-button production-button--primary">Lưu lô cách ly</button></form></div></details> }<div class="production-table-wrap"><table class="production-table"><thead><tr><th>Lô</th><th>Vật liệu</th><th>Trọng lượng khả dụng</th><th>Chất lượng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>@foreach (var lot in Model.RawMaterialLots) { <tr><td>@lot.LotCode</td><td>@lot.MaterialType</td><td>@lot.AvailableWeight.ToString("N4") g</td><td>@StatusText(lot.QualityStatus)</td><td>@StatusText(lot.Status)</td><td>@if (Model.CanApprove && lot.Status is "Draft" or "Quarantined") { <form asp-controller="Production" asp-action="ReleaseRawMaterialLot" method="post" class="production-inline-form"><input type="hidden" name="id" value="@lot.Id" /><input type="hidden" name="RawMaterialLotId" value="@lot.Id" /><input name="MeasuredPurityRate" type="number" min="0.000001" max="1" step="0.000001" value="@lot.PurityRate" required /><input name="QualityNote" placeholder="Kết luận QC" required /><button class="production-button production-button--approve" type="submit">Duyệt cấp phát</button></form> }</td></tr> }</tbody></table></div></article>
+    </section>
+
+    <section class="production-panel" data-production-panel="customer-jobs" role="tabpanel" hidden>
+        <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Tài sản khách hàng</p><h2>Đơn gia công khách</h2><p>Vật liệu khách được lưu riêng, không nhập vào tồn công ty.</p></div></div>@if (Model.CanManageCustomerJobs) { <details class="production-command" open><summary class="production-button production-button--primary">Tiếp nhận đơn gia công khách</summary><div class="production-command__body"><form asp-controller="Production" asp-action="CreateCustomerJob" method="post" class="production-form-grid"><input type="hidden" name="BranchId" value="@Model.BranchId" /><label class="production-field"><span>Mã đơn *</span><input name="JobOrderCode" maxlength="40" required /></label><label class="production-field"><span>Xưởng *</span><select name="WorkshopId" asp-items="Model.WorkshopOptions" required><option value="">Chọn xưởng</option></select></label><label class="production-field"><span>Tên khách *</span><input name="CustomerName" maxlength="150" required /></label><label class="production-field"><span>Số điện thoại *</span><input name="CustomerPhone" maxlength="20" required /></label><label class="production-field"><span>Loại dịch vụ *</span><select name="JobType" required><option value="NewCraft">Chế tác mới</option><option value="Remodel">Chế tác lại</option><option value="Repair">Sửa chữa</option></select></label><label class="production-field"><span>Vật liệu *</span><select name="MaterialType" asp-items="Model.MaterialOptions" required><option value="">Chọn vật liệu</option></select></label><label class="production-field"><span>Khối lượng tổng (g) *</span><input name="InputGrossWeight" type="number" min="0.0001" step="0.0001" required /></label><label class="production-field"><span>Khối lượng tinh (g) *</span><input name="InputFineWeight" type="number" min="0.0001" step="0.0001" required /></label><label class="production-field"><span>Hàm lượng *</span><input name="InputPurityRate" type="number" min="0.000001" max="1" step="0.000001" required /></label><label class="production-field"><span>Hạn bàn giao *</span><input name="PromisedAt" type="datetime-local" required /></label><label class="production-field production-field--span-all"><span>Hiện trạng vật liệu *</span><textarea name="MaterialCondition" maxlength="1000" required></textarea></label><label class="production-field production-field--span-all"><span>Mô tả thiết kế/công việc *</span><textarea name="DesignDescription" maxlength="2000" required></textarea></label><label class="production-field"><span>Ảnh tiếp nhận *</span><input name="IntakeImageUrl" type="url" maxlength="1000" required /></label><label class="production-field"><span>Vị trí lưu tài sản khách *</span><input name="CustomerOwnedStorageLocation" maxlength="200" required /></label><label class="production-field"><span>Tiền công dự kiến</span><input name="QuotedLaborCost" type="number" min="0" step="1" value="0" /></label><label class="production-field"><span>Tổng báo giá</span><input name="QuotedTotalAmount" type="number" min="0" step="1" value="0" /></label><button type="submit" class="production-button production-button--primary">Lưu đơn tiếp nhận</button></form></div></details> }<div class="production-table-wrap"><table class="production-table"><thead><tr><th>Mã đơn</th><th>Khách hàng</th><th>Dịch vụ</th><th>Đầu vào</th><th>Hạn bàn giao</th><th>Trạng thái / thao tác</th></tr></thead><tbody>@foreach (var job in Model.CustomerJobOrders) { <tr><td>@job.JobOrderCode</td><td>@job.CustomerName<br /><small>@job.CustomerPhone</small></td><td>@JobTypeText(job.JobType)</td><td>@job.InputGrossWeight.ToString("N4") g · @job.InputPurityRate.ToString("P2")</td><td>@job.PromisedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td><span class="production-status production-status--@StatusClass(job.Status)">@StatusText(job.Status)</span>@if (Model.CanManageCustomerJobs && (job.Status == CustomerJobOrder.StatusInProduction || job.Status == CustomerJobOrder.StatusRework)) { <form asp-controller="Production" asp-action="RecordCustomerJobQuality" method="post" class="production-inline-form"><input type="hidden" name="CustomerJobOrderId" value="@job.Id" /><input name="InspectionCode" placeholder="Mã QC" required /><input name="OutputGrossWeight" type="number" min="0.0001" step="0.0001" placeholder="Gross" required /><input name="OutputFineWeight" type="number" min="0.0001" step="0.0001" placeholder="Fine" required /><input name="OutputPurityRate" type="number" min="0.000001" max="1" step="0.000001" placeholder="Hàm lượng" required /><select name="AppearanceResult"><option value="Pass">Ngoại quan đạt</option><option value="Reject">Ngoại quan không đạt</option></select><select name="Result"><option value="Pass">Đạt</option><option value="Rework">Làm lại</option><option value="Reject">Không đạt</option></select><input name="EvidenceUrl" type="url" placeholder="Ảnh QC" /><button class="production-button production-button--approve" type="submit">Ghi QC</button></form> } @if (Model.CanManageCustomerJobs && job.Status == CustomerJobOrder.StatusReadyForHandover) { <form asp-controller="Production" asp-action="CompleteCustomerJobHandover" method="post" class="production-inline-form"><input type="hidden" name="CustomerJobOrderId" value="@job.Id" /><input name="ReceiverName" placeholder="Người nhận" required /><input name="EvidenceUrl" type="url" placeholder="Ảnh bàn giao" required /><input name="FinalAmount" type="number" min="0" step="1" value="@job.QuotedTotalAmount" required /><button class="production-button production-button--primary" type="submit">Bàn giao</button></form> }</td></tr> }</tbody></table></div></article>
+    </section>
+
+    <section class="production-panel" data-production-panel="customer-custody" role="tabpanel" hidden>
+        <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Sổ tài sản tách biệt</p><h2>Custody vật liệu khách</h2><p>Không sử dụng mã tồn kho công ty; mỗi đơn có một sổ cân đối riêng.</p></div></div><div class="production-table-wrap"><table class="production-table"><thead><tr><th>Đơn khách</th><th>Đầu vào</th><th>Đã xuất xưởng</th><th>Đầu ra</th><th>Đã trả</th><th>Vị trí / trạng thái</th></tr></thead><tbody>@foreach (var custody in Model.CustomerMaterialCustodyRecords) { <tr><td>@custody.CustomerJobOrder?.JobOrderCode<br /><small>@custody.CustomerJobOrder?.CustomerName</small></td><td>@custody.InputGrossWeight.ToString("N4") g · @custody.InputPurityRate.ToString("P2")</td><td>@custody.IssuedGrossWeight.ToString("N4") g</td><td>@custody.OutputGrossWeight.ToString("N4") g · @custody.OutputPurityRate.ToString("P2")</td><td>@custody.ReturnedGrossWeight.ToString("N4") g</td><td>@custody.StorageLocation<br /><span class="production-status production-status--@StatusClass(custody.Status)">@StatusText(custody.Status)</span></td></tr> }</tbody></table></div></article>
+    </section>
+
+    @if (Model.CanManageCustomerJobs)
+    {
+        <section class="production-panel" data-production-panel="customer-issue" role="tabpanel" hidden>
+            <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Giao nhận tài sản</p><h2>Giao vật liệu khách vào xưởng</h2></div></div><form asp-controller="Production" asp-action="RecordCustomerMaterialIssue" method="post" class="production-form-grid"><label class="production-field"><span>Đơn khách *</span><select name="CustomerJobOrderId" required><option value="">Chọn đơn đang tiếp nhận</option>@foreach (var job in Model.CustomerJobOrders.Where(item => item.Status == CustomerJobOrder.StatusReceived)) { <option value="@job.Id">@job.JobOrderCode · @job.CustomerName</option> }</select></label><label class="production-field"><span>Khối lượng tổng (g) *</span><input name="IssuedGrossWeight" type="number" min="0.0001" step="0.0001" required /></label><label class="production-field"><span>Khối lượng tinh (g) *</span><input name="IssuedFineWeight" type="number" min="0.0001" step="0.0001" required /></label><label class="production-field"><span>Hàm lượng *</span><input name="IssuedPurityRate" type="number" min="0.000001" max="1" step="0.000001" required /></label><label class="production-field"><span>Vị trí lưu *</span><input name="StorageLocation" maxlength="200" required /></label><label class="production-field"><span>Ảnh giao nhận *</span><input name="EvidenceUrl" type="url" maxlength="1000" required /></label><button type="submit" class="production-button production-button--primary">Xác nhận giao vào xưởng</button></form></article>
+        </section>
+    }
+
+    @if (Model.CanApprove)
+    {
+        <section class="production-panel" data-production-panel="reservation-release" role="tabpanel" hidden>
+            <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Điều chỉnh vật tư giữ</p><h2>Giải phóng vật tư chưa xuất</h2></div></div><form asp-controller="Production" asp-action="ReleaseReservedMaterial" method="post" class="production-form-grid"><label class="production-field"><span>Phiếu giữ *</span><select name="ProductionMaterialReservationId" required><option value="">Chọn phiếu</option>@foreach (var order in Model.WorkOrders) { foreach (var reservation in order.MaterialReservations?.Where(item => item.ReservedWeight > item.IssuedWeight) ?? Enumerable.Empty<ProductionMaterialReservation>()) { <option value="@reservation.Id">@order.WorkOrderCode · lô @(reservation.RawMaterialLot?.LotCode ?? reservation.RawMaterialLotId.ToString()) · @((reservation.ReservedWeight - reservation.IssuedWeight).ToString("N4")) g</option> } }</select></label><label class="production-field production-field--span-2"><span>Lý do *</span><textarea name="Reason" maxlength="1000" required></textarea></label><button type="submit" class="production-button production-button--primary">Giải phóng về kho</button></form></article>
+        </section>
+    }
+
+    <section class="production-panel" data-production-panel="trace" role="tabpanel" hidden>
+        <article class="production-section"><div class="production-section__header"><div><p class="production-section__eyebrow">Sổ theo dõi</p><h2>Tái chế và lịch sử trạng thái</h2></div></div>@if (Model.CanOperate) { <details class="production-command" open><summary class="production-button production-button--primary">Tạo mẻ tái chế từ hao hụt đã duyệt</summary><div class="production-command__body"><form asp-controller="Production" asp-action="CreateRecycleBatch" method="post" class="production-form-grid"><input type="hidden" name="BranchId" value="@Model.BranchId" /><label class="production-field"><span>Mã mẻ *</span><input name="BatchCode" maxlength="40" required /></label><label class="production-field"><span>Xưởng *</span><select name="WorkshopId" asp-items="Model.WorkshopOptions" required><option value="">Chọn xưởng</option></select></label><label class="production-field"><span>Vật liệu *</span><select name="MaterialType" asp-items="Model.MaterialOptions" required><option value="">Chọn vật liệu</option></select></label><label class="production-field"><span>Khối lượng vào (g) *</span><input name="InputGrossWeight" type="number" min="0.0001" step="0.0001" required /></label><label class="production-field"><span>Khối lượng tinh vào (g)</span><input name="InputFineWeight" type="number" min="0" step="0.0001" value="0" /></label><fieldset class="production-fieldset production-field--span-all"><legend>Hao hụt đã duyệt</legend>@foreach (var loss in Model.LossRecords.Where(item => item.Status == ProductionLossRecord.StatusApproved && item.ProductionRecycleBatchId == null)) { <label><input type="checkbox" name="ProductionLossRecordIds" value="@loss.Id" /> @loss.ProductionWorkOrder?.WorkOrderCode · @loss.LossWeight.ToString("N4") g</label> }</fieldset><button type="submit" class="production-button production-button--primary">Lưu mẻ thu gom</button></form></div></details> }<div class="production-split"><div><h3>Mẻ tái chế</h3><div class="production-table-wrap"><table class="production-table"><thead><tr><th>Mã mẻ</th><th>Vào</th><th>Ra</th><th>Trạng thái / thao tác</th></tr></thead><tbody>@foreach (var batch in Model.RecycleBatches) { <tr><td>@batch.BatchCode</td><td>@batch.InputGrossWeight.ToString("N4") g</td><td>@batch.OutputGrossWeight.ToString("N4") g</td><td>@StatusText(batch.Status) @if (Model.CanOperate && (batch.Status == ProductionRecycleBatch.StatusCollected || batch.Status == ProductionRecycleBatch.StatusInRefining)) { <form asp-controller="Production" asp-action="CompleteRecycleBatch" method="post" class="production-inline-form"><input type="hidden" name="id" value="@batch.Id" /><input name="InspectionCode" placeholder="Mã QC" required /><input name="OutputGrossWeight" type="number" min="0.0001" step="0.0001" placeholder="Gross ra" required /><input name="OutputFineWeight" type="number" min="0.0001" step="0.0001" placeholder="Fine ra" required /><input name="OutputPurityRate" type="number" min="0.000001" max="1" step="0.000001" placeholder="Hàm lượng" required /><input name="OutputLotCode" placeholder="Mã lô ra" required /><select name="OutputWarehouseId" asp-items="Model.WarehouseOptions" required><option value="">Kho ra</option></select><select name="OutputInventoryItemId" asp-items="Model.InventoryItemOptions" required><option value="">Tồn ra</option></select><input name="OutputUnitCost" type="number" min="0" step="1" value="0" /><input name="EvidenceUrl" type="url" placeholder="Ảnh QC" /><button class="production-button production-button--approve" type="submit">Hoàn tất tái chế</button></form> }</td></tr> }</tbody></table></div></div><div><h3>Nhật ký trạng thái gần đây</h3><div class="production-trace">@foreach (var history in Model.RecentStatusHistories) { <div class="production-trace__item"><time>@history.ChangedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time><p><strong>@history.FromStatus → @history.ToStatus</strong><br />@history.Reason</p></div> }</div></div></div></article>
+    </section>
+</div>
+
+<script>
+(() => {
+    const workspace = document.getElementById("productionWorkspace");
+    if (!workspace) return;
+    const tabs = [...workspace.querySelectorAll("[data-production-tab]")];
+    const panels = [...workspace.querySelectorAll("[data-production-panel]")];
+    const activate = name => {
+        tabs.forEach(tab => { const active = tab.dataset.productionTab === name; tab.classList.toggle("is-active", active); tab.setAttribute("aria-selected", active ? "true" : "false"); });
+        panels.forEach(panel => { panel.hidden = panel.dataset.productionPanel !== name; });
+    };
+    activate(workspace.dataset.activeTab || "work-orders");
+    tabs.forEach(tab => tab.addEventListener("click", () => activate(tab.dataset.productionTab)));
+    const renumber = (container, prefix) => [...container.children].forEach((row, index) => {
+        row.querySelectorAll("[name]").forEach(input => { input.name = input.name.replace(new RegExp(`${prefix}\\[\\d+\\]`), `${prefix}[${index}]`); });
+        const sequence = row.querySelector(`[name^="${prefix}["][name$="].SequenceNumber"]`);
+        if (sequence) sequence.value = index + 1;
+    });
+    const addRow = (containerId, prefix, addSelector) => {
+        const container = document.getElementById(containerId);
+        const addButton = workspace.querySelector(addSelector);
+        if (!container || !addButton) return;
+        addButton.addEventListener("click", () => {
+            const row = container.firstElementChild.cloneNode(true);
+            row.querySelectorAll("input:not([type='hidden'])").forEach(input => { if (input.type === "checkbox") input.checked = true; else input.value = ""; });
+            container.appendChild(row);
+            renumber(container, prefix);
+        });
+        container.addEventListener("click", event => { if (!event.target.matches("[data-remove-bom-row]")) return; if (container.children.length > 1) { event.target.closest(".bom-item-row, .bom-operation-row").remove(); renumber(container, prefix); } });
+    };
+    addRow("bomItems", "Items", "[data-add-bom-item]");
+    addRow("bomOperations", "Operations", "[data-add-bom-operation]");
+})();
+</script>

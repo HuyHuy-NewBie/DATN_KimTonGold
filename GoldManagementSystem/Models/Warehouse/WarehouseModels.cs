@@ -54,6 +54,8 @@ namespace GoldManagementSystem.Models
         public const string StatusAvailable = "Sẵn sàng";
         public const string StatusReserved = "Đang giữ";
         public const string StatusQuarantined = "Cách ly";
+        public const string StatusWorkInProgress = "Đang sản xuất";
+        public const string StatusDepleted = "Đã dùng hết";
         public const string StatusOutOfStock = "Hết tồn";
 
         [Key]
@@ -66,6 +68,12 @@ namespace GoldManagementSystem.Models
         public int WarehouseId { get; set; }
 
         public virtual Warehouse Warehouse { get; set; }
+
+        // Explicit product mapping is required for POS reservations and customer issues.
+        // Legacy stock can remain unmapped until it is reconciled by the warehouse team.
+        public int? ProductId { get; set; }
+
+        public virtual Product Product { get; set; }
 
         // Nhà cung cấp của lô hàng
         public int? SupplierId { get; set; }
@@ -123,6 +131,9 @@ namespace GoldManagementSystem.Models
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
         [NotMapped]
         public decimal InventoryValue
         {
@@ -147,6 +158,11 @@ namespace GoldManagementSystem.Models
         public const string TypeAdjustmentDecrease = "Điều chỉnh giảm";
         public const string TypeTransferIn = "Nhận điều chuyển";
         public const string TypeTransferOut = "Xuất điều chuyển";
+        public const string TypeProductionIssue = "Xuất cấp sản xuất";
+        public const string TypeProductionReceipt = "Nhập thành phẩm sản xuất";
+        public const string TypeProductionReturn = "Hoàn nguyên liệu sản xuất";
+        public const string TypeProductionLoss = "Hao hụt sản xuất";
+        public const string TypeRecycleReceipt = "Nhập nguyên liệu tái chế";
 
         [Key]
         public int Id { get; set; }

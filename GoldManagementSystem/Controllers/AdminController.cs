@@ -3229,6 +3229,13 @@ namespace GoldManagementSystem.Controllers
                     TempData["ErrorMessage"] = "Chỉ đơn hàng chưa thanh toán cọc mới có thể xác nhận đã nhận cọc.";
                     return RedirectToAction(nameof(OrderManagement));
                 }
+
+                if (order.PaymentMethod == Order.PaymentMethodOnlineDeposit
+                    || order.PaymentMethod == Order.PaymentMethodOnlineFull)
+                {
+                    TempData["ErrorMessage"] = "Thanh toán trực tuyến chỉ được ghi nhận từ webhook đã xác thực của cổng thanh toán.";
+                    return RedirectToAction(nameof(OrderManagement));
+                }
             }
 
             if (newStatus == Order.StatusConfirmed && !CanConfirmOrder(actor, order))
@@ -3249,6 +3256,25 @@ namespace GoldManagementSystem.Controllers
             if (newStatus == Order.StatusPendingConfirmation)
             {
                 order.DepositPaidAt = DateTime.UtcNow;
+                if (order.PaymentMethod == Order.PaymentMethodCashDeposit
+                    && !await _context.PaymentAllocations.AnyAsync(item => item.OrderId == order.Id))
+                {
+                    var cashPayment = new Payment
+                    {
+                        PaymentNumber = $"PAY-{order.OrderNumber}-{DateTime.UtcNow:yyyyMMddHHmmss}",
+                        BranchId = order.BranchId,
+                        Channel = PaymentChannelOptions.Cash,
+                        Status = PaymentStatusOptions.Confirmed,
+                        Amount = order.DepositAmount,
+                        TransactionReference = $"CASH-{order.OrderNumber}",
+                        CreatedByUserId = actor.User.Id,
+                        ConfirmedAt = DateTime.UtcNow
+                    };
+                    cashPayment.Allocations.Add(new PaymentAllocation { OrderId = order.Id, Amount = order.DepositAmount });
+                    _context.Payments.Add(cashPayment);
+                    _context.CashFundEntries.Add(new CashFundEntry { Payment = cashPayment, BranchId = order.BranchId, Amount = order.DepositAmount, CreatedByUserId = actor.User.Id });
+                    _context.EInvoices.Add(new EInvoice { OrderId = order.Id, InvoiceNumber = $"INV-{order.OrderNumber}", Status = EInvoiceStatusOptions.Pending, CreatedByUserId = actor.User.Id });
+                }
             }
 
             if (newStatus == Order.StatusConfirmed)
@@ -4030,6 +4056,7 @@ namespace GoldManagementSystem.Controllers
             int BranchId,
             int WarehouseId,
             int DestinationWarehouseId,
+            int? OrderId,
             string ReceiverUserId,
             string ReferenceCode,
             string Note,
@@ -4352,6 +4379,8 @@ namespace GoldManagementSystem.Controllers
 
                     BranchId =
                         actingBranchId.Value,
+
+                    OrderId = OrderId,
 
                     WarehouseId =
                         WarehouseId,

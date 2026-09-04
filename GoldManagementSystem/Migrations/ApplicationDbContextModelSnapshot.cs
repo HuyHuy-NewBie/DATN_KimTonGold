@@ -103,6 +103,52 @@ namespace GoldManagementSystem.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("GoldManagementSystem.Models.BankReconciliation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReconciledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReconciledByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("StatementAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("StatementReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReconciledByUserId");
+
+                    b.HasIndex("PaymentId", "StatementReference")
+                        .IsUnique();
+
+                    b.ToTable("BankReconciliations", (string)null);
+                });
+
             modelBuilder.Entity("GoldManagementSystem.Models.Branch", b =>
                 {
                     b.Property<int>("Id")
@@ -149,7 +195,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Branches");
+                    b.ToTable("Branches", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.BranchWarehouseAccess", b =>
@@ -179,7 +225,279 @@ namespace GoldManagementSystem.Migrations
                     b.HasIndex("BranchId", "WarehouseId")
                         .IsUnique();
 
-                    b.ToTable("BranchWarehouseAccesses");
+                    b.ToTable("BranchWarehouseAccesses", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BusinessLicense", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BusinessLocationId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LicenseType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("ValidFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ValidTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VerifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BusinessLocationId");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("VerifiedByUserId");
+
+                    b.ToTable("BusinessLicenses", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BusinessLocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.ToTable("BusinessLocations", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BuybackAssay", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AssayedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AssayedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BuybackCaseId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("MeasuredFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("MeasuredGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("MeasuredPurityRate")
+                        .HasColumnType("decimal(8,5)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssayedByUserId");
+
+                    b.HasIndex("BuybackCaseId");
+
+                    b.ToTable("BuybackAssays", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BuybackCase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("ApprovedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AssayStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CaseNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("FineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("GrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("IdentityNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ProposedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PurityRate")
+                        .HasColumnType("decimal(8,5)");
+
+                    b.Property<DateTime>("RetainUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CaseNumber")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("OrderDetailId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("BuybackCases", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CashFundEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.ToTable("CashFundEntries", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.ChatSettings", b =>
@@ -226,7 +544,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ChatSettings");
+                    b.ToTable("ChatSettings", (string)null);
 
                     b.HasData(
                         new
@@ -317,7 +635,403 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("CustomerFeedbacks");
+                    b.ToTable("CustomerFeedbacks", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CustomerJobOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AgreedLossRate")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CustomerIdentityReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("CustomerOwnedStorageLocation")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("DepositAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("DesignApprovalReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("DesignApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DesignDescription")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("DesignImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("FinalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HandedOverByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("HandoverAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("HandoverEvidenceUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("HandoverReceiverName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("InputFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("InputGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("InputPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("IntakeImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("JobOrderCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("JobType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("MaterialCondition")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("MaterialType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal>("OutputFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("OutputGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("OutputPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<DateTime>("PromisedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("QualityResult")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("QuotedAdditionalMaterialCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("QuotedLaborCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("QuotedTotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("WorkshopId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("HandedOverByUserId");
+
+                    b.HasIndex("JobOrderCode")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WorkshopId");
+
+                    b.HasIndex("BranchId", "Status", "PromisedAt");
+
+                    b.ToTable("CustomerJobOrders", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CustomerKycProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("IdentityNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("IdentityType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("RetainUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TaxCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VerifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VerifiedByUserId");
+
+                    b.ToTable("CustomerKycProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CustomerMaterialCustodyRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CustomerJobOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("InputFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("InputGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("InputPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("IntakeEvidenceUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("IssuedFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("IssuedGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("IssuedPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("MaterialType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("OutputFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("OutputGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("OutputPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("ReturnEvidenceUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ReturnedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("ReturnedGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("StorageLocation")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CustomerJobOrderId")
+                        .IsUnique();
+
+                    b.HasIndex("ReturnedByUserId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("CustomerMaterialCustodyRecords", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.DeliveryEvidence", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("EvidenceType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("OrderDeliveryId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UploadedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderDeliveryId");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.ToTable("DeliveryEvidences", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.DiamondProductCatalogEntry", b =>
@@ -327,7 +1041,118 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("DiamondProductCatalogEntries");
+                    b.ToTable("DiamondProductCatalogEntries", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.DiscountApproval", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PosQuoteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RequestedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("RequestedRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PosQuoteId");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.ToTable("DiscountApprovals", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.EInvoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProviderReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.ToTable("EInvoices", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.EmployeeManagementNote", b =>
@@ -368,7 +1193,7 @@ namespace GoldManagementSystem.Migrations
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL");
 
-                    b.ToTable("EmployeeManagementNotes");
+                    b.ToTable("EmployeeManagementNotes", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.FavoriteProduct", b =>
@@ -395,7 +1220,135 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("FavoriteProducts");
+                    b.ToTable("FavoriteProducts", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.GoldBarSaleRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BusinessLocationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CustomerKycProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GoldBarSerialId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NhnnFailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("NhnnReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NhnnSubmissionStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriceSnapshotId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RetainUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("SoldAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BusinessLocationId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CustomerKycProfileId");
+
+                    b.HasIndex("GoldBarSerialId")
+                        .IsUnique();
+
+                    b.HasIndex("OrderDetailId")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PriceSnapshotId");
+
+                    b.ToTable("GoldBarSaleRecords", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.GoldBarSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BusinessLocationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CertificateNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("FineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("GrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PurityCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RetainUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SerialNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BusinessLocationId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SerialNumber")
+                        .IsUnique();
+
+                    b.ToTable("GoldBarSerials", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.GoldDiamondProductCatalogEntry", b =>
@@ -405,7 +1358,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("GoldDiamondProductCatalogEntries");
+                    b.ToTable("GoldDiamondProductCatalogEntries", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.GoldProductCatalogEntry", b =>
@@ -415,7 +1368,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("GoldProductCatalogEntries");
+                    b.ToTable("GoldProductCatalogEntries", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.GoldSilverProductCatalogEntry", b =>
@@ -425,7 +1378,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("GoldSilverProductCatalogEntries");
+                    b.ToTable("GoldSilverProductCatalogEntries", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.InventoryIssue", b =>
@@ -469,6 +1422,9 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Reason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -505,13 +1461,15 @@ namespace GoldManagementSystem.Migrations
                     b.HasIndex("IssueCode")
                         .IsUnique();
 
+                    b.HasIndex("OrderId");
+
                     b.HasIndex("ReceiverUserId");
 
                     b.HasIndex("SupplierId");
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("InventoryIssues");
+                    b.ToTable("InventoryIssues", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.InventoryIssueDetail", b =>
@@ -548,7 +1506,7 @@ namespace GoldManagementSystem.Migrations
                     b.HasIndex("InventoryIssueId", "InventoryItemId")
                         .IsUnique();
 
-                    b.ToTable("InventoryIssueDetails");
+                    b.ToTable("InventoryIssueDetails", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.InventoryItem", b =>
@@ -640,7 +1598,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("InventoryItems");
+                    b.ToTable("InventoryItems", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.InventoryStocktake", b =>
@@ -690,7 +1648,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("InventoryStocktakes");
+                    b.ToTable("InventoryStocktakes", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.InventoryStocktakeDetail", b =>
@@ -745,7 +1703,7 @@ namespace GoldManagementSystem.Migrations
                     b.HasIndex("InventoryStocktakeId", "InventoryItemId")
                         .IsUnique();
 
-                    b.ToTable("InventoryStocktakeDetails");
+                    b.ToTable("InventoryStocktakeDetails", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.InventoryTransaction", b =>
@@ -813,7 +1771,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("InventoryTransactions");
+                    b.ToTable("InventoryTransactions", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.ManagementAuditLog", b =>
@@ -876,7 +1834,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("Area", "CreatedAt");
 
-                    b.ToTable("ManagementAuditLogs");
+                    b.ToTable("ManagementAuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.MarketHistory", b =>
@@ -912,7 +1870,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MarketHistories");
+                    b.ToTable("MarketHistories", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Order", b =>
@@ -953,6 +1911,12 @@ namespace GoldManagementSystem.Migrations
                     b.Property<decimal>("DepositRate")
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("NetAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("datetime2");
 
@@ -962,6 +1926,9 @@ namespace GoldManagementSystem.Migrations
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("PosQuoteId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
@@ -978,9 +1945,68 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("BranchId");
 
+                    b.HasIndex("PosQuoteId");
+
                     b.HasIndex("UserId");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.OrderDelivery", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Carrier")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RecipientPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("ShippedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.ToTable("OrderDeliveries", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.OrderDetail", b =>
@@ -991,8 +2017,17 @@ namespace GoldManagementSystem.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("OrderId")
                         .HasColumnType("int");
+
+                    b.Property<int?>("PriceSnapshotId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ProcessingFee")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
@@ -1007,9 +2042,425 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("OrderId");
 
+                    b.HasIndex("PriceSnapshotId");
+
                     b.HasIndex("ProductId");
 
-                    b.ToTable("OrderDetails");
+                    b.ToTable("OrderDetails", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PaymentNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Provider")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TransactionReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("TransactionReference")
+                        .IsUnique();
+
+                    b.ToTable("Payments", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PaymentAllocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AllocatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.ToTable("PaymentAllocations", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PosQuote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("QuoteNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.ToTable("PosQuotes", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PosQuoteLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MaxDiscountRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("PosQuoteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriceBookId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PriceSnapshotId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriceVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ProcessingFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriceSnapshotId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PosQuoteId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("PosQuoteLines", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceBook", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SubmittedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("SubmittedByUserId");
+
+                    b.ToTable("PriceBooks", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BuyUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("MaxDiscountRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("PriceVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ProcessingFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SellUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PriceVersionId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("PriceLines", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BuyUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CapturedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CapturedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("MaxDiscountRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriceBookId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriceVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ProcessingFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SellUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CapturedByUserId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("PriceSnapshots", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PriceBookId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PriceBookId");
+
+                    b.ToTable("PriceVersions", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Product", b =>
@@ -1075,6 +2526,11 @@ namespace GoldManagementSystem.Migrations
                     b.Property<bool>("IsPriority")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Material")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1086,10 +2542,26 @@ namespace GoldManagementSystem.Migrations
                     b.Property<decimal>("ProcessingFee")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("ProductForm")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("ProductLegalClass")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("ProductLine")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("PurityDefinitionId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PurityRate")
+                        .HasColumnType("decimal(9,6)");
 
                     b.Property<decimal>("SellPrice")
                         .HasColumnType("decimal(18,2)");
@@ -1098,6 +2570,11 @@ namespace GoldManagementSystem.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("UnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<decimal>("Weight")
                         .HasColumnType("decimal(18,2)");
 
@@ -1105,7 +2582,1782 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("BranchId");
 
-                    b.ToTable("Products");
+                    b.HasIndex("PurityDefinitionId");
+
+                    b.ToTable("Products", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductSpecVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("FineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("GrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Material")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ProductForm")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductLegalClass")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("PurityDefinitionId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("UnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PurityDefinitionId");
+
+                    b.HasIndex("ProductId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("ProductSpecVersions", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionAuditLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ActorUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("Succeeded")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.ToTable("ProductionAuditLogs", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BomCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("EstimatedLaborCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("EstimatedMaterialCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("EstimatedOverheadCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ExpectedLossRate")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StandardOutputQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("StandardOutputWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("BomCode", "Version")
+                        .IsUnique();
+
+                    b.HasIndex("BranchId", "ProductId", "Status");
+
+                    b.ToTable("ProductionBoms", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBomItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("EstimatedUnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsRecoverable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MaterialType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ProductionBomId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("RequiredPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("RequiredWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("WasteAllowanceRate")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductionBomId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.ToTable("ProductionBomItems", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBomOperation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("EstimatedLaborCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ExpectedLossRate")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<string>("Instruction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("OperationCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("OperationName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("ProductionBomId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiresQualityCheck")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StandardMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("WorkCenter")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductionBomId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.ToTable("ProductionBomOperations", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionLossPolicy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("ApprovalAmountLimit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ApprovalWeightLimit")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MaterialType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("MaximumLossRate")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<decimal>("MaximumPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("MinimumPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("OperationCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PolicyCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PolicyCode")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("BranchId", "Status", "EffectiveFrom");
+
+                    b.ToTable("ProductionLossPolicies", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionLossRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AllowedLossRateSnapshot")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<decimal>("EstimatedLossAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("EvidenceUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsOverTolerance")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("LossRate")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<string>("LossType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("LossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("ProductionLossPolicyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductionOperationLogId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductionRecycleBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionWorkOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("ReportedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReportedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReviewedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductionLossPolicyId");
+
+                    b.HasIndex("ProductionOperationLogId");
+
+                    b.HasIndex("ProductionRecycleBatchId");
+
+                    b.HasIndex("ReportedByUserId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("ProductionWorkOrderId", "Status", "IsOverTolerance");
+
+                    b.ToTable("ProductionLossRecords", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionMaterialReservation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IssuedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("IssuedWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("ProductionIssueTransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionWorkOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RawMaterialLotId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReleasedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("ReservedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReservedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("ReservedWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("ReturnTransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ReturnedWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssuedByUserId");
+
+                    b.HasIndex("ProductionIssueTransactionId");
+
+                    b.HasIndex("RawMaterialLotId");
+
+                    b.HasIndex("ReleasedByUserId");
+
+                    b.HasIndex("ReservedByUserId");
+
+                    b.HasIndex("ReturnTransactionId");
+
+                    b.HasIndex("ProductionWorkOrderId", "RawMaterialLotId")
+                        .IsUnique();
+
+                    b.ToTable("ProductionMaterialReservations", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionOperationLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("EvidenceUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("InputWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("OperationCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("OperationName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("OutputWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("ProductionBomOperationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionWorkOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ScrapWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("WorkerUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ProductionBomOperationId");
+
+                    b.HasIndex("ProductionWorkOrderId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WorkerUserId");
+
+                    b.ToTable("ProductionOperationLogs", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionQualityInspection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AppearanceResult")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("CustomerJobOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EvidenceUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("InspectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InspectedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("InspectionCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("InspectionType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("LabelCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("MeasuredFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("MeasuredGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("MeasuredPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("ProductionOperationLogId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductionRecycleBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductionWorkOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("ReworkOperationCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("CustomerJobOrderId");
+
+                    b.HasIndex("InspectedByUserId");
+
+                    b.HasIndex("InspectionCode")
+                        .IsUnique();
+
+                    b.HasIndex("ProductionOperationLogId");
+
+                    b.HasIndex("ProductionRecycleBatchId");
+
+                    b.HasIndex("ProductionWorkOrderId");
+
+                    b.ToTable("ProductionQualityInspections", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionReceipt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CancelledByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("FineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("GrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("InventoryItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PostedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("ProductionQualityInspectionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionWorkOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReceiptCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("TotalCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CancelledByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("InventoryItemId");
+
+                    b.HasIndex("PostedByUserId");
+
+                    b.HasIndex("ProductionQualityInspectionId")
+                        .IsUnique();
+
+                    b.HasIndex("ProductionWorkOrderId")
+                        .IsUnique();
+
+                    b.HasIndex("ReceiptCode")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("ProductionReceipts", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionRecycleBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CompletedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("InputFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("InputGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("MaterialType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("OutputFineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("OutputGrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("OutputPurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<int?>("OutputRawMaterialLotId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReleasedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StartedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("WorkshopId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchCode")
+                        .IsUnique();
+
+                    b.HasIndex("CompletedByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("OutputRawMaterialLotId");
+
+                    b.HasIndex("ReleasedByUserId");
+
+                    b.HasIndex("StartedByUserId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WorkshopId");
+
+                    b.HasIndex("BranchId", "Status");
+
+                    b.ToTable("ProductionRecycleBatches", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionStatusHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("CustomerJobOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("IsSystemGenerated")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ProductionRecycleBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductionWorkOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("CustomerJobOrderId");
+
+                    b.HasIndex("ProductionRecycleBatchId");
+
+                    b.HasIndex("ProductionWorkOrderId");
+
+                    b.HasIndex("EntityType", "EntityId", "ChangedAt");
+
+                    b.ToTable("ProductionStatusHistories", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionWorkOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ActualEndAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ActualLossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ActualOutputWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ActualStartAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ClosedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CompletedQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CurrentOperationCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("CustomerJobOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FinishedGoodsWarehouseId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HoldReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("IssuedMaterialWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("LaborCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MaterialCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("MaterialWarehouseId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal>("OverheadCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("PlannedEndAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("PlannedOutputWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("PlannedQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PlannedStartAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionBomId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RejectedQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ReservedMaterialWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ResponsibleUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("TotalCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("WipInventoryItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WorkOrderCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("WorkshopId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("ClosedByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CustomerJobOrderId");
+
+                    b.HasIndex("FinishedGoodsWarehouseId");
+
+                    b.HasIndex("MaterialWarehouseId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductionBomId");
+
+                    b.HasIndex("ResponsibleUserId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WipInventoryItemId");
+
+                    b.HasIndex("WorkOrderCode")
+                        .IsUnique();
+
+                    b.HasIndex("WorkshopId");
+
+                    b.HasIndex("BranchId", "Status", "PlannedStartAt");
+
+                    b.ToTable("ProductionWorkOrders", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionWorkshop", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsProductionAuthorized")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LicenseNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("LicenseValidFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LicenseValidTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LicenseVerifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LicenseVerifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("LicenseVerifiedByUserId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("BranchId", "IsActive");
+
+                    b.ToTable("ProductionWorkshops", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PurityDefinition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("Karat")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Material")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("PurityDefinitions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "GOLD-9999",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Vàng 9999 (24K)",
+                            IsActive = true,
+                            Karat = 24m,
+                            Material = "Gold",
+                            Rate = 0.9999m
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "GOLD-750",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Vàng 750 (18K)",
+                            IsActive = true,
+                            Karat = 18m,
+                            Material = "Gold",
+                            Rate = 0.7500m
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "GOLD-585",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Vàng 585 (14K)",
+                            IsActive = true,
+                            Karat = 14m,
+                            Material = "Gold",
+                            Rate = 0.5850m
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "SILVER-999",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Bạc 999",
+                            IsActive = true,
+                            Material = "Silver",
+                            Rate = 0.9990m
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "SILVER-925",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Bạc 925",
+                            IsActive = true,
+                            Material = "Silver",
+                            Rate = 0.9250m
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "DIAMOND-1000",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Kim cương (không áp dụng hàm lượng kim loại)",
+                            IsActive = true,
+                            Material = "Diamond",
+                            Rate = 1.0000m
+                        });
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.RawMaterialLot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AvailableWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("FineWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("GrossWeight")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("InspectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InspectedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("InventoryItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LotCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("MaterialType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("PurityRate")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("QualityNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("QualityStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReleasedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SourceDocumentNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("SupplierId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("InspectedByUserId");
+
+                    b.HasIndex("InventoryItemId")
+                        .IsUnique();
+
+                    b.HasIndex("LotCode")
+                        .IsUnique();
+
+                    b.HasIndex("ReleasedByUserId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("BranchId", "Status", "MaterialType");
+
+                    b.ToTable("RawMaterialLots", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.Refund", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProcessedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("RefundNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("RequestedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReturnCaseId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TransactionReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("ReturnCaseId")
+                        .IsUnique();
+
+                    b.ToTable("Refunds", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.RepairCase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("ApprovedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CaseNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Diagnosis")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("QuotedLaborCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("RetainUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("WarrantyCaseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CaseNumber")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("OrderDetailId");
+
+                    b.HasIndex("WarrantyCaseId");
+
+                    b.ToTable("RepairCases", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ReturnCase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CaseNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("RetainUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CaseNumber")
+                        .IsUnique();
+
+                    b.HasIndex("OrderDetailId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("ReturnCases", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.ShiftAssignment", b =>
@@ -1152,7 +4404,7 @@ namespace GoldManagementSystem.Migrations
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL");
 
-                    b.ToTable("ShiftAssignments");
+                    b.ToTable("ShiftAssignments", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.ShiftChangeLog", b =>
@@ -1185,7 +4437,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("WorkShiftId");
 
-                    b.ToTable("ShiftChangeLogs");
+                    b.ToTable("ShiftChangeLogs", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SilverDiamondProductCatalogEntry", b =>
@@ -1195,7 +4447,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("SilverDiamondProductCatalogEntries");
+                    b.ToTable("SilverDiamondProductCatalogEntries", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SilverProductCatalogEntry", b =>
@@ -1205,7 +4457,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("ProductId");
 
-                    b.ToTable("SilverProductCatalogEntries");
+                    b.ToTable("SilverProductCatalogEntries", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Supplier", b =>
@@ -1277,7 +4529,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Suppliers");
+                    b.ToTable("Suppliers", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupplierGoodsReceipt", b =>
@@ -1337,7 +4589,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("SupplierGoodsReceipts");
+                    b.ToTable("SupplierGoodsReceipts", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupplierGoodsReceiptDetail", b =>
@@ -1406,7 +4658,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("SupplierPurchaseOrderDetailId");
 
-                    b.ToTable("SupplierGoodsReceiptDetails");
+                    b.ToTable("SupplierGoodsReceiptDetails", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupplierPayment", b =>
@@ -1459,7 +4711,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("SupplierPurchaseOrderId");
 
-                    b.ToTable("SupplierPayments");
+                    b.ToTable("SupplierPayments", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupplierPurchaseOrder", b =>
@@ -1511,7 +4763,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.ToTable("SupplierPurchaseOrders");
+                    b.ToTable("SupplierPurchaseOrders", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupplierPurchaseOrderDetail", b =>
@@ -1581,7 +4833,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("SupplierPurchaseOrderId");
 
-                    b.ToTable("SupplierPurchaseOrderDetails");
+                    b.ToTable("SupplierPurchaseOrderDetails", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupportChatMessage", b =>
@@ -1623,7 +4875,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("SupportChatSessionId");
 
-                    b.ToTable("SupportChatMessages");
+                    b.ToTable("SupportChatMessages", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SupportChatSession", b =>
@@ -1691,7 +4943,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.ToTable("SupportChatSessions");
+                    b.ToTable("SupportChatSessions", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.SystemNotification", b =>
@@ -1735,7 +4987,7 @@ namespace GoldManagementSystem.Migrations
 
                     b.HasIndex("UserId", "IsRead", "CreatedAt");
 
-                    b.ToTable("SystemNotifications");
+                    b.ToTable("SystemNotifications", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.UserFeaturePermission", b =>
@@ -1775,7 +5027,7 @@ namespace GoldManagementSystem.Migrations
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL AND [FeatureKey] IS NOT NULL AND [BranchId] IS NOT NULL");
 
-                    b.ToTable("UserFeaturePermissions");
+                    b.ToTable("UserFeaturePermissions", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Warehouse", b =>
@@ -1823,7 +5075,81 @@ namespace GoldManagementSystem.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("Warehouses");
+                    b.ToTable("Warehouses", (string)null);
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.WarrantyCase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AssignedToUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CaseNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IssueDescription")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RetainUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("CaseNumber")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("OrderDetailId");
+
+                    b.ToTable("WarrantyCases", (string)null);
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.WorkShift", b =>
@@ -1863,7 +5189,7 @@ namespace GoldManagementSystem.Migrations
                         .IsUnique()
                         .HasFilter("[ShiftType] IS NOT NULL");
 
-                    b.ToTable("WorkShifts");
+                    b.ToTable("WorkShifts", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -2008,6 +5334,25 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("GoldManagementSystem.Models.BankReconciliation", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Payment", "Payment")
+                        .WithMany("Reconciliations")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReconciledByUser")
+                        .WithMany()
+                        .HasForeignKey("ReconciledByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Payment");
+
+                    b.Navigation("ReconciledByUser");
+                });
+
             modelBuilder.Entity("GoldManagementSystem.Models.BranchWarehouseAccess", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
@@ -2027,6 +5372,121 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Warehouse");
                 });
 
+            modelBuilder.Entity("GoldManagementSystem.Models.BusinessLicense", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.BusinessLocation", "BusinessLocation")
+                        .WithMany("Licenses")
+                        .HasForeignKey("BusinessLocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "VerifiedByUser")
+                        .WithMany()
+                        .HasForeignKey("VerifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BusinessLocation");
+
+                    b.Navigation("VerifiedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BusinessLocation", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BuybackAssay", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "AssayedByUser")
+                        .WithMany()
+                        .HasForeignKey("AssayedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.BuybackCase", "BuybackCase")
+                        .WithMany("Assays")
+                        .HasForeignKey("BuybackCaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssayedByUser");
+
+                    b.Navigation("BuybackCase");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BuybackCase", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.OrderDetail", "OrderDetail")
+                        .WithMany()
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("OrderDetail");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CashFundEntry", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Payment", "Payment")
+                        .WithMany("CashEntries")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Payment");
+                });
+
             modelBuilder.Entity("GoldManagementSystem.Models.CustomerFeedback", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.AppUser", "Customer")
@@ -2042,6 +5502,109 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("GoldManagementSystem.Models.CustomerJobOrder", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "HandedOverByUser")
+                        .WithMany()
+                        .HasForeignKey("HandedOverByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkshop", "Workshop")
+                        .WithMany("CustomerJobOrders")
+                        .HasForeignKey("WorkshopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("HandedOverByUser");
+
+                    b.Navigation("UpdatedByUser");
+
+                    b.Navigation("Workshop");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CustomerKycProfile", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "VerifiedByUser")
+                        .WithMany()
+                        .HasForeignKey("VerifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("VerifiedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CustomerMaterialCustodyRecord", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.CustomerJobOrder", "CustomerJobOrder")
+                        .WithMany()
+                        .HasForeignKey("CustomerJobOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReturnedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReturnedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("CustomerJobOrder");
+
+                    b.Navigation("ReturnedByUser");
+
+                    b.Navigation("UpdatedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.DeliveryEvidence", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.OrderDelivery", "OrderDelivery")
+                        .WithMany("Evidences")
+                        .HasForeignKey("OrderDeliveryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UploadedByUser")
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("OrderDelivery");
+
+                    b.Navigation("UploadedByUser");
+                });
+
             modelBuilder.Entity("GoldManagementSystem.Models.DiamondProductCatalogEntry", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.Product", "Product")
@@ -2051,6 +5614,57 @@ namespace GoldManagementSystem.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.DiscountApproval", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.PosQuote", "PosQuote")
+                        .WithMany("DiscountApprovals")
+                        .HasForeignKey("PosQuoteId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("PosQuote");
+
+                    b.Navigation("RequestedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.EInvoice", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithOne()
+                        .HasForeignKey("GoldManagementSystem.Models.EInvoice", "OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.EmployeeManagementNote", b =>
@@ -2088,6 +5702,84 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.GoldBarSaleRecord", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.BusinessLocation", "BusinessLocation")
+                        .WithMany()
+                        .HasForeignKey("BusinessLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.CustomerKycProfile", "CustomerKycProfile")
+                        .WithMany()
+                        .HasForeignKey("CustomerKycProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.GoldBarSerial", "GoldBarSerial")
+                        .WithMany()
+                        .HasForeignKey("GoldBarSerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.OrderDetail", "OrderDetail")
+                        .WithMany()
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.PriceSnapshot", "PriceSnapshot")
+                        .WithMany()
+                        .HasForeignKey("PriceSnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessLocation");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("CustomerKycProfile");
+
+                    b.Navigation("GoldBarSerial");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("OrderDetail");
+
+                    b.Navigation("PriceSnapshot");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.GoldBarSerial", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.BusinessLocation", "BusinessLocation")
+                        .WithMany("GoldBarSerials")
+                        .HasForeignKey("BusinessLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessLocation");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.GoldDiamondProductCatalogEntry", b =>
@@ -2147,6 +5839,11 @@ namespace GoldManagementSystem.Migrations
                         .HasForeignKey("DestinationWarehouseId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GoldManagementSystem.Models.AppUser", "ReceiverUser")
                         .WithMany()
                         .HasForeignKey("ReceiverUserId")
@@ -2170,6 +5867,8 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("DestinationWarehouse");
+
+                    b.Navigation("Order");
 
                     b.Navigation("ReceiverUser");
 
@@ -2302,6 +6001,10 @@ namespace GoldManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("GoldManagementSystem.Models.PosQuote", "PosQuote")
+                        .WithMany()
+                        .HasForeignKey("PosQuoteId");
+
                     b.HasOne("GoldManagementSystem.Models.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -2310,7 +6013,20 @@ namespace GoldManagementSystem.Migrations
 
                     b.Navigation("Branch");
 
+                    b.Navigation("PosQuote");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.OrderDelivery", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithOne("OrderDelivery")
+                        .HasForeignKey("GoldManagementSystem.Models.OrderDelivery", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.OrderDetail", b =>
@@ -2321,6 +6037,11 @@ namespace GoldManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GoldManagementSystem.Models.PriceSnapshot", "PriceSnapshot")
+                        .WithMany()
+                        .HasForeignKey("PriceSnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GoldManagementSystem.Models.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
@@ -2329,7 +6050,187 @@ namespace GoldManagementSystem.Migrations
 
                     b.Navigation("Order");
 
+                    b.Navigation("PriceSnapshot");
+
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.Payment", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PaymentAllocation", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Payment", "Payment")
+                        .WithMany("Allocations")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Payment");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PosQuote", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PosQuoteLine", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.PosQuote", "PosQuote")
+                        .WithMany("Lines")
+                        .HasForeignKey("PosQuoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.PriceSnapshot", "PriceSnapshot")
+                        .WithMany()
+                        .HasForeignKey("PriceSnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PosQuote");
+
+                    b.Navigation("PriceSnapshot");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceBook", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "SubmittedByUser")
+                        .WithMany()
+                        .HasForeignKey("SubmittedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("SubmittedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceLine", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.PriceVersion", "PriceVersion")
+                        .WithMany("Lines")
+                        .HasForeignKey("PriceVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PriceVersion");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceSnapshot", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CapturedByUser")
+                        .WithMany()
+                        .HasForeignKey("CapturedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CapturedByUser");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceVersion", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.PriceBook", "PriceBook")
+                        .WithMany("Versions")
+                        .HasForeignKey("PriceBookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("PriceBook");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Product", b =>
@@ -2340,7 +6241,770 @@ namespace GoldManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("GoldManagementSystem.Models.PurityDefinition", "PurityDefinition")
+                        .WithMany("Products")
+                        .HasForeignKey("PurityDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Branch");
+
+                    b.Navigation("PurityDefinition");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductSpecVersion", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany("SpecificationVersions")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.PurityDefinition", "PurityDefinition")
+                        .WithMany()
+                        .HasForeignKey("PurityDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("PurityDefinition");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionAuditLog", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ActorUser")
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ActorUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBom", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("UpdatedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBomItem", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.ProductionBom", "ProductionBom")
+                        .WithMany("Items")
+                        .HasForeignKey("ProductionBomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ProductionBom");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBomOperation", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.ProductionBom", "ProductionBom")
+                        .WithMany("Operations")
+                        .HasForeignKey("ProductionBomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ProductionBom");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionLossPolicy", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("UpdatedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionLossRecord", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.ProductionLossPolicy", "ProductionLossPolicy")
+                        .WithMany("LossRecords")
+                        .HasForeignKey("ProductionLossPolicyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionOperationLog", "ProductionOperationLog")
+                        .WithMany("LossRecords")
+                        .HasForeignKey("ProductionOperationLogId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionRecycleBatch", "ProductionRecycleBatch")
+                        .WithMany("SourceLossRecords")
+                        .HasForeignKey("ProductionRecycleBatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkOrder", "ProductionWorkOrder")
+                        .WithMany("LossRecords")
+                        .HasForeignKey("ProductionWorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReportedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ProductionLossPolicy");
+
+                    b.Navigation("ProductionOperationLog");
+
+                    b.Navigation("ProductionRecycleBatch");
+
+                    b.Navigation("ProductionWorkOrder");
+
+                    b.Navigation("ReportedByUser");
+
+                    b.Navigation("ReviewedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionMaterialReservation", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "IssuedByUser")
+                        .WithMany()
+                        .HasForeignKey("IssuedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.InventoryTransaction", "ProductionIssueTransaction")
+                        .WithMany()
+                        .HasForeignKey("ProductionIssueTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkOrder", "ProductionWorkOrder")
+                        .WithMany("MaterialReservations")
+                        .HasForeignKey("ProductionWorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.RawMaterialLot", "RawMaterialLot")
+                        .WithMany("Reservations")
+                        .HasForeignKey("RawMaterialLotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReleasedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReleasedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReservedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReservedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.InventoryTransaction", "ReturnTransaction")
+                        .WithMany()
+                        .HasForeignKey("ReturnTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("IssuedByUser");
+
+                    b.Navigation("ProductionIssueTransaction");
+
+                    b.Navigation("ProductionWorkOrder");
+
+                    b.Navigation("RawMaterialLot");
+
+                    b.Navigation("ReleasedByUser");
+
+                    b.Navigation("ReservedByUser");
+
+                    b.Navigation("ReturnTransaction");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionOperationLog", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionBomOperation", "ProductionBomOperation")
+                        .WithMany("OperationLogs")
+                        .HasForeignKey("ProductionBomOperationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkOrder", "ProductionWorkOrder")
+                        .WithMany("OperationLogs")
+                        .HasForeignKey("ProductionWorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "WorkerUser")
+                        .WithMany()
+                        .HasForeignKey("WorkerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("ProductionBomOperation");
+
+                    b.Navigation("ProductionWorkOrder");
+
+                    b.Navigation("UpdatedByUser");
+
+                    b.Navigation("WorkerUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionQualityInspection", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.CustomerJobOrder", "CustomerJobOrder")
+                        .WithMany("QualityInspections")
+                        .HasForeignKey("CustomerJobOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "InspectedByUser")
+                        .WithMany()
+                        .HasForeignKey("InspectedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionOperationLog", "ProductionOperationLog")
+                        .WithMany("QualityInspections")
+                        .HasForeignKey("ProductionOperationLogId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionRecycleBatch", "ProductionRecycleBatch")
+                        .WithMany("QualityInspections")
+                        .HasForeignKey("ProductionRecycleBatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkOrder", "ProductionWorkOrder")
+                        .WithMany("QualityInspections")
+                        .HasForeignKey("ProductionWorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("CustomerJobOrder");
+
+                    b.Navigation("InspectedByUser");
+
+                    b.Navigation("ProductionOperationLog");
+
+                    b.Navigation("ProductionRecycleBatch");
+
+                    b.Navigation("ProductionWorkOrder");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionReceipt", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CancelledByUser")
+                        .WithMany()
+                        .HasForeignKey("CancelledByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.InventoryItem", "InventoryItem")
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "PostedByUser")
+                        .WithMany()
+                        .HasForeignKey("PostedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionQualityInspection", "ProductionQualityInspection")
+                        .WithOne("Receipt")
+                        .HasForeignKey("GoldManagementSystem.Models.ProductionReceipt", "ProductionQualityInspectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkOrder", "ProductionWorkOrder")
+                        .WithMany("Receipts")
+                        .HasForeignKey("ProductionWorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CancelledByUser");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("InventoryItem");
+
+                    b.Navigation("PostedByUser");
+
+                    b.Navigation("ProductionQualityInspection");
+
+                    b.Navigation("ProductionWorkOrder");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionRecycleBatch", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CompletedByUser")
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.RawMaterialLot", "OutputRawMaterialLot")
+                        .WithMany()
+                        .HasForeignKey("OutputRawMaterialLotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReleasedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReleasedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "StartedByUser")
+                        .WithMany()
+                        .HasForeignKey("StartedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkshop", "Workshop")
+                        .WithMany("RecycleBatches")
+                        .HasForeignKey("WorkshopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CompletedByUser");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("OutputRawMaterialLot");
+
+                    b.Navigation("ReleasedByUser");
+
+                    b.Navigation("StartedByUser");
+
+                    b.Navigation("UpdatedByUser");
+
+                    b.Navigation("Workshop");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionStatusHistory", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.CustomerJobOrder", "CustomerJobOrder")
+                        .WithMany("StatusHistories")
+                        .HasForeignKey("CustomerJobOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionRecycleBatch", "ProductionRecycleBatch")
+                        .WithMany("StatusHistories")
+                        .HasForeignKey("ProductionRecycleBatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkOrder", "ProductionWorkOrder")
+                        .WithMany("StatusHistories")
+                        .HasForeignKey("ProductionWorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("CustomerJobOrder");
+
+                    b.Navigation("ProductionRecycleBatch");
+
+                    b.Navigation("ProductionWorkOrder");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionWorkOrder", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ClosedByUser")
+                        .WithMany()
+                        .HasForeignKey("ClosedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.CustomerJobOrder", "CustomerJobOrder")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("CustomerJobOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Warehouse", "FinishedGoodsWarehouse")
+                        .WithMany()
+                        .HasForeignKey("FinishedGoodsWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Warehouse", "MaterialWarehouse")
+                        .WithMany()
+                        .HasForeignKey("MaterialWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionBom", "ProductionBom")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("ProductionBomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ResponsibleUser")
+                        .WithMany()
+                        .HasForeignKey("ResponsibleUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.InventoryItem", "WipInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("WipInventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ProductionWorkshop", "Workshop")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("WorkshopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("ClosedByUser");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("CustomerJobOrder");
+
+                    b.Navigation("FinishedGoodsWarehouse");
+
+                    b.Navigation("MaterialWarehouse");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ProductionBom");
+
+                    b.Navigation("ResponsibleUser");
+
+                    b.Navigation("UpdatedByUser");
+
+                    b.Navigation("WipInventoryItem");
+
+                    b.Navigation("Workshop");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionWorkshop", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "LicenseVerifiedByUser")
+                        .WithMany()
+                        .HasForeignKey("LicenseVerifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("LicenseVerifiedByUser");
+
+                    b.Navigation("UpdatedByUser");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.RawMaterialLot", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "InspectedByUser")
+                        .WithMany()
+                        .HasForeignKey("InspectedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.InventoryItem", "InventoryItem")
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ReleasedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReleasedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("InspectedByUser");
+
+                    b.Navigation("InventoryItem");
+
+                    b.Navigation("ReleasedByUser");
+
+                    b.Navigation("Supplier");
+
+                    b.Navigation("UpdatedByUser");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.Refund", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Payment", "Payment")
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.ReturnCase", "ReturnCase")
+                        .WithOne("Refund")
+                        .HasForeignKey("GoldManagementSystem.Models.Refund", "ReturnCaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Payment");
+
+                    b.Navigation("ReturnCase");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.RepairCase", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.OrderDetail", "OrderDetail")
+                        .WithMany()
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.WarrantyCase", "WarrantyCase")
+                        .WithMany("Repairs")
+                        .HasForeignKey("WarrantyCaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("OrderDetail");
+
+                    b.Navigation("WarrantyCase");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ReturnCase", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.OrderDetail", "OrderDetail")
+                        .WithMany()
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("OrderDetail");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.ShiftAssignment", b =>
@@ -2560,6 +7224,33 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("GoldManagementSystem.Models.WarrantyCase", b =>
+                {
+                    b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoldManagementSystem.Models.OrderDetail", "OrderDetail")
+                        .WithMany()
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("OrderDetail");
+                });
+
             modelBuilder.Entity("GoldManagementSystem.Models.WorkShift", b =>
                 {
                     b.HasOne("GoldManagementSystem.Models.Branch", "Branch")
@@ -2635,6 +7326,27 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("Warehouses");
                 });
 
+            modelBuilder.Entity("GoldManagementSystem.Models.BusinessLocation", b =>
+                {
+                    b.Navigation("GoldBarSerials");
+
+                    b.Navigation("Licenses");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.BuybackCase", b =>
+                {
+                    b.Navigation("Assays");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.CustomerJobOrder", b =>
+                {
+                    b.Navigation("QualityInspections");
+
+                    b.Navigation("StatusHistories");
+
+                    b.Navigation("WorkOrders");
+                });
+
             modelBuilder.Entity("GoldManagementSystem.Models.InventoryIssue", b =>
                 {
                     b.Navigation("Details");
@@ -2647,7 +7359,40 @@ namespace GoldManagementSystem.Migrations
 
             modelBuilder.Entity("GoldManagementSystem.Models.Order", b =>
                 {
+                    b.Navigation("OrderDelivery");
+
                     b.Navigation("OrderDetails");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.OrderDelivery", b =>
+                {
+                    b.Navigation("Evidences");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.Payment", b =>
+                {
+                    b.Navigation("Allocations");
+
+                    b.Navigation("CashEntries");
+
+                    b.Navigation("Reconciliations");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PosQuote", b =>
+                {
+                    b.Navigation("DiscountApprovals");
+
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceBook", b =>
+                {
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PriceVersion", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Product", b =>
@@ -2663,6 +7408,87 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("SilverCatalogEntry");
 
                     b.Navigation("SilverDiamondCatalogEntry");
+
+                    b.Navigation("SpecificationVersions");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBom", b =>
+                {
+                    b.Navigation("Items");
+
+                    b.Navigation("Operations");
+
+                    b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionBomOperation", b =>
+                {
+                    b.Navigation("OperationLogs");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionLossPolicy", b =>
+                {
+                    b.Navigation("LossRecords");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionOperationLog", b =>
+                {
+                    b.Navigation("LossRecords");
+
+                    b.Navigation("QualityInspections");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionQualityInspection", b =>
+                {
+                    b.Navigation("Receipt");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionRecycleBatch", b =>
+                {
+                    b.Navigation("QualityInspections");
+
+                    b.Navigation("SourceLossRecords");
+
+                    b.Navigation("StatusHistories");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionWorkOrder", b =>
+                {
+                    b.Navigation("LossRecords");
+
+                    b.Navigation("MaterialReservations");
+
+                    b.Navigation("OperationLogs");
+
+                    b.Navigation("QualityInspections");
+
+                    b.Navigation("Receipts");
+
+                    b.Navigation("StatusHistories");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ProductionWorkshop", b =>
+                {
+                    b.Navigation("CustomerJobOrders");
+
+                    b.Navigation("RecycleBatches");
+
+                    b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.PurityDefinition", b =>
+                {
+                    b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.RawMaterialLot", b =>
+                {
+                    b.Navigation("Reservations");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.ReturnCase", b =>
+                {
+                    b.Navigation("Refund");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.Supplier", b =>
@@ -2698,6 +7524,11 @@ namespace GoldManagementSystem.Migrations
                     b.Navigation("InventoryItems");
 
                     b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("GoldManagementSystem.Models.WarrantyCase", b =>
+                {
+                    b.Navigation("Repairs");
                 });
 
             modelBuilder.Entity("GoldManagementSystem.Models.WorkShift", b =>

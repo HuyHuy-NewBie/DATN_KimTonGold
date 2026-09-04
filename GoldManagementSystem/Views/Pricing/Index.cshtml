@@ -1,0 +1,31 @@
+@model IReadOnlyList<GoldManagementSystem.Models.PriceBook>
+@using GoldManagementSystem.Models
+@{
+    ViewData["Title"] = "Quản lý bảng giá";
+}
+<div class="dashboard-card admin-panel">
+    <section class="admin-hero admin-hero--split">
+        <div><p class="admin-hero__eyebrow">Giá giao dịch</p><h1>Quản lý bảng giá</h1><p class="admin-hero__text">Mọi giao dịch phải lấy giá từ bảng giá đã công bố.</p></div>
+        <a class="admin-button admin-button--primary" asp-action="Create">Tạo bảng giá nháp</a>
+    </section>
+    @if (TempData["SuccessMessage"] != null) { <div class="admin-alert admin-alert--success">@TempData["SuccessMessage"]</div> }
+    <div class="admin-panel__body">
+        <table class="data-table">
+            <thead><tr><th>Mã</th><th>Tên</th><th>Phạm vi</th><th>Hiệu lực</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+            <tbody>
+            @foreach (var book in Model)
+            {
+                <tr>
+                    <td>@book.Code</td><td>@book.Name</td><td>@(book.Branch?.BranchName ?? "Toàn hệ thống")</td>
+                    <td>@book.EffectiveFrom.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@book.Status</td>
+                    <td class="admin-action-group">
+                        @if (book.Status == PriceBookStatusOptions.Draft) { <form asp-action="Submit" method="post"><input type="hidden" name="id" value="@book.Id" /><button class="admin-button admin-button--secondary" type="submit">Gửi duyệt</button></form> }
+                        @if (book.Status == PriceBookStatusOptions.PendingApproval) { <form asp-action="Approve" method="post"><input type="hidden" name="id" value="@book.Id" /><button class="admin-button admin-button--primary" type="submit">Duyệt & công bố</button></form> }
+                        @if (book.Status == PriceBookStatusOptions.Published) { <form asp-action="Expire" method="post"><input type="hidden" name="id" value="@book.Id" /><button class="admin-button admin-button--secondary" type="submit">Hết hạn</button></form> }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
